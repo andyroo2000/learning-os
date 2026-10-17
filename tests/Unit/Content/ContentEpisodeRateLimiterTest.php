@@ -31,15 +31,15 @@ class ContentEpisodeRateLimiterTest extends TestCase
     public function test_missing_canonical_identity_falls_back_to_the_authenticated_account(): void
     {
         $this->assertSame(
-            'content-episode-create:user:42',
-            ContentEpisodeRateLimiter::create()->limit($this->request(null))->key,
+            'content-episode-update:user:42',
+            ContentEpisodeRateLimiter::update()->limit($this->request(null))->key,
         );
     }
 
     public static function limiterProvider(): array
     {
         return [
-            'create' => [ContentEpisodeRateLimiter::create(), 60, ContentEpisodeRateLimiter::CREATE_NAME],
+            'create' => [ContentEpisodeRateLimiter::update(), 60, ContentEpisodeRateLimiter::UPDATE_NAME],
             'update' => [ContentEpisodeRateLimiter::update(), 60, ContentEpisodeRateLimiter::UPDATE_NAME],
             'delete' => [ContentEpisodeRateLimiter::delete(), 30, ContentEpisodeRateLimiter::DELETE_NAME],
         ];

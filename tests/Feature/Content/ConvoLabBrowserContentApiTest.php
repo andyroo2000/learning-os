@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Content;
 
+use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Models\ContentEpisode;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
@@ -9,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class ConvoLabBrowserContentApiTest extends TestCase
@@ -83,60 +85,34 @@ class ConvoLabBrowserContentApiTest extends TestCase
             ->assertJsonPath('userId', $convoLabId);
     }
 
-    public function test_browser_session_creates_content_with_its_projected_identity(): void
-    {
-        [$user, $convoLabId] = $this->projectedUser();
-        [, $otherConvoLabId] = $this->projectedUser();
-
-        $response = $this->asBrowser($user)
-            ->withHeader('X-Convo-Lab-User-Id', $otherConvoLabId)
-            ->postJson('/api/convolab/episodes', [
-                'title' => 'Browser Episode',
-                'sourceText' => 'Source text',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-                'contentType' => 'dialogue',
-            ])
-            ->assertOk()
-            ->assertJsonPath('userId', $convoLabId);
-
-        $this->assertDatabaseHas('content_episodes', [
-            'id' => $response->json('id'),
-            'user_id' => $user->id,
-            'convolab_user_id' => $convoLabId,
-            'title' => 'Browser Episode',
-        ]);
-    }
-
     public function test_browser_session_updates_a_course_with_the_legacy_response(): void
     {
         [$user, $convoLabId] = $this->projectedUser();
 
-        $course = $this->asBrowser($user)
-            ->postJson('/api/convolab/courses', [
-                'title' => 'Browser Course',
-                'sourceText' => 'Temporary browser Course source text.',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-            ])
-            ->assertOk();
+        $course = ContentCourse::query()->forceCreate([
+            'id' => (string) Str::uuid(), 'user_id' => $user->id,
+            'convolab_user_id' => $convoLabId, 'source_system' => ContentSourceSystem::LEARNING_OS,
+            'title' => 'Browser Course', 'target_language' => 'ja', 'native_language' => 'en',
+            'l1_voice_id' => 'en-US-Neural2-J', 'speaker1_gender' => 'male', 'speaker2_gender' => 'female',
+            'status' => 'draft',
+        ]);
 
         $this->asBrowser($user)
-            ->patchJson('/api/convolab/courses/'.$course->json('id'), [
+            ->patchJson('/api/convolab/courses/'.$course->id, [
                 'title' => 'Updated Browser Course',
             ])
             ->assertOk()
             ->assertExactJson(['message' => 'Course updated successfully']);
 
         $this->assertDatabaseHas('content_courses', [
-            'id' => $course->json('id'),
+            'id' => $course->id,
             'user_id' => $user->id,
             'convolab_user_id' => $convoLabId,
             'title' => 'Updated Browser Course',
         ]);
     }
 
-    public function test_admin_browser_session_can_read_and_create_for_a_view_as_target(): void
+    public function test_admin_browser_session_can_read_for_a_view_as_target(): void
     {
         [$admin, $adminConvoLabId] = $this->projectedUser('admin');
         [$target, $targetConvoLabId] = $this->projectedUser();
@@ -149,22 +125,7 @@ class ConvoLabBrowserContentApiTest extends TestCase
             ->assertJsonPath('id', $targetEpisode->id)
             ->assertJsonPath('userId', $targetConvoLabId);
 
-        $response = $this->asBrowser($admin)
-            ->postJson('/api/convolab/episodes?viewAs='.$targetConvoLabId, [
-                'title' => 'Impersonated create',
-                'sourceText' => 'Source text',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-            ])
-            ->assertOk()
-            ->assertJsonPath('userId', $targetConvoLabId);
-
-        $this->assertDatabaseHas('content_episodes', [
-            'id' => $response->json('id'),
-            'user_id' => $target->id,
-            'convolab_user_id' => $targetConvoLabId,
-        ]);
-        $this->assertDatabaseCount('admin_audit_logs', 2);
+        $this->assertDatabaseCount('admin_audit_logs', 1);
 
         $audit = DB::table('admin_audit_logs')->orderBy('createdAt')->first();
         $this->assertNotNull($audit);
@@ -179,54 +140,9 @@ class ConvoLabBrowserContentApiTest extends TestCase
         ], json_decode($audit->metadata, true, flags: JSON_THROW_ON_ERROR));
     }
 
-    public function test_view_as_uses_only_the_legacy_query_parameter_source(): void
-    {
-        [$admin, $adminConvoLabId] = $this->projectedUser('admin');
-        [$queryTarget, $queryTargetConvoLabId] = $this->projectedUser();
-        [, $bodyTargetConvoLabId] = $this->projectedUser();
-
-        $bodyOnly = $this->asBrowser($admin)
-            ->postJson('/api/convolab/episodes', [
-                'viewAs' => $bodyTargetConvoLabId,
-                'title' => 'Actor-owned episode',
-                'sourceText' => 'Source text',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-            ])
-            ->assertOk()
-            ->assertJsonPath('userId', $adminConvoLabId);
-
-        $queryWins = $this->asBrowser($admin)
-            ->postJson('/api/convolab/episodes?viewAs='.$queryTargetConvoLabId, [
-                'viewAs' => $bodyTargetConvoLabId,
-                'title' => 'Query-target episode',
-                'sourceText' => 'Source text',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-            ])
-            ->assertOk()
-            ->assertJsonPath('userId', $queryTargetConvoLabId);
-
-        $this->assertDatabaseHas('content_episodes', [
-            'id' => $bodyOnly->json('id'),
-            'user_id' => $admin->id,
-            'convolab_user_id' => $adminConvoLabId,
-        ]);
-        $this->assertDatabaseHas('content_episodes', [
-            'id' => $queryWins->json('id'),
-            'user_id' => $queryTarget->id,
-            'convolab_user_id' => $queryTargetConvoLabId,
-        ]);
-        $this->assertDatabaseCount('admin_audit_logs', 1);
-    }
-
     public function test_view_as_rejects_non_admin_actor_without_an_audit_row(): void
     {
-        [$user] = $this->projectedUser();
-        $missingTarget = (string) Str::uuid();
-
-        $this->asBrowser($user)
-            ->getJson('/api/convolab/episodes/'.Str::uuid().'?viewAs='.$missingTarget)
+        $this->missingViewAsResponse('user')
             ->assertForbidden()
             ->assertJsonPath('message', 'Unauthorized impersonation attempt');
 
@@ -247,11 +163,7 @@ class ConvoLabBrowserContentApiTest extends TestCase
 
     public function test_view_as_hides_a_missing_target_without_an_audit_row(): void
     {
-        [$admin] = $this->projectedUser('admin');
-        $missingTarget = (string) Str::uuid();
-
-        $this->asBrowser($admin)
-            ->getJson('/api/convolab/episodes/'.Str::uuid().'?viewAs='.$missingTarget)
+        $this->missingViewAsResponse('admin')
             ->assertNotFound();
 
         $this->assertDatabaseCount('admin_audit_logs', 0);
@@ -270,24 +182,10 @@ class ConvoLabBrowserContentApiTest extends TestCase
             ->assertJsonPath('id', $targetEpisode->id);
     }
 
-    public function test_demo_browser_session_cannot_create_or_delete_but_retains_legacy_update_access(): void
+    public function test_demo_browser_session_cannot_delete_but_retains_legacy_update_access(): void
     {
         [$demo, $demoConvoLabId] = $this->projectedUser('demo');
         $episode = $this->episodeFor($demo, $demoConvoLabId, 'Demo episode');
-
-        $this->asBrowser($demo)
-            ->postJson('/api/convolab/episodes', [
-                'title' => 'Blocked create',
-                'sourceText' => 'Source text',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-            ])
-            ->assertForbidden()
-            ->assertJsonPath(
-                'message',
-                "You're exploring in demo mode, so content creation is disabled. "
-                ."Thanks for checking out the app! If you'd like full access, please contact the admin.",
-            );
 
         $this->asBrowser($demo)
             ->deleteJson('/api/convolab/episodes/'.$episode->id)
@@ -310,46 +208,13 @@ class ConvoLabBrowserContentApiTest extends TestCase
         [$demo, $demoConvoLabId] = $this->projectedUser('demo');
         $existing = $this->episodeFor($demo, $demoConvoLabId, 'Demo episode');
 
-        $response = $this->asBrowser($admin)
-            ->postJson('/api/convolab/episodes?viewAs='.$demoConvoLabId, [
-                'title' => 'Admin support create',
-                'sourceText' => 'Source text',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-            ])
-            ->assertOk()
-            ->assertJsonPath('userId', $demoConvoLabId);
-
         $this->asBrowser($admin)
             ->deleteJson('/api/convolab/episodes/'.$existing->id.'?viewAs='.$demoConvoLabId)
             ->assertOk()
             ->assertJsonPath('message', 'Episode deleted successfully');
 
-        $this->assertDatabaseHas('content_episodes', [
-            'id' => $response->json('id'),
-            'user_id' => $demo->id,
-            'convolab_user_id' => $demoConvoLabId,
-        ]);
         $this->assertDatabaseMissing('content_episodes', ['id' => $existing->id]);
-        $this->assertDatabaseCount('admin_audit_logs', 2);
-    }
-
-    public function test_browser_session_without_a_projected_identity_fails_before_writing(): void
-    {
-        $user = User::factory()->create();
-
-        $this->asBrowser($user)
-            ->postJson('/api/convolab/episodes', [
-                'title' => 'Browser Episode',
-                'sourceText' => 'Source text',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-                'contentType' => 'dialogue',
-            ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['convolabUserId']);
-
-        $this->assertDatabaseCount('content_episodes', 0);
+        $this->assertDatabaseCount('admin_audit_logs', 1);
     }
 
     public function test_content_api_rejects_bearer_tokens_with_a_stateful_origin(): void
@@ -361,13 +226,7 @@ class ConvoLabBrowserContentApiTest extends TestCase
             ->withHeader('Referer', self::FRONTEND_ORIGIN.'/')
             ->withHeader('X-Convo-Lab-User-Id', $convoLabId)
             ->withToken($bearer)
-            ->postJson('/api/convolab/episodes', [
-                'title' => 'Bearer Episode',
-                'sourceText' => 'Source text',
-                'targetLanguage' => 'ja',
-                'nativeLanguage' => 'en',
-                'contentType' => 'dialogue',
-            ])
+            ->getJson('/api/convolab/episodes')
             ->assertForbidden();
 
         $this->assertDatabaseCount('content_episodes', 0);
@@ -386,6 +245,14 @@ class ConvoLabBrowserContentApiTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseCount('admin_audit_logs', 0);
+    }
+
+    private function missingViewAsResponse(string $role): TestResponse
+    {
+        [$user] = $this->projectedUser($role);
+
+        return $this->asBrowser($user)
+            ->getJson('/api/convolab/episodes/'.Str::uuid().'?viewAs='.Str::uuid());
     }
 
     private function asBrowser(User $user): static

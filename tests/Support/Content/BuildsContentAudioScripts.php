@@ -7,7 +7,6 @@ use App\Domain\Content\Models\ContentAudioScriptMedia;
 use App\Domain\Content\Models\ContentAudioScriptRender;
 use App\Domain\Content\Models\ContentAudioScriptSegment;
 use App\Domain\Content\Models\ContentEpisode;
-use App\Domain\Content\Support\ContentAudioScriptInput;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -53,7 +52,7 @@ trait BuildsContentAudioScripts
             'episode_id' => $episode->id,
             'status' => 'draft',
             'image_status' => 'pending',
-            'voice_id' => ContentAudioScriptInput::DEFAULT_VOICE_ID,
+            'voice_id' => 'ja-JP-Neural2-D',
             'voice_provider' => 'google',
             ...$scriptAttributes,
         ]);

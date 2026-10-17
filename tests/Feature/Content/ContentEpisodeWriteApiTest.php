@@ -4,14 +4,10 @@ namespace Tests\Feature\Content;
 
 use App\Domain\Content\Models\ContentDialogue;
 use App\Domain\Content\Models\ContentEpisode;
-use App\Domain\Content\Models\ContentEpisodeTombstone;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -24,7 +20,6 @@ class ContentEpisodeWriteApiTest extends TestCase
     {
         $episodeId = (string) Str::uuid();
 
-        $this->postJson('/api/convolab/episodes')->assertUnauthorized();
         $this->patchJson('/api/convolab/episodes/'.$episodeId)->assertUnauthorized();
         $this->deleteJson('/api/convolab/episodes/'.$episodeId)->assertUnauthorized();
     }
@@ -36,218 +31,12 @@ class ContentEpisodeWriteApiTest extends TestCase
 
         $ordinaryToken = $user->createToken('mobile', ['content:write'])->plainTextToken;
         $this->withToken($ordinaryToken)
-            ->postJson('/api/convolab/episodes', $this->validPayload())
-            ->assertForbidden();
-
-        $this->withToken($ordinaryToken)
             ->patchJson('/api/convolab/episodes/'.$episodeId, ['title' => 'Updated'])
             ->assertForbidden();
 
         $this->withToken($ordinaryToken)
             ->deleteJson('/api/convolab/episodes/'.$episodeId)
             ->assertForbidden();
-    }
-
-    public function test_browser_session_creates_a_convolab_compatible_episode_with_normalized_provenance(): void
-    {
-        $user = User::factory()->create();
-        $sourceUserId = strtoupper((string) Str::uuid());
-
-        $response = $this->asConvoLabBrowser($user, convoLabUserId: '  '.$sourceUserId.'  ')
-            ->postJson('/api/convolab/episodes', [
-                ...$this->validPayload(),
-                'audioSpeed' => 'slow',
-                'jlptLevel' => 'N3',
-                'autoGenerateAudio' => false,
-            ])
-            ->assertOk()
-            ->assertJsonPath('userId', strtolower($sourceUserId))
-            ->assertJsonPath('title', 'New Episode')
-            ->assertJsonPath('sourceText', 'Source text')
-            ->assertJsonPath('targetLanguage', 'ja')
-            ->assertJsonPath('nativeLanguage', 'en')
-            ->assertJsonPath('contentType', 'dialogue')
-            ->assertJsonPath('audioSpeed', 'slow')
-            ->assertJsonPath('jlptLevel', 'N3')
-            ->assertJsonPath('autoGenerateAudio', false)
-            ->assertJsonPath('status', 'draft')
-            ->assertJsonPath('isSampleContent', false)
-            ->assertJsonMissingPath('dialogue');
-
-        $episodeId = $response->json('id');
-        $this->assertIsString($episodeId);
-        $this->assertTrue(Str::isUuid($episodeId));
-        $this->assertDatabaseHas('content_episodes', [
-            'id' => $episodeId,
-            'user_id' => $user->id,
-            'convolab_user_id' => strtolower($sourceUserId),
-            'source_system' => ContentSourceSystem::LEARNING_OS,
-            'title' => 'New Episode',
-            'audio_speed' => 'slow',
-            'jlpt_level' => 'N3',
-            'auto_generate_audio' => false,
-            'status' => 'draft',
-        ]);
-    }
-
-    public function test_create_applies_legacy_defaults(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this->asConvoLabBrowser($user)
-            ->postJson('/api/convolab/episodes', $this->validPayload())
-            ->assertOk()
-            ->assertJsonPath('audioSpeed', 'medium')
-            ->assertJsonPath('jlptLevel', null)
-            ->assertJsonPath('autoGenerateAudio', true);
-
-        $this->assertDatabaseHas('content_episodes', [
-            'id' => $response->json('id'),
-            'audio_speed' => 'medium',
-            'jlpt_level' => null,
-            'auto_generate_audio' => true,
-        ]);
-    }
-
-    public function test_client_uuid_create_is_idempotent_for_the_normalized_accepted_payload(): void
-    {
-        $user = User::factory()->create();
-        $sourceUserId = (string) Str::uuid();
-        $episodeId = (string) Str::uuid();
-
-        $first = $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
-            ->withoutMiddleware(TrimStrings::class)
-            ->postJson('/api/convolab/episodes', [
-                ...$this->validPayload(),
-                'id' => strtoupper($episodeId),
-                'title' => '  New Episode  ',
-                'sourceText' => '  Source text  ',
-                'speakers' => [['ignored' => true]],
-            ])
-            ->assertOk()
-            ->assertJsonPath('id', $episodeId)
-            ->assertJsonPath('existing', false);
-
-        $fingerprint = ContentEpisode::query()->findOrFail($episodeId)->creation_fingerprint;
-        $this->assertIsString($fingerprint);
-        $this->assertSame(64, strlen($fingerprint));
-
-        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
-            ->postJson('/api/convolab/episodes', [
-                ...$this->validPayload(),
-                'id' => $episodeId,
-                'speakers' => [['a different ignored legacy value']],
-            ])
-            ->assertOk()
-            ->assertJsonPath('id', $first->json('id'))
-            ->assertJsonPath('existing', true);
-
-        $this->assertDatabaseCount('content_episodes', 1);
-    }
-
-    public function test_client_uuid_reuse_with_different_content_conflicts_and_cross_owner_collisions_are_hidden(): void
-    {
-        $owner = User::factory()->create();
-        $other = User::factory()->create();
-        $sourceUserId = (string) Str::uuid();
-        $episodeId = (string) Str::uuid();
-
-        $this->asConvoLabBrowser($owner, convoLabUserId: $sourceUserId)
-            ->postJson('/api/convolab/episodes', [...$this->validPayload(), 'id' => $episodeId])
-            ->assertOk();
-
-        $this->asConvoLabBrowser($owner, convoLabUserId: $sourceUserId)
-            ->postJson('/api/convolab/episodes', [
-                ...$this->validPayload(),
-                'id' => $episodeId,
-                'title' => 'Different',
-            ])
-            ->assertConflict()
-            ->assertExactJson([
-                'code' => 'idempotency_conflict',
-                'message' => 'Creation ID was already used for different content.',
-            ]);
-
-        $this->app['auth']->forgetGuards();
-        $this->asConvoLabBrowser($other, convoLabUserId: (string) Str::uuid())
-            ->postJson('/api/convolab/episodes', [...$this->validPayload(), 'id' => $episodeId])
-            ->assertNotFound()
-            ->assertExactJson(['message' => 'Episode not found']);
-
-        $this->assertDatabaseCount('content_episodes', 1);
-    }
-
-    public function test_client_uuid_cannot_replay_a_legacy_row_or_resurrect_a_tombstone(): void
-    {
-        $user = User::factory()->create();
-        $sourceUserId = (string) Str::uuid();
-        $legacy = $this->episodeFor($user, ['convolab_user_id' => $sourceUserId]);
-
-        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
-            ->postJson('/api/convolab/episodes', [...$this->validPayload(), 'id' => $legacy->id])
-            ->assertConflict()
-            ->assertJsonPath('code', 'idempotency_conflict');
-
-        $deletedId = (string) Str::uuid();
-        ContentEpisodeTombstone::query()->forceCreate([
-            'episode_id' => $deletedId,
-            'user_id' => $user->id,
-            'convolab_user_id' => $sourceUserId,
-            'deleted_at' => now(),
-        ]);
-
-        $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
-            ->postJson('/api/convolab/episodes', [...$this->validPayload(), 'id' => $deletedId])
-            ->assertGone()
-            ->assertJsonPath('code', 'content_gone');
-
-        $this->app['auth']->forgetGuards();
-        $this->asConvoLabBrowser(User::factory()->create(), convoLabUserId: (string) Str::uuid())
-            ->postJson('/api/convolab/episodes', [...$this->validPayload(), 'id' => $deletedId])
-            ->assertNotFound()
-            ->assertExactJson(['message' => 'Episode not found']);
-
-        $this->assertDatabaseMissing('content_episodes', ['id' => $deletedId]);
-    }
-
-    public function test_episode_create_rejects_a_malformed_client_uuid_without_writes(): void
-    {
-        $this->asConvoLabBrowser(User::factory()->create())
-            ->postJson('/api/convolab/episodes', [...$this->validPayload(), 'id' => 'not-a-uuid'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['id']);
-
-        $this->assertDatabaseCount('content_episodes', 0);
-    }
-
-    public function test_create_uses_session_provenance_and_validates_the_legacy_input_domain(): void
-    {
-        $user = User::factory()->create();
-
-        $this->asConvoLabBrowser($user)
-            ->postJson('/api/convolab/episodes', [
-                'convolabUserId' => 'not-a-uuid',
-                'title' => ['not a string'],
-                'sourceText' => null,
-                'targetLanguage' => 'fr',
-                'nativeLanguage' => 'ja',
-                'audioSpeed' => 'fast',
-                'jlptLevel' => 'N0',
-                'autoGenerateAudio' => 'maybe',
-            ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors([
-                'title',
-                'sourceText',
-                'targetLanguage',
-                'nativeLanguage',
-                'audioSpeed',
-                'jlptLevel',
-                'autoGenerateAudio',
-            ])
-            ->assertJsonMissingValidationErrors(['convolabUserId']);
-
-        $this->assertDatabaseCount('content_episodes', 0);
     }
 
     public function test_browser_session_updates_only_supplied_fields_and_hides_other_owners(): void
@@ -346,7 +135,6 @@ class ContentEpisodeWriteApiTest extends TestCase
         $routes = collect(Route::getRoutes()->getRoutes());
 
         foreach ([
-            ['POST', 'api/convolab/episodes', ContentEpisodeRateLimiter::CREATE_NAME],
             ['PATCH', 'api/convolab/episodes/{episodeId}', ContentEpisodeRateLimiter::UPDATE_NAME],
             ['DELETE', 'api/convolab/episodes/{episodeId}', ContentEpisodeRateLimiter::DELETE_NAME],
         ] as [$method, $uri, $limiter]) {
@@ -356,56 +144,7 @@ class ContentEpisodeWriteApiTest extends TestCase
         }
     }
 
-    public function test_create_and_update_rate_limits_do_not_share_a_bucket(): void
-    {
-        $user = User::factory()->create();
-        $otherUser = User::factory()->create();
-        $sourceUserId = (string) Str::uuid();
-        $otherSourceUserId = (string) Str::uuid();
-        $episode = $this->episodeFor($user, ['convolab_user_id' => $sourceUserId]);
-        $testBucket = 'episode-write-test-'.Str::uuid();
-
-        RateLimiter::for(ContentEpisodeRateLimiter::CREATE_NAME, function (Request $request) use ($testBucket): Limit {
-            return Limit::perMinute(1)->by($testBucket.'|create|'.strtolower((string) $request->user()?->convolab_id));
-        });
-        RateLimiter::for(ContentEpisodeRateLimiter::UPDATE_NAME, function (Request $request) use ($testBucket): Limit {
-            return Limit::perMinute(1)->by($testBucket.'|update|'.strtolower((string) $request->user()?->convolab_id));
-        });
-
-        try {
-            $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
-                ->postJson('/api/convolab/episodes', $this->validPayload())
-                ->assertOk();
-            $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
-                ->postJson('/api/convolab/episodes', $this->validPayload())
-                ->assertTooManyRequests();
-            $this->app['auth']->forgetGuards();
-            $this->asConvoLabBrowser($otherUser, convoLabUserId: $otherSourceUserId)
-                ->postJson('/api/convolab/episodes', $this->validPayload())
-                ->assertOk();
-            $this->app['auth']->forgetGuards();
-            $this->asConvoLabBrowser($user, convoLabUserId: $sourceUserId)
-                ->patchJson('/api/convolab/episodes/'.$episode->id, ['status' => 'ready'])
-                ->assertOk();
-        } finally {
-            RateLimiter::clear($testBucket.'|create|'.$sourceUserId);
-            RateLimiter::clear($testBucket.'|create|'.$otherSourceUserId);
-            RateLimiter::clear($testBucket.'|update|'.$episode->convolab_user_id);
-            $this->restoreEpisodeRateLimiters();
-        }
-    }
-
     /** @return array<string, string> */
-    private function validPayload(): array
-    {
-        return [
-            'title' => 'New Episode',
-            'sourceText' => 'Source text',
-            'targetLanguage' => 'ja',
-            'nativeLanguage' => 'en',
-        ];
-    }
-
     /** @param array<string, mixed> $overrides */
     private function episodeFor(User $user, array $overrides = []): ContentEpisode
     {
@@ -428,15 +167,5 @@ class ContentEpisodeWriteApiTest extends TestCase
             'updated_at' => now()->subHour(),
             ...$overrides,
         ]);
-    }
-
-    private function restoreEpisodeRateLimiters(): void
-    {
-        foreach ([
-            ContentEpisodeRateLimiter::CREATE_NAME => ContentEpisodeRateLimiter::create(),
-            ContentEpisodeRateLimiter::UPDATE_NAME => ContentEpisodeRateLimiter::update(),
-        ] as $name => $limiter) {
-            RateLimiter::for($name, fn (Request $request): Limit => $limiter->limit($request));
-        }
     }
 }

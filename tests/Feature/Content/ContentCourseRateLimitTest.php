@@ -19,7 +19,6 @@ class ContentCourseRateLimitTest extends TestCase
         $routes = collect(Route::getRoutes()->getRoutes());
 
         foreach ([
-            ['POST', 'api/convolab/courses', ContentCourseRateLimiter::CREATE_NAME],
             ['PATCH', 'api/convolab/courses/{courseId}', ContentCourseRateLimiter::UPDATE_NAME],
             ['DELETE', 'api/convolab/courses/{courseId}', ContentCourseRateLimiter::DELETE_NAME],
         ] as [$method, $uri, $limiter]) {
@@ -39,12 +38,12 @@ class ContentCourseRateLimitTest extends TestCase
         $authenticatedUser->setAttribute('convolab_id', strtoupper($sourceUserId));
         $request->setUserResolver(fn (): User => $authenticatedUser);
 
-        $limiter = ContentCourseRateLimiter::forCreate();
+        $limiter = ContentCourseRateLimiter::forDelete();
         $limit = $limiter->limit($request);
 
         $this->assertSame(30, $limit->maxAttempts);
         $this->assertSame(
-            ContentCourseRateLimiter::CREATE_NAME.':user:'.$sourceUserId,
+            ContentCourseRateLimiter::DELETE_NAME.':user:'.$sourceUserId,
             $limit->key,
         );
 
@@ -60,7 +59,6 @@ class ContentCourseRateLimitTest extends TestCase
             ContentCourseRateLimiter::DELETE_NAME.':user:'.$sourceUserId,
             $deleteLimit->key,
         );
-        $this->assertNotSame($limit->key, $updateLimit->key);
         $this->assertNotSame($updateLimit->key, $deleteLimit->key);
 
         $authenticatedFallback = Request::create('/api/convolab/courses', 'POST');
@@ -68,7 +66,7 @@ class ContentCourseRateLimitTest extends TestCase
         $authenticatedUser->setAttribute('id', 42);
         $authenticatedFallback->setUserResolver(fn (): User => $authenticatedUser);
         $this->assertSame(
-            ContentCourseRateLimiter::CREATE_NAME.':user:42',
+            ContentCourseRateLimiter::DELETE_NAME.':user:42',
             $limiter->limit($authenticatedFallback)->key,
         );
 
@@ -78,7 +76,7 @@ class ContentCourseRateLimitTest extends TestCase
             server: ['REMOTE_ADDR' => '192.0.2.10'],
         );
         $this->assertSame(
-            ContentCourseRateLimiter::CREATE_NAME.':anon:192.0.2.10',
+            ContentCourseRateLimiter::DELETE_NAME.':anon:192.0.2.10',
             $limiter->limit($anonymousFallback)->key,
         );
     }

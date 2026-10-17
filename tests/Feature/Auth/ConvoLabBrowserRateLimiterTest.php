@@ -6,12 +6,9 @@ use App\Domain\Auth\Support\ConvoLabAccountSecurityRateLimiter;
 use App\Domain\Auth\Support\ConvoLabOAuthRateLimiter;
 use App\Domain\Auth\Support\ConvoLabProfileRateLimiter;
 use App\Domain\Auth\Support\ConvoLabVerificationRateLimiter;
-use App\Domain\Content\Support\ContentAudioRateLimiter;
 use App\Domain\Content\Support\ContentAudioScriptRateLimiter;
 use App\Domain\Content\Support\ContentCourseRateLimiter;
-use App\Domain\Content\Support\ContentDialogueRateLimiter;
 use App\Domain\Content\Support\ContentEpisodeRateLimiter;
-use App\Domain\Content\Support\ContentImageRateLimiter;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Session\ArraySessionHandler;
@@ -56,12 +53,9 @@ class ConvoLabBrowserRateLimiterTest extends TestCase
         [$request, $convoLabUserId] = $this->browserRequest();
 
         foreach ([
-            [ContentImageRateLimiter::generation($request), ContentImageRateLimiter::GENERATION_NAME],
-            [ContentAudioRateLimiter::generation($request), ContentAudioRateLimiter::GENERATION_NAME],
-            [ContentDialogueRateLimiter::generation($request), ContentDialogueRateLimiter::GENERATION_NAME],
-            [ContentEpisodeRateLimiter::create()->limit($request), ContentEpisodeRateLimiter::CREATE_NAME],
-            [ContentAudioScriptRateLimiter::generation($request), ContentAudioScriptRateLimiter::GENERATION_NAME],
-            [ContentCourseRateLimiter::forCreate()->limit($request), ContentCourseRateLimiter::CREATE_NAME],
+            [ContentEpisodeRateLimiter::update()->limit($request), ContentEpisodeRateLimiter::UPDATE_NAME],
+            [ContentAudioScriptRateLimiter::mediaRead($request), ContentAudioScriptRateLimiter::MEDIA_READ_NAME],
+            [ContentCourseRateLimiter::forUpdate()->limit($request), ContentCourseRateLimiter::UPDATE_NAME],
         ] as [$limit, $name]) {
             $this->assertSame($name.':user:'.$convoLabUserId, $limit->key);
         }

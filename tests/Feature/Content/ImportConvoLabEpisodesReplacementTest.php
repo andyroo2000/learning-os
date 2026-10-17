@@ -2,9 +2,7 @@
 
 namespace Tests\Feature\Content;
 
-use App\Domain\Content\Actions\CreateContentCourseAction;
 use App\Domain\Content\Actions\UpdateContentEpisodeAction;
-use App\Domain\Content\Data\CreateContentCourseData;
 use App\Domain\Content\Data\UpdateContentEpisodeData;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Models\User;
@@ -119,55 +117,6 @@ class ImportConvoLabEpisodesReplacementTest extends ImportConvoLabEpisodesTestCa
             'source_system' => ContentSourceSystem::CONVOLAB,
         ]);
         $this->assertDatabaseCount('content_audio_script_media', 1);
-    }
-
-    public function test_course_created_from_an_imported_episode_survives_replacement_imports(): void
-    {
-        $targetUser = User::factory()->create(['email' => 'ada@example.com']);
-        $ids = $this->seedSourceData();
-
-        $this->artisan('content:import-convolab-episodes', [
-            '--source-connection' => 'convolab_content_test',
-        ])->assertSuccessful();
-
-        $result = app(CreateContentCourseAction::class)->handle(CreateContentCourseData::fromInput(
-            $targetUser->id,
-            $ids['user'],
-            [
-                'title' => 'Learning Course',
-                'description' => 'Keep this Course.',
-                'episodeIds' => [$ids['dialogueEpisode']],
-                'nativeLanguage' => 'en',
-                'targetLanguage' => 'ja',
-            ],
-        ));
-        $course = $result->course;
-        $this->assertNotNull($course);
-        $linkId = $course->courseEpisodes()->sole()->id;
-
-        $this->artisan('content:import-convolab-episodes', [
-            '--source-connection' => 'convolab_content_test',
-            '--truncate' => true,
-        ])->assertSuccessful();
-
-        $this->assertDatabaseHas('content_episodes', [
-            'id' => $ids['dialogueEpisode'],
-            'source_system' => ContentSourceSystem::LEARNING_OS,
-        ]);
-        $this->assertDatabaseHas('content_courses', [
-            'id' => $course->id,
-            'source_system' => ContentSourceSystem::LEARNING_OS,
-        ]);
-        $this->assertDatabaseHas('content_episode_courses', [
-            'id' => $linkId,
-            'episode_id' => $ids['dialogueEpisode'],
-            'source_system' => ContentSourceSystem::LEARNING_OS,
-        ]);
-        $this->assertDatabaseHas('content_episode_courses', [
-            'id' => $ids['courseEpisode'],
-            'episode_id' => $ids['dialogueEpisode'],
-            'source_system' => ContentSourceSystem::CONVOLAB,
-        ]);
     }
 
     public function test_replacement_and_preserved_content_roll_back_together_on_late_import_failure(): void

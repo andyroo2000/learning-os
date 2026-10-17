@@ -14,29 +14,6 @@ class ContentCourseExistingWriteApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_client_uuid_course_cannot_claim_a_legacy_null_fingerprint_row(): void
-    {
-        $user = User::factory()->create();
-        $course = $this->courseFor($user);
-
-        $this->asConvoLabBrowser($user, convoLabUserId: $course->convolab_user_id)
-            ->postJson('/api/convolab/courses', [
-                'id' => $course->id,
-                'title' => 'New Course',
-                'description' => 'No provider.',
-                'nativeLanguage' => 'en',
-                'targetLanguage' => 'ja',
-                'sourceText' => 'A new inline dialogue.',
-            ])
-            ->assertConflict()
-            ->assertExactJson([
-                'code' => 'idempotency_conflict',
-                'message' => 'Creation ID was already used for different content.',
-            ]);
-
-        $this->assertDatabaseCount('content_courses', 1);
-    }
-
     public function test_browser_session_updates_only_supplied_course_fields_and_hides_other_owners(): void
     {
         $user = User::factory()->create();

@@ -2,9 +2,6 @@
 
 namespace App\Domain\Admin\Exceptions;
 
-use App\Domain\Admin\Support\AdminCoursePipelineMessage;
-use App\Domain\Content\Exceptions\ContentCourseGenerationConflictException;
-use App\Domain\Content\Support\ContentCourseGeneration;
 use RuntimeException;
 
 final class AdminMutationException extends RuntimeException
@@ -87,118 +84,6 @@ final class AdminMutationException extends RuntimeException
     public static function speakerAvatarRequiresUpload(): self
     {
         return new self('Speaker avatar must be uploaded before it can be re-cropped', 409);
-    }
-
-    public static function scriptLabCourseNotFound(): self
-    {
-        return new self('Test course not found', 404);
-    }
-
-    public static function scriptLabEpisodeNotFound(): self
-    {
-        return new self('Episode not found', 404);
-    }
-
-    public static function nonTestScriptLabCourse(): self
-    {
-        return new self(
-            'Cannot delete non-test courses via Script Lab. Use the standard admin interface.',
-            400,
-        );
-    }
-
-    public static function courseNotFound(): self
-    {
-        return new self('Course not found', 404);
-    }
-
-    public static function courseLineRenderingNotFound(): self
-    {
-        return new self('Rendering not found', 404);
-    }
-
-    public static function lineSynthesisUnavailable(?\Throwable $previous = null): self
-    {
-        return new self('Line synthesis is temporarily unavailable', 503, $previous);
-    }
-
-    public static function pronunciationTestUnavailable(?\Throwable $previous = null): self
-    {
-        return new self('Pronunciation test is temporarily unavailable', 503, $previous);
-    }
-
-    public static function sentenceScriptTestNotFound(): self
-    {
-        return new self('Sentence test not found', 404);
-    }
-
-    public static function sentenceScriptProviderUnavailable(?\Throwable $previous = null): self
-    {
-        return new self('Sentence script generation is temporarily unavailable', 503, $previous);
-    }
-
-    public static function courseSourceRequired(): self
-    {
-        return new self('Course has no episode with source text', 400);
-    }
-
-    public static function courseChangedDuringGeneration(): self
-    {
-        return new self('Course changed while dialogue was being generated', 409);
-    }
-
-    public static function invalidDialogueResponse(?\Throwable $previous = null): self
-    {
-        return new self('Dialogue provider returned an invalid response', 502, $previous);
-    }
-
-    public static function dialogueExchangesRequired(?\Throwable $previous = null): self
-    {
-        return new self(AdminCoursePipelineMessage::DIALOGUE_EXCHANGES_REQUIRED, 400, $previous);
-    }
-
-    public static function courseChangedDuringScriptGeneration(): self
-    {
-        return new self('Course changed while script was being generated', 409);
-    }
-
-    public static function invalidCourseScriptResponse(?\Throwable $previous = null): self
-    {
-        return new self('Script provider returned an invalid response', 502, $previous);
-    }
-
-    public static function courseScriptProviderUnavailable(?\Throwable $previous = null): self
-    {
-        return new self('Script provider is temporarily unavailable', 503, $previous);
-    }
-
-    public static function invalidCourseScriptConfiguration(?\Throwable $previous = null): self
-    {
-        return new self('Course requires a narrator voice and a duration from 1 to 120 minutes', 400, $previous);
-    }
-
-    public static function courseScriptRequiredForAudio(): self
-    {
-        return new self('No script data found. Generate script first.', 400);
-    }
-
-    public static function invalidCourseAudioScript(?\Throwable $previous = null): self
-    {
-        return new self(
-            'Script data is not in the correct format for audio generation. Generate script first.',
-            400,
-            $previous,
-        );
-    }
-
-    public static function courseAudioGenerationConflict(ContentCourseGenerationConflictException $previous): self
-    {
-        return new self($previous->getMessage(), 409, $previous);
-    }
-
-    public static function courseAudioQueueFailed(?\Throwable $previous = null): self
-    {
-        return new self(ContentCourseGeneration::QUEUE_FAILED_MESSAGE, 503, $previous);
     }
 
     public function status(): int

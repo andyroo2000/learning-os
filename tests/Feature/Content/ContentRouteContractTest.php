@@ -54,27 +54,25 @@ class ContentRouteContractTest extends TestCase
                 'POST',
                 'api/convolab/episodes',
                 'StoreContentEpisodeController',
-                'content-episode-create',
+                ['throttle' => 'content-episode-create'],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/episodes/{episodeId}',
                 'ShowContentEpisodeController',
-                wheres: ['episodeId' => $uuid],
+                options: ['wheres' => ['episodeId' => $uuid]],
             ),
             $this->expectedRoute(
                 'PATCH',
                 'api/convolab/episodes/{episodeId}',
                 'UpdateContentEpisodeController',
-                'content-episode-update',
-                ['episodeId' => $uuid],
+                ['throttle' => 'content-episode-update', 'wheres' => ['episodeId' => $uuid]],
             ),
             $this->expectedRoute(
                 'DELETE',
                 'api/convolab/episodes/{episodeId}',
                 'DeleteContentEpisodeController',
-                'content-episode-delete',
-                ['episodeId' => $uuid],
+                ['throttle' => 'content-episode-delete', 'wheres' => ['episodeId' => $uuid]],
             ),
         ];
     }
@@ -89,52 +87,52 @@ class ContentRouteContractTest extends TestCase
                 'POST',
                 'api/convolab/dialogue/generate',
                 'GenerateContentDialogueController',
-                'content-dialogue-generation',
+                ['throttle' => 'content-dialogue-generation'],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/dialogue/job/{jobId}',
                 'ShowContentDialogueGenerationJobController',
-                wheres: ['jobId' => $uuid],
+                options: ['wheres' => ['jobId' => $uuid]],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/images/generate',
                 'GenerateContentImagesController',
-                'content-image-generation',
+                ['throttle' => 'content-image-generation'],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/images/job/{jobId}',
                 'ShowContentImageGenerationJobController',
-                wheres: ['jobId' => $uuid],
+                options: ['wheres' => ['jobId' => $uuid]],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/audio/generate',
                 'GenerateContentAudioController',
-                'content-audio-generation',
+                ['throttle' => 'content-audio-generation'],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/audio/generate-all-speeds',
                 'GenerateAllSpeedsContentAudioController',
-                'content-audio-generation',
+                ['throttle' => 'content-audio-generation'],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/audio/job/{jobId}',
                 'ShowContentAudioGenerationJobController',
-                wheres: ['jobId' => $uuid],
+                options: ['wheres' => ['jobId' => $uuid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/episodes/{episodeId}/audio/{track}',
                 'DownloadContentEpisodeAudioController',
-                wheres: [
+                options: ['wheres' => [
                     'episodeId' => $uuid,
                     'track' => 'default|0.7|0.85|1.0',
-                ],
+                ]],
             ),
         ];
     }
@@ -149,61 +147,55 @@ class ContentRouteContractTest extends TestCase
                 'GET|HEAD',
                 'api/convolab/scripts/media/{mediaId}',
                 'DownloadContentAudioScriptMediaController',
-                'content-audio-script-media-read',
-                ['mediaId' => $uuid],
+                ['throttle' => 'content-audio-script-media-read', 'wheres' => ['mediaId' => $uuid]],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/scripts',
                 'StoreContentAudioScriptController',
-                'content-audio-script-generation',
+                ['throttle' => 'content-audio-script-generation'],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/scripts/{episodeId}/annotate',
                 'AnnotateContentAudioScriptController',
-                'content-audio-script-generation',
-                ['episodeId' => $uuid],
+                ['throttle' => 'content-audio-script-generation', 'wheres' => ['episodeId' => $uuid]],
             ),
             $this->expectedRoute(
                 'PATCH',
                 'api/convolab/scripts/{episodeId}/segments',
                 'UpdateContentAudioScriptSegmentsController',
-                'content-audio-script-update',
-                ['episodeId' => $uuid],
+                ['throttle' => 'content-audio-script-update', 'wheres' => ['episodeId' => $uuid]],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/scripts/{episodeId}/render',
                 'GenerateContentAudioScriptRenderController',
-                'content-audio-script-generation',
-                ['episodeId' => $uuid],
+                ['throttle' => 'content-audio-script-generation', 'wheres' => ['episodeId' => $uuid]],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/scripts/{episodeId}/images',
                 'GenerateContentAudioScriptImagesController',
-                'content-audio-script-generation',
-                ['episodeId' => $uuid],
+                ['throttle' => 'content-audio-script-generation', 'wheres' => ['episodeId' => $uuid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/scripts/{episodeId}/status',
                 'ShowContentAudioScriptController',
-                wheres: ['episodeId' => $uuid],
+                options: ['wheres' => ['episodeId' => $uuid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/scripts/job/{jobId}',
                 'ShowContentAudioScriptGenerationJobController',
-                wheres: ['jobId' => $uuid],
+                options: ['wheres' => ['jobId' => $uuid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/scripts/{episodeId}/audio/{renderId}',
                 'DownloadContentAudioScriptRenderController',
-                'content-audio-script-media-read',
-                ['episodeId' => $uuid, 'renderId' => $uuid],
+                ['throttle' => 'content-audio-script-media-read', 'wheres' => ['episodeId' => $uuid, 'renderId' => $uuid]],
             ),
         ];
     }
@@ -219,60 +211,55 @@ class ContentRouteContractTest extends TestCase
                 'POST',
                 'api/convolab/courses',
                 'StoreContentCourseController',
-                'content-course-create',
+                ['throttle' => 'content-course-create'],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/courses/{courseId}',
                 'ShowContentCourseController',
-                wheres: ['courseId' => $uuid],
+                options: ['wheres' => ['courseId' => $uuid]],
             ),
             $this->expectedRoute(
                 'PATCH',
                 'api/convolab/courses/{courseId}',
                 'UpdateContentCourseController',
-                'content-course-update',
-                ['courseId' => $uuid],
+                ['throttle' => 'content-course-update', 'wheres' => ['courseId' => $uuid]],
             ),
             $this->expectedRoute(
                 'DELETE',
                 'api/convolab/courses/{courseId}',
                 'DeleteContentCourseController',
-                'content-course-delete',
-                ['courseId' => $uuid],
+                ['throttle' => 'content-course-delete', 'wheres' => ['courseId' => $uuid]],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/courses/{courseId}/generate',
                 'GenerateContentCourseController',
-                'content-course-generation',
-                ['courseId' => $uuid],
+                ['throttle' => 'content-course-generation', 'wheres' => ['courseId' => $uuid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/courses/{courseId}/status',
                 'ShowContentCourseGenerationStatusController',
-                wheres: ['courseId' => $uuid],
+                options: ['wheres' => ['courseId' => $uuid]],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/courses/{courseId}/reset',
                 'ResetContentCourseGenerationController',
-                'content-course-generation-reset',
-                ['courseId' => $uuid],
+                ['throttle' => 'content-course-generation-reset', 'wheres' => ['courseId' => $uuid]],
             ),
             $this->expectedRoute(
                 'POST',
                 'api/convolab/courses/{courseId}/retry',
                 'RetryContentCourseGenerationController',
-                'content-course-generation',
-                ['courseId' => $uuid],
+                ['throttle' => 'content-course-generation', 'wheres' => ['courseId' => $uuid]],
             ),
             $this->expectedRoute(
                 'GET|HEAD',
                 'api/convolab/courses/{courseId}/audio',
                 'DownloadContentCourseAudioController',
-                wheres: ['courseId' => $uuid],
+                options: ['wheres' => ['courseId' => $uuid]],
             ),
         ];
     }
@@ -285,7 +272,7 @@ class ContentRouteContractTest extends TestCase
 
         $this->assertImmediatelyBefore(
             $routeOrder,
-            'DELETE api/convolab/admin/courses/{courseId}/line-renderings/{renderingId}',
+            'PUT api/convolab/admin/pronunciation-dictionaries',
             'GET|HEAD api/convolab/episodes',
         );
         $this->assertImmediatelyBefore(
@@ -310,10 +297,11 @@ class ContentRouteContractTest extends TestCase
         string $methods,
         string $uri,
         string $action,
-        ?string $throttle = null,
-        array $wheres = [],
+        array $options = [],
     ): array {
         $middleware = ['api', 'auth:sanctum'];
+        $throttle = $options['throttle'] ?? null;
+        $wheres = $options['wheres'] ?? [];
 
         if ($throttle !== null) {
             $middleware[] = 'throttle:'.$throttle;

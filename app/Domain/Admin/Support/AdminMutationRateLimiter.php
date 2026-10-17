@@ -23,40 +23,9 @@ final class AdminMutationRateLimiter
 
     public const USER_AVATAR_UPLOAD = 'convolab-admin-user-avatar-upload';
 
-    public const SCRIPT_LAB_COURSE_CREATE = 'convolab-admin-script-lab-course-create';
-
-    public const SCRIPT_LAB_COURSE_DELETE = 'convolab-admin-script-lab-course-delete';
-
-    public const SENTENCE_SCRIPT_GENERATE = 'convolab-admin-sentence-script-generate';
-
-    public const SENTENCE_SCRIPT_DELETE = 'convolab-admin-sentence-script-delete';
-
-    public const SCRIPT_LAB_LINE_SYNTHESIZE = 'convolab-admin-script-lab-line-synthesize';
-
-    public const SCRIPT_LAB_PRONUNCIATION_TEST = 'convolab-admin-script-lab-pronunciation-test';
-
-    public const COURSE_PIPELINE_UPDATE = 'convolab-admin-course-pipeline-update';
-
-    public const COURSE_DIALOGUE_GENERATE = 'convolab-admin-course-dialogue-generate';
-
-    public const COURSE_SCRIPT_GENERATE = 'convolab-admin-course-script-generate';
-
-    public const COURSE_AUDIO_GENERATE = 'convolab-admin-course-audio-generate';
-
-    public const COURSE_LINE_SYNTHESIZE = 'convolab-admin-course-line-synthesize';
-
-    public const COURSE_LINE_DELETE = 'convolab-admin-course-line-delete';
-
     public static function limit(string $operation, Request $request): Limit
     {
-        $attempts = in_array($operation, [
-            self::COURSE_LINE_SYNTHESIZE,
-            self::SENTENCE_SCRIPT_GENERATE,
-            self::SCRIPT_LAB_LINE_SYNTHESIZE,
-            self::SCRIPT_LAB_PRONUNCIATION_TEST,
-        ], true) ? 6 : 30;
-
-        return Limit::perMinute($attempts)->by(ConvoLabProfileRateLimiter::key(
+        return Limit::perMinute(30)->by(ConvoLabProfileRateLimiter::key(
             $operation,
             ConvoLabRequestIdentity::userId($request),
             $request->ip(),

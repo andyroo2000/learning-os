@@ -25,7 +25,7 @@ column contains `[sentenceIndex, rubyText]` pairs. Ruby uses the existing
 and optional `speechText` pronunciation overrides. Page numbers are distinct,
 pages and sentences are lists, and every segment must reference a sentence.
 
-Audio uses Sato and is cached by voice and spoken text. Changing `speechText`
+Audio defaults to ナレーター男性 and is cached by voice and spoken text. Changing `speechText`
 invalidates that sentence's cache without changing the printed text. The
 generation quota counts provider attempts, including failures, to bound
 retries and provider load. Cached playback does not consume this quota.
@@ -33,7 +33,7 @@ retries and provider load. Cached playback does not consume this quota.
 ## API and CLI imports
 
 The CLI uses the same authenticated API as clients. Create a stable ID with
-`convolab id`, then save this manifest alongside your source images:
+`convolab new-id`, then save this manifest alongside your source images:
 
 ```json
 {
@@ -71,3 +71,22 @@ API endpoints are `GET /api/reading-library`, `POST /api/reading-imports`, and
 routes remain compatible and now also accept personal tokens. Book contents use
 persisted summary columns; they never load chapter document JSON. The original
 unpaginated readings endpoint remains for existing web clients.
+
+## Narration
+
+Run `convolab reading-narrate READING_ID` to prepare every sentence with the
+ナレーター男性 narrator. Use `--voice Sato`, `--voice "ナレーター男性"`, another
+catalog display name, or a full `fishaudio:<32-character reference ID>` to choose
+another voice. Progress goes to stderr; the final JSON reports the narrator and
+prepared sentence count. The CLI respects the per-owner generation quota, waits
+on quota/lock responses with bounded retries, and stops on other failures. Rerun
+the command after interruption: already generated audio is cached by voice and
+spoken text. The reading's narrator is changed only after all sentences succeed,
+using its revision to avoid overwriting concurrent edits. Old voice audio stays
+cached; switching voices never reuses another voice's clips.
+
+The sentence audio POST accepts optional `voiceId` to prepare a voice without
+changing the current narrator. PATCH `.../readings/{id}/narration` accepts
+`voiceId` and `expectedRevision`. Clients omit voiceId for normal playback and
+receive the reading's chosen narrator. Narration playback remains sentence-based,
+so original text selections and pronunciation overrides align with the audio.

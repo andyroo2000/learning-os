@@ -33,7 +33,7 @@ class ReadingApiTest extends TestCase
         $this->reading($other);
         $this->asBrowser($owner)->getJson('/api/convolab/readings')
             ->assertOk()->assertJsonCount(1)->assertJsonPath('0.id', $reading->id);
-        $this->getJson($this->url($reading))->assertOk()->assertJsonPath('voiceName', 'Sato');
+        $this->getJson($this->url($reading))->assertOk()->assertJsonPath('voiceName', 'ナレーター男性');
         $this->getJson('/api/convolab/readings/'.strtoupper($reading->id))->assertOk();
         $this->get($this->url($reading).'/illustration')->assertOk();
         $this->asBrowser($other)->getJson($this->url($reading))->assertNotFound();
@@ -49,7 +49,7 @@ class ReadingApiTest extends TestCase
         $this->asBrowser($user)->getJson('/api/convolab/readings?viewAs=another')->assertUnprocessable();
     }
 
-    public function test_audio_uses_sato_and_caches_the_result_for_replay(): void
+    public function test_audio_uses_default_narrator_and_caches_the_result_for_replay(): void
     {
         Http::fake(['*' => Http::response('ID3test-audio', 200)]);
         $user = User::factory()->create();

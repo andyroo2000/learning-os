@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Readings\ReadingBookController;
 use App\Http\Controllers\Api\Readings\ReadingController;
 use App\Http\Controllers\Api\Readings\ReadingImportController;
 use App\Http\Controllers\Api\Readings\ReadingLibraryController;
+use App\Http\Controllers\Api\Readings\ReadingNarrationController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
@@ -25,4 +26,5 @@ return static function (): void {
         Route::patch('/{book}', [ReadingBookController::class, 'update'])->whereUlid('book');
         Route::put('/{book}/contents', [ReadingBookController::class, 'contents'])->whereUlid('book');
     });
+    Route::patch('/convolab/readings/{reading}/narration', ReadingNarrationController::class)->whereUlid('reading')->middleware('throttle:120,1');
 };

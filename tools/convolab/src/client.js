@@ -66,14 +66,24 @@ function requestPayload(token, body, multipart) {
   return { headers, body: JSON.stringify(body) };
 }
 
+async function audioResponse(response, method, path) {
+  if (!response.ok) return responseBody(response, method, path);
+  if (!/^audio\/mpeg(?:;|$)/.test(response.headers.get('content-type'))) {
+    throw new Error('Narration returned an unexpected content type.');
+  }
+  const bytes = await response.arrayBuffer();
+  if (!bytes.byteLength) throw new Error('Narration returned empty audio.');
+  return { bytes: bytes.byteLength };
+}
+
 export function createClient({ baseUrl, token }) {
   const origin = apiOrigin(baseUrl);
-  return async (path, { method = 'GET', body, query = {}, multipart } = {}) => {
+  return async (path, { method = 'GET', body, query = {}, multipart, audio = false, timeout = 30_000 } = {}) => {
     const url = requestUrl(path, origin, query);
     const response = await fetch(url, {
-      method, redirect: 'error', signal: AbortSignal.timeout(30_000),
+      method, redirect: 'error', signal: AbortSignal.timeout(timeout),
       ...requestPayload(token, body, multipart),
     });
-    return responseBody(response, method, path);
+    return audio ? audioResponse(response, method, path) : responseBody(response, method, path);
   };
 }

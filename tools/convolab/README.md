@@ -195,3 +195,11 @@ and its illustrations. The manifest contains a stable `id`, `document`, optional
 format. `convolab readings --page 1` lists the mixed library; `convolab reading ID`
 returns the full reading. Original ruby annotations are supplied by the importer;
 the server does not generate or replace furigana.
+
+### Preparing narration
+
+`convolab reading-narrate READING_ID` prepares every sentence using ナレーター男性.
+Pass `--voice Sato`, another catalog name, or `--voice fishaudio:REFERENCE_ID`
+to select a voice. The command prints progress to stderr and a final JSON result
+to stdout. It waits on quota responses; rerunning resumes through the audio cache.
+Only a completed run changes the reading's selected narrator.

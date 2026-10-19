@@ -1,0 +1,62 @@
+[
+  {
+    "sessions": 2631,
+    "durationMs": 7420349087,
+    "fixtureSha256": "f91ac6b27ec133d986900f4d79982fb1cb30f053e87bb0dd9b47b250a96f0fb4",
+    "firstSessionShiftYears": -100,
+    "iteration": 1,
+    "elapsedMs": 76.333334,
+    "responseBytes": 19876,
+    "payloadSha256": "974303880664eac7a1d19c6394e56e6bfea9eb6677d01cc7c9f735e1c6b439ff"
+  },
+  {
+    "sessions": 2631,
+    "durationMs": 7420349087,
+    "fixtureSha256": "f91ac6b27ec133d986900f4d79982fb1cb30f053e87bb0dd9b47b250a96f0fb4",
+    "firstSessionShiftYears": -100,
+    "iteration": 2,
+    "elapsedMs": 76.734583,
+    "responseBytes": 19876,
+    "payloadSha256": "974303880664eac7a1d19c6394e56e6bfea9eb6677d01cc7c9f735e1c6b439ff"
+  },
+  {
+    "sessions": 2631,
+    "durationMs": 7420349087,
+    "fixtureSha256": "f91ac6b27ec133d986900f4d79982fb1cb30f053e87bb0dd9b47b250a96f0fb4",
+    "firstSessionShiftYears": -100,
+    "iteration": 3,
+    "elapsedMs": 77.652833,
+    "responseBytes": 19876,
+    "payloadSha256": "974303880664eac7a1d19c6394e56e6bfea9eb6677d01cc7c9f735e1c6b439ff"
+  },
+  {
+    "sessions": 20000,
+    "durationMs": 56798874997,
+    "fixtureSha256": "007cebbccab0b85b4a36a93fed52fa5411037959aff359163ccf78cc0ed87d81",
+    "firstSessionShiftYears": -100,
+    "iteration": 1,
+    "elapsedMs": 533.273208,
+    "responseBytes": 20514,
+    "payloadSha256": "c40566a92a770517b6852c064df5782087be3cdd0e34bd90be625240470bf218"
+  },
+  {
+    "sessions": 20000,
+    "durationMs": 56798874997,
+    "fixtureSha256": "007cebbccab0b85b4a36a93fed52fa5411037959aff359163ccf78cc0ed87d81",
+    "firstSessionShiftYears": -100,
+    "iteration": 2,
+    "elapsedMs": 535.562958,
+    "responseBytes": 20514,
+    "payloadSha256": "c40566a92a770517b6852c064df5782087be3cdd0e34bd90be625240470bf218"
+  },
+  {
+    "sessions": 20000,
+    "durationMs": 56798874997,
+    "fixtureSha256": "007cebbccab0b85b4a36a93fed52fa5411037959aff359163ccf78cc0ed87d81",
+    "firstSessionShiftYears": -100,
+    "iteration": 3,
+    "elapsedMs": 532.334041,
+    "responseBytes": 20514,
+    "payloadSha256": "c40566a92a770517b6852c064df5782087be3cdd0e34bd90be625240470bf218"
+  }
+]

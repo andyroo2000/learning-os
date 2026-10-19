@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Study;
 
+use App\Domain\Study\Enums\StudyActivityAnalyticsRange;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ShowStudyActivityAnalyticsRequest extends FormRequest
 {
@@ -21,6 +23,8 @@ class ShowStudyActivityAnalyticsRequest extends FormRequest
             'weekStartsOn' => ['required', 'integer', 'between:1,7'],
             'anchorDate' => ['sometimes', 'string', 'date_format:Y-m-d'],
             'adaptiveAllTime' => ['sometimes', 'boolean'],
+            'ranges' => ['sometimes', 'array', 'min:1', 'max:5', 'list'],
+            'ranges.*' => ['required', 'string', 'distinct', Rule::enum(StudyActivityAnalyticsRange::class)],
         ];
     }
 
@@ -46,6 +50,14 @@ class ShowStudyActivityAnalyticsRequest extends FormRequest
             (string) $anchorDate,
             $this->timezone(),
         );
+    }
+
+    /** @return list<StudyActivityAnalyticsRange>|null */
+    public function ranges(): ?array
+    {
+        $ranges = $this->validated('ranges');
+
+        return $ranges === null ? null : array_map(StudyActivityAnalyticsRange::from(...), $ranges);
     }
 
     public function adaptiveAllTime(): bool

@@ -1,0 +1,354 @@
+{
+    "database": "isolated local PostgreSQL15",
+    "fixture": {
+        "sessions": 2631,
+        "durationMs": 7420349087,
+        "fixtureSha256": "e372cd8f4d94bf98b0f360e7981e06166ad538af6525968c4fa61b2b1741fc40"
+    },
+    "plans": [
+        {
+            "sql": "select min(\"started_at\") as \"aggregate\" from \"study_activity_sessions\" where \"user_id\" = ?",
+            "bindings": [
+                10
+            ],
+            "plan": [
+                {
+                    "Plan": {
+                        "Node Type": "Result",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 0.39,
+                        "Total Cost": 0.4,
+                        "Plan Rows": 1,
+                        "Plan Width": 8,
+                        "Actual Startup Time": 0.007,
+                        "Actual Total Time": 0.007,
+                        "Actual Rows": 1,
+                        "Actual Loops": 1,
+                        "Shared Hit Blocks": 3,
+                        "Shared Read Blocks": 0,
+                        "Shared Dirtied Blocks": 0,
+                        "Shared Written Blocks": 0,
+                        "Local Hit Blocks": 0,
+                        "Local Read Blocks": 0,
+                        "Local Dirtied Blocks": 0,
+                        "Local Written Blocks": 0,
+                        "Temp Read Blocks": 0,
+                        "Temp Written Blocks": 0,
+                        "Plans": [
+                            {
+                                "Node Type": "Limit",
+                                "Parent Relationship": "InitPlan",
+                                "Subplan Name": "InitPlan 1 (returns $0)",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Startup Cost": 0.28,
+                                "Total Cost": 0.39,
+                                "Plan Rows": 1,
+                                "Plan Width": 8,
+                                "Actual Startup Time": 0.006,
+                                "Actual Total Time": 0.006,
+                                "Actual Rows": 1,
+                                "Actual Loops": 1,
+                                "Shared Hit Blocks": 3,
+                                "Shared Read Blocks": 0,
+                                "Shared Dirtied Blocks": 0,
+                                "Shared Written Blocks": 0,
+                                "Local Hit Blocks": 0,
+                                "Local Read Blocks": 0,
+                                "Local Dirtied Blocks": 0,
+                                "Local Written Blocks": 0,
+                                "Temp Read Blocks": 0,
+                                "Temp Written Blocks": 0,
+                                "Plans": [
+                                    {
+                                        "Node Type": "Index Only Scan",
+                                        "Parent Relationship": "Outer",
+                                        "Parallel Aware": false,
+                                        "Async Capable": false,
+                                        "Scan Direction": "Forward",
+                                        "Index Name": "study_activity_user_started_id_index",
+                                        "Relation Name": "study_activity_sessions",
+                                        "Alias": "study_activity_sessions",
+                                        "Startup Cost": 0.28,
+                                        "Total Cost": 300.9,
+                                        "Plan Rows": 2631,
+                                        "Plan Width": 8,
+                                        "Actual Startup Time": 0.006,
+                                        "Actual Total Time": 0.006,
+                                        "Actual Rows": 1,
+                                        "Actual Loops": 1,
+                                        "Index Cond": "((user_id = '10'::bigint) AND (started_at IS NOT NULL))",
+                                        "Rows Removed by Index Recheck": 0,
+                                        "Heap Fetches": 1,
+                                        "Shared Hit Blocks": 3,
+                                        "Shared Read Blocks": 0,
+                                        "Shared Dirtied Blocks": 0,
+                                        "Shared Written Blocks": 0,
+                                        "Local Hit Blocks": 0,
+                                        "Local Read Blocks": 0,
+                                        "Local Dirtied Blocks": 0,
+                                        "Local Written Blocks": 0,
+                                        "Temp Read Blocks": 0,
+                                        "Temp Written Blocks": 0
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "Planning": {
+                        "Shared Hit Blocks": 0,
+                        "Shared Read Blocks": 0,
+                        "Shared Dirtied Blocks": 0,
+                        "Shared Written Blocks": 0,
+                        "Local Hit Blocks": 0,
+                        "Local Read Blocks": 0,
+                        "Local Dirtied Blocks": 0,
+                        "Local Written Blocks": 0,
+                        "Temp Read Blocks": 0,
+                        "Temp Written Blocks": 0
+                    },
+                    "Planning Time": 0.027,
+                    "Triggers": [],
+                    "Execution Time": 0.011
+                }
+            ]
+        },
+        {
+            "sql": "select \"categories\", \"local_date\" from \"study_activity_daily_summaries\" where \"user_id\" = ? and \"timezone\" = ? and \"algorithm_version\" = ? and \"local_date\" >= ? and \"local_date\" < ?",
+            "bindings": [
+                10,
+                "America\/New_York",
+                1,
+                "2022-10-01",
+                "2026-10-19"
+            ],
+            "plan": [
+                {
+                    "Plan": {
+                        "Node Type": "Seq Scan",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Relation Name": "study_activity_daily_summaries",
+                        "Alias": "study_activity_daily_summaries",
+                        "Startup Cost": 0,
+                        "Total Cost": 69.28,
+                        "Plan Rows": 1479,
+                        "Plan Width": 91,
+                        "Actual Startup Time": 0.002,
+                        "Actual Total Time": 0.178,
+                        "Actual Rows": 1479,
+                        "Actual Loops": 1,
+                        "Filter": "((local_date >= '2022-10-01'::date) AND (local_date < '2026-10-19'::date) AND (user_id = '10'::bigint) AND ((timezone)::text = 'America\/New_York'::text) AND (algorithm_version = '1'::smallint))",
+                        "Rows Removed by Filter": 0,
+                        "Shared Hit Blocks": 36,
+                        "Shared Read Blocks": 0,
+                        "Shared Dirtied Blocks": 0,
+                        "Shared Written Blocks": 0,
+                        "Local Hit Blocks": 0,
+                        "Local Read Blocks": 0,
+                        "Local Dirtied Blocks": 0,
+                        "Local Written Blocks": 0,
+                        "Temp Read Blocks": 0,
+                        "Temp Written Blocks": 0
+                    },
+                    "Planning": {
+                        "Shared Hit Blocks": 0,
+                        "Shared Read Blocks": 0,
+                        "Shared Dirtied Blocks": 0,
+                        "Shared Written Blocks": 0,
+                        "Local Hit Blocks": 0,
+                        "Local Read Blocks": 0,
+                        "Local Dirtied Blocks": 0,
+                        "Local Written Blocks": 0,
+                        "Temp Read Blocks": 0,
+                        "Temp Written Blocks": 0
+                    },
+                    "Planning Time": 0.016,
+                    "Triggers": [],
+                    "Execution Time": 0.206
+                }
+            ]
+        },
+        {
+            "sql": "select \"started_at\", \"ended_at\", \"duration_ms\", \"category\" from \"study_activity_sessions\" where \"user_id\" = ? and \"ended_at\" > ? and \"started_at\" < ? order by \"started_at\" asc",
+            "bindings": [
+                10,
+                "2026-10-19T04:00:00.000000Z",
+                "2026-10-19T16:00:00.000000Z"
+            ],
+            "plan": [
+                {
+                    "Plan": {
+                        "Node Type": "Sort",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 8.31,
+                        "Total Cost": 8.32,
+                        "Plan Rows": 1,
+                        "Plan Width": 28,
+                        "Actual Startup Time": 0.001,
+                        "Actual Total Time": 0.001,
+                        "Actual Rows": 0,
+                        "Actual Loops": 1,
+                        "Sort Key": [
+                            "started_at"
+                        ],
+                        "Sort Method": "quicksort",
+                        "Sort Space Used": 25,
+                        "Sort Space Type": "Memory",
+                        "Shared Hit Blocks": 2,
+                        "Shared Read Blocks": 0,
+                        "Shared Dirtied Blocks": 0,
+                        "Shared Written Blocks": 0,
+                        "Local Hit Blocks": 0,
+                        "Local Read Blocks": 0,
+                        "Local Dirtied Blocks": 0,
+                        "Local Written Blocks": 0,
+                        "Temp Read Blocks": 0,
+                        "Temp Written Blocks": 0,
+                        "Plans": [
+                            {
+                                "Node Type": "Index Scan",
+                                "Parent Relationship": "Outer",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Scan Direction": "Forward",
+                                "Index Name": "study_activity_sessions_user_id_ended_at_index",
+                                "Relation Name": "study_activity_sessions",
+                                "Alias": "study_activity_sessions",
+                                "Startup Cost": 0.28,
+                                "Total Cost": 8.3,
+                                "Plan Rows": 1,
+                                "Plan Width": 28,
+                                "Actual Startup Time": 0.001,
+                                "Actual Total Time": 0.001,
+                                "Actual Rows": 0,
+                                "Actual Loops": 1,
+                                "Index Cond": "((user_id = '10'::bigint) AND (ended_at > '2026-10-19 04:00:00+00'::timestamp with time zone))",
+                                "Rows Removed by Index Recheck": 0,
+                                "Filter": "(started_at < '2026-10-19 16:00:00+00'::timestamp with time zone)",
+                                "Rows Removed by Filter": 0,
+                                "Shared Hit Blocks": 2,
+                                "Shared Read Blocks": 0,
+                                "Shared Dirtied Blocks": 0,
+                                "Shared Written Blocks": 0,
+                                "Local Hit Blocks": 0,
+                                "Local Read Blocks": 0,
+                                "Local Dirtied Blocks": 0,
+                                "Local Written Blocks": 0,
+                                "Temp Read Blocks": 0,
+                                "Temp Written Blocks": 0
+                            }
+                        ]
+                    },
+                    "Planning": {
+                        "Shared Hit Blocks": 0,
+                        "Shared Read Blocks": 0,
+                        "Shared Dirtied Blocks": 0,
+                        "Shared Written Blocks": 0,
+                        "Local Hit Blocks": 0,
+                        "Local Read Blocks": 0,
+                        "Local Dirtied Blocks": 0,
+                        "Local Written Blocks": 0,
+                        "Temp Read Blocks": 0,
+                        "Temp Written Blocks": 0
+                    },
+                    "Planning Time": 0.015,
+                    "Triggers": [],
+                    "Execution Time": 0.003
+                }
+            ]
+        },
+        {
+            "sql": "select \"started_at\", \"ended_at\", \"duration_ms\", \"category\" from \"study_activity_sessions\" where \"user_id\" = ? and \"ended_at\" > ? and \"started_at\" < ? order by \"started_at\" asc",
+            "bindings": [
+                10,
+                "2026-10-12T04:00:00.000000Z",
+                "2026-10-13T04:00:00.000000Z"
+            ],
+            "plan": [
+                {
+                    "Plan": {
+                        "Node Type": "Sort",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Startup Cost": 26.22,
+                        "Total Cost": 26.25,
+                        "Plan Rows": 11,
+                        "Plan Width": 28,
+                        "Actual Startup Time": 0.003,
+                        "Actual Total Time": 0.003,
+                        "Actual Rows": 2,
+                        "Actual Loops": 1,
+                        "Sort Key": [
+                            "started_at"
+                        ],
+                        "Sort Method": "quicksort",
+                        "Sort Space Used": 25,
+                        "Sort Space Type": "Memory",
+                        "Shared Hit Blocks": 3,
+                        "Shared Read Blocks": 0,
+                        "Shared Dirtied Blocks": 0,
+                        "Shared Written Blocks": 0,
+                        "Local Hit Blocks": 0,
+                        "Local Read Blocks": 0,
+                        "Local Dirtied Blocks": 0,
+                        "Local Written Blocks": 0,
+                        "Temp Read Blocks": 0,
+                        "Temp Written Blocks": 0,
+                        "Plans": [
+                            {
+                                "Node Type": "Index Scan",
+                                "Parent Relationship": "Outer",
+                                "Parallel Aware": false,
+                                "Async Capable": false,
+                                "Scan Direction": "Forward",
+                                "Index Name": "study_activity_sessions_user_id_ended_at_index",
+                                "Relation Name": "study_activity_sessions",
+                                "Alias": "study_activity_sessions",
+                                "Startup Cost": 0.28,
+                                "Total Cost": 26.03,
+                                "Plan Rows": 11,
+                                "Plan Width": 28,
+                                "Actual Startup Time": 0.001,
+                                "Actual Total Time": 0.002,
+                                "Actual Rows": 2,
+                                "Actual Loops": 1,
+                                "Index Cond": "((user_id = '10'::bigint) AND (ended_at > '2026-10-12 04:00:00+00'::timestamp with time zone))",
+                                "Rows Removed by Index Recheck": 0,
+                                "Filter": "(started_at < '2026-10-13 04:00:00+00'::timestamp with time zone)",
+                                "Rows Removed by Filter": 9,
+                                "Shared Hit Blocks": 3,
+                                "Shared Read Blocks": 0,
+                                "Shared Dirtied Blocks": 0,
+                                "Shared Written Blocks": 0,
+                                "Local Hit Blocks": 0,
+                                "Local Read Blocks": 0,
+                                "Local Dirtied Blocks": 0,
+                                "Local Written Blocks": 0,
+                                "Temp Read Blocks": 0,
+                                "Temp Written Blocks": 0
+                            }
+                        ]
+                    },
+                    "Planning": {
+                        "Shared Hit Blocks": 0,
+                        "Shared Read Blocks": 0,
+                        "Shared Dirtied Blocks": 0,
+                        "Shared Written Blocks": 0,
+                        "Local Hit Blocks": 0,
+                        "Local Read Blocks": 0,
+                        "Local Dirtied Blocks": 0,
+                        "Local Written Blocks": 0,
+                        "Temp Read Blocks": 0,
+                        "Temp Written Blocks": 0
+                    },
+                    "Planning Time": 0.014,
+                    "Triggers": [],
+                    "Execution Time": 0.005
+                }
+            ]
+        }
+    ]
+}

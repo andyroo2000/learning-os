@@ -1,0 +1,104 @@
+[
+  {
+    "sessions": 2631,
+    "anchor": "2026-10-19",
+    "baseline": [
+      343.740875,
+      344.641292,
+      349.19725
+    ],
+    "revised": [
+      79.585,
+      79.6245,
+      76.966833
+    ],
+    "baselineMedianMs": 344.641292,
+    "revisedMedianMs": 79.585,
+    "reductionPercent": 76.90787440525264
+  },
+  {
+    "sessions": 2631,
+    "anchor": "2026-10-12",
+    "baseline": [
+      347.034,
+      349.760917,
+      354.512916
+    ],
+    "revised": [
+      80.762458,
+      76.800917,
+      79.021333
+    ],
+    "baselineMedianMs": 349.760917,
+    "revisedMedianMs": 79.021333,
+    "reductionPercent": 77.4070431660036
+  },
+  {
+    "sessions": 2631,
+    "anchor": "2026-09-19",
+    "baseline": [
+      359.957625,
+      354.237417,
+      355.109333
+    ],
+    "revised": [
+      78.421792,
+      78.010167,
+      77.340416
+    ],
+    "baselineMedianMs": 355.109333,
+    "revisedMedianMs": 78.010167,
+    "reductionPercent": 78.03207075945818
+  },
+  {
+    "sessions": 20000,
+    "anchor": "2026-10-19",
+    "baseline": [
+      2651.925583,
+      2704.651875,
+      5933.052166
+    ],
+    "revised": [
+      538.059958,
+      539.887625,
+      533.233292
+    ],
+    "baselineMedianMs": 2704.651875,
+    "revisedMedianMs": 538.059958,
+    "reductionPercent": 80.10612888950818
+  },
+  {
+    "sessions": 20000,
+    "anchor": "2026-10-12",
+    "baseline": [
+      2668.898792,
+      2699.830667,
+      4650.743125
+    ],
+    "revised": [
+      539.106625,
+      542.723959,
+      542.439708
+    ],
+    "baselineMedianMs": 2699.830667,
+    "revisedMedianMs": 542.439708,
+    "reductionPercent": 79.90838037991662
+  },
+  {
+    "sessions": 20000,
+    "anchor": "2026-09-19",
+    "baseline": [
+      2675.658917,
+      2741.294708,
+      3343.989917
+    ],
+    "revised": [
+      536.777417,
+      542.815959,
+      532.089625
+    ],
+    "baselineMedianMs": 2741.294708,
+    "revisedMedianMs": 536.777417,
+    "reductionPercent": 80.4188358357273
+  }
+]

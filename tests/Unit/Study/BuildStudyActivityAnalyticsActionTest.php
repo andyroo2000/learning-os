@@ -3,6 +3,7 @@
 namespace Tests\Unit\Study;
 
 use App\Domain\Study\Actions\BuildStudyActivityAnalyticsAction;
+use App\Domain\Study\Data\StudyActivityAnalyticsOptions;
 use App\Domain\Study\Models\StudyActivitySession;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -18,8 +19,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
     public function test_it_reports_daily_audio_as_listening_not_review(): void
     {
         $user = User::factory()->create();
-        StudyActivitySession::query()->forceCreate([
-            'user_id' => $user->id,
+        $this->createAnalyticsSession($user, [
             'client_session_id' => 'daily-audio',
             'category' => 'listen',
             'activity' => 'daily_audio',
@@ -34,7 +34,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             $user->id,
             new DateTimeZone('UTC'),
             1,
-            CarbonImmutable::parse('2026-07-28T13:00:00Z'),
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse('2026-07-28T13:00:00Z')),
         );
 
         $today = collect($result['ranges'])->firstWhere('key', 'today');
@@ -44,9 +44,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
 
     public function test_it_allocates_a_cross_midnight_session_between_local_day_buckets(): void
     {
-        $user = User::factory()->create();
-        StudyActivitySession::query()->forceCreate([
-            'user_id' => $user->id,
+        $result = $this->sessionAnalytics([
             'client_session_id' => 'cross-midnight',
             'category' => 'conversation',
             'activity' => 'conversation',
@@ -54,14 +52,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             'started_at' => '2026-07-28T03:30:00Z',
             'ended_at' => '2026-07-28T04:30:00Z',
             'duration_ms' => 3_600_000,
-        ]);
-
-        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
-            $user->id,
-            new DateTimeZone('America/New_York'),
-            1,
-            CarbonImmutable::parse('2026-07-28T12:00:00-04:00'),
-        );
+        ], '2026-07-28T12:00:00-04:00', 'America/New_York', 1);
 
         $today = collect($result['ranges'])->firstWhere('key', 'today');
         $week = collect($result['ranges'])->firstWhere('key', 'week');
@@ -88,7 +79,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             User::factory()->create()->id,
             new DateTimeZone('UTC'),
             2,
-            CarbonImmutable::parse('2026-07-28T12:34:56Z'),
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse('2026-07-28T12:34:56Z')),
         );
 
         $ranges = collect($result['ranges'])->keyBy('key');
@@ -127,8 +118,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
 
         foreach ($cases as $index => [$startedAt, $expectedUnit, $expectedStep]) {
             $user = User::factory()->create();
-            StudyActivitySession::query()->forceCreate([
-                'user_id' => $user->id,
+            $this->createAnalyticsSession($user, [
                 'client_session_id' => "adaptive-all-time-{$index}",
                 'category' => 'review',
                 'activity' => 'card_review',
@@ -142,8 +132,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
                 $user->id,
                 new DateTimeZone('UTC'),
                 2,
-                $now,
-                adaptiveAllTime: true,
+                new StudyActivityAnalyticsOptions(now: $now, adaptiveAllTime: true),
             );
             $all = collect($result['ranges'])->firstWhere('key', 'all');
 
@@ -159,8 +148,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             User::factory()->create()->id,
             new DateTimeZone('America/New_York'),
             2,
-            CarbonImmutable::parse('2026-07-28T12:34:56-04:00'),
-            CarbonImmutable::parse('2026-06-15T00:00:00-04:00'),
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse('2026-07-28T12:34:56-04:00'), anchor: CarbonImmutable::parse('2026-06-15T00:00:00-04:00')),
         );
 
         $ranges = collect($result['ranges'])->keyBy('key');
@@ -175,9 +163,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
 
     public function test_future_display_buckets_do_not_count_unelapsed_session_time(): void
     {
-        $user = User::factory()->create();
-        StudyActivitySession::query()->forceCreate([
-            'user_id' => $user->id,
+        $result = $this->sessionAnalytics([
             'client_session_id' => 'crosses-now',
             'category' => 'review',
             'activity' => 'card_review',
@@ -185,14 +171,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             'started_at' => '2026-07-28T11:30:00Z',
             'ended_at' => '2026-07-28T12:30:00Z',
             'duration_ms' => 3_600_000,
-        ]);
-
-        $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
-            $user->id,
-            new DateTimeZone('UTC'),
-            2,
-            CarbonImmutable::parse('2026-07-28T12:00:00Z'),
-        );
+        ], '2026-07-28T12:00:00Z', 'UTC', 2);
 
         $today = collect($result['ranges'])->firstWhere('key', 'today');
 
@@ -209,7 +188,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             User::factory()->create()->id,
             new DateTimeZone('America/New_York'),
             1,
-            CarbonImmutable::parse('2026-03-08T12:00:00-04:00'),
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse('2026-03-08T12:00:00-04:00')),
         );
 
         $ranges = collect($result['ranges'])->keyBy('key');
@@ -224,8 +203,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
     public function test_it_allocates_a_session_across_month_and_year_buckets(): void
     {
         $user = User::factory()->create();
-        StudyActivitySession::query()->forceCreate([
-            'user_id' => $user->id,
+        $this->createAnalyticsSession($user, [
             'client_session_id' => 'cross-year',
             'category' => 'immerse',
             'activity' => 'tv',
@@ -239,8 +217,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             $user->id,
             new DateTimeZone('UTC'),
             1,
-            CarbonImmutable::parse('2026-01-02T12:00:00Z'),
-            adaptiveAllTime: true,
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse('2026-01-02T12:00:00Z'), adaptiveAllTime: true),
         );
 
         $ranges = collect($result['ranges']);
@@ -270,23 +247,21 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             ['wanikani', 'wanikani_review', '2026-07-28T11:00:00Z', '2026-07-28T11:05:00Z', 300_000],
         ];
         foreach ($fixtures as $index => [$category, $activity, $startedAt, $endedAt, $durationMs]) {
-            $this->createAnalyticsSession(
-                $user,
-                "golden-{$index}",
-                $category,
-                $activity,
-                $startedAt,
-                $endedAt,
-                $durationMs,
-            );
+            $this->createAnalyticsSession($user, [
+                'client_session_id' => "golden-{$index}",
+                'category' => $category,
+                'activity' => $activity,
+                'started_at' => $startedAt,
+                'ended_at' => $endedAt,
+                'duration_ms' => $durationMs,
+            ]);
         }
 
         $result = app(BuildStudyActivityAnalyticsAction::class)->handle(
             $user->id,
             new DateTimeZone('America/New_York'),
             2,
-            CarbonImmutable::parse('2026-07-28T12:00:00-04:00'),
-            adaptiveAllTime: true,
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse('2026-07-28T12:00:00-04:00'), adaptiveAllTime: true),
         );
         $ranges = collect($result['ranges'])->keyBy('key');
         $today = $ranges['today'];
@@ -327,8 +302,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
             User::factory()->create()->id,
             new DateTimeZone('UTC'),
             2,
-            CarbonImmutable::parse('2026-07-28T12:00:00Z'),
-            adaptiveAllTime: true,
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse('2026-07-28T12:00:00Z'), adaptiveAllTime: true),
         );
 
         $this->assertCount(5, $result['ranges']);
@@ -344,15 +318,14 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
     public function test_requested_timezone_is_stable_across_process_defaults_and_dst(): void
     {
         $user = User::factory()->create();
-        $this->createAnalyticsSession(
-            $user,
-            'dst-fallback',
-            'conversation',
-            'conversation',
-            '2026-11-01T05:30:00Z',
-            '2026-11-01T07:30:00Z',
-            7_200_000,
-        );
+        $this->createAnalyticsSession($user, [
+            'client_session_id' => 'dst-fallback',
+            'category' => 'conversation',
+            'activity' => 'conversation',
+            'started_at' => '2026-11-01T05:30:00Z',
+            'ended_at' => '2026-11-01T07:30:00Z',
+            'duration_ms' => 7_200_000,
+        ]);
         $previousTimezone = date_default_timezone_get();
 
         try {
@@ -370,35 +343,35 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
         $this->assertSame(7_200_000, $today['totalMs']);
     }
 
+    /** @param array<string, mixed> $attributes */
+    private function sessionAnalytics(array $attributes, string $now, string $timezone, int $weekStartsOn): array
+    {
+        $user = User::factory()->create();
+        $this->createAnalyticsSession($user, $attributes);
+
+        return app(BuildStudyActivityAnalyticsAction::class)->handle(
+            $user->id, new DateTimeZone($timezone), $weekStartsOn,
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse($now)),
+        );
+    }
+
     private function analyticsFor(User $user, string $now): array
     {
         return app(BuildStudyActivityAnalyticsAction::class)->handle(
             $user->id,
             new DateTimeZone('America/New_York'),
             1,
-            CarbonImmutable::parse($now),
-            adaptiveAllTime: true,
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse($now), adaptiveAllTime: true),
         );
     }
 
-    private function createAnalyticsSession(
-        User $user,
-        string $clientSessionId,
-        string $category,
-        string $activity,
-        string $startedAt,
-        string $endedAt,
-        int $durationMs,
-    ): void {
+    /** @param array<string, mixed> $attributes */
+    private function createAnalyticsSession(User $user, array $attributes): void
+    {
         StudyActivitySession::query()->forceCreate([
             'user_id' => $user->id,
-            'client_session_id' => $clientSessionId,
-            'category' => $category,
-            'activity' => $activity,
             'source' => 'automatic',
-            'started_at' => $startedAt,
-            'ended_at' => $endedAt,
-            'duration_ms' => $durationMs,
+            ...$attributes,
         ]);
     }
 }

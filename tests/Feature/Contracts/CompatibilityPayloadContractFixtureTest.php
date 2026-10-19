@@ -10,6 +10,7 @@ use App\Domain\Reviews\Enums\CardReviewRating;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Actions\BuildPersonalWeeklyRecapAction;
 use App\Domain\Study\Actions\BuildStudyActivityAnalyticsAction;
+use App\Domain\Study\Data\StudyActivityAnalyticsOptions;
 use App\Domain\Study\Models\DailyAudioPractice;
 use App\Domain\Study\Models\DailyAudioPracticeTrack;
 use App\Domain\Study\Models\StudyActivitySession;
@@ -102,8 +103,7 @@ class CompatibilityPayloadContractFixtureTest extends TestCase
             $user->id,
             new DateTimeZone('America/New_York'),
             2,
-            CarbonImmutable::parse('2026-07-28T12:00:00-04:00'),
-            adaptiveAllTime: true,
+            new StudyActivityAnalyticsOptions(now: CarbonImmutable::parse('2026-07-28T12:00:00-04:00'), adaptiveAllTime: true),
         );
 
         $this->assertFixtureCases('study-activity-analytics.v1', [
@@ -114,6 +114,51 @@ class CompatibilityPayloadContractFixtureTest extends TestCase
     public function test_daily_audio_resource_matches_the_canonical_fixture(): void
     {
         $user = User::factory()->create();
+        $ready = $this->readyDailyAudio($user);
+        $error = DailyAudioPractice::factory()->for($user)->create([
+            'id' => '10000000-0000-4000-8000-000000000002',
+            'convolab_user_id' => '20000000-0000-4000-8000-000000000001',
+            'practice_date' => '2026-08-25',
+            'status' => 'error',
+            'source_card_ids_json' => [],
+            'selection_summary_json' => null,
+            'error_message' => 'Generation failed.',
+            'created_at' => Carbon::parse('2026-08-25T09:00:00Z'),
+            'updated_at' => Carbon::parse('2026-08-25T09:01:00Z'),
+        ]);
+
+        $ready->load(['tracks' => fn ($query) => $query->orderBy('sort_order')]);
+        $error->load('tracks');
+        $this->assertFixtureCases('daily-audio-practice.v1', [
+            $this->case('ready-with-ready-and-skipped-tracks', 'Ready practice preserves nested script, timing, metadata, and nullable skipped-track fields.', $this->dailyAudioPayload($ready)),
+            $this->case('error-without-tracks', 'Error practice keeps nullable selection data and an empty loaded track list.', $this->dailyAudioPayload($error)),
+        ]);
+    }
+
+    public function test_personal_weekly_recap_action_matches_the_canonical_fixture(): void
+    {
+        $action = app(BuildPersonalWeeklyRecapAction::class);
+        $timezone = new DateTimeZone('America/New_York');
+        $now = CarbonImmutable::parse('2026-08-12T12:00:00-04:00');
+        $emptyUser = User::factory()->create();
+        $cases = [
+            $this->case('empty-completed-week', 'Empty weeks preserve null recall and best-day values.', $action->handle($emptyUser->id, $timezone, 1, $now)),
+        ];
+
+        $user = User::factory()->create();
+        $this->activity($user, ['category' => 'review', 'activity' => 'card_review', 'started_at' => '2026-08-03T12:00:00Z', 'ended_at' => '2026-08-03T13:00:00Z', 'duration_ms' => 3_600_000]);
+        $this->activity($user, ['category' => 'conversation', 'activity' => 'conversation', 'started_at' => '2026-08-04T12:00:00Z', 'ended_at' => '2026-08-04T12:30:00Z', 'duration_ms' => 1_800_000]);
+        $this->activity($user, ['category' => 'listen', 'activity' => 'daily_audio', 'started_at' => '2026-07-27T12:00:00Z', 'ended_at' => '2026-07-27T12:15:00Z', 'duration_ms' => 900_000]);
+        $this->reviewedCard($user, '2026-08-03T12:00:00Z', '2026-08-03T13:00:00Z', CardReviewRating::Good);
+        $this->reviewedCard($user, '2026-08-04T12:00:00Z', '2026-08-04T13:00:00Z', CardReviewRating::Again);
+        $this->reviewedCard($user, '2026-07-27T12:00:00Z', '2026-07-27T13:00:00Z', CardReviewRating::Hard);
+        $cases[] = $this->case('owned-study-review-and-introduction-metrics', 'Completed and previous weeks include category totals, recall, introductions, and best day.', $action->handle($user->id, $timezone, 1, $now));
+
+        $this->assertFixtureCases('personal-weekly-recap.v1', $cases);
+    }
+
+    private function readyDailyAudio(User $user): DailyAudioPractice
+    {
         $ready = DailyAudioPractice::factory()->for($user)->create([
             'id' => '10000000-0000-4000-8000-000000000001',
             'convolab_user_id' => '20000000-0000-4000-8000-000000000001',
@@ -165,59 +210,18 @@ class CompatibilityPayloadContractFixtureTest extends TestCase
             'created_at' => Carbon::parse('2026-08-24T08:02:00Z'),
             'updated_at' => Carbon::parse('2026-08-24T08:03:00Z'),
         ]);
-        $error = DailyAudioPractice::factory()->for($user)->create([
-            'id' => '10000000-0000-4000-8000-000000000002',
-            'convolab_user_id' => '20000000-0000-4000-8000-000000000001',
-            'practice_date' => '2026-08-25',
-            'status' => 'error',
-            'source_card_ids_json' => [],
-            'selection_summary_json' => null,
-            'error_message' => 'Generation failed.',
-            'created_at' => Carbon::parse('2026-08-25T09:00:00Z'),
-            'updated_at' => Carbon::parse('2026-08-25T09:01:00Z'),
-        ]);
 
-        $ready->load(['tracks' => fn ($query) => $query->orderBy('sort_order')]);
-        $error->load('tracks');
-        $this->assertFixtureCases('daily-audio-practice.v1', [
-            $this->case('ready-with-ready-and-skipped-tracks', 'Ready practice preserves nested script, timing, metadata, and nullable skipped-track fields.', $this->dailyAudioPayload($ready)),
-            $this->case('error-without-tracks', 'Error practice keeps nullable selection data and an empty loaded track list.', $this->dailyAudioPayload($error)),
-        ]);
+        return $ready;
     }
 
-    public function test_personal_weekly_recap_action_matches_the_canonical_fixture(): void
-    {
-        $action = app(BuildPersonalWeeklyRecapAction::class);
-        $timezone = new DateTimeZone('America/New_York');
-        $now = CarbonImmutable::parse('2026-08-12T12:00:00-04:00');
-        $emptyUser = User::factory()->create();
-        $cases = [
-            $this->case('empty-completed-week', 'Empty weeks preserve null recall and best-day values.', $action->handle($emptyUser->id, $timezone, 1, $now)),
-        ];
-
-        $user = User::factory()->create();
-        $this->activity($user, 'review', 'card_review', '2026-08-03T12:00:00Z', '2026-08-03T13:00:00Z', 3_600_000);
-        $this->activity($user, 'conversation', 'conversation', '2026-08-04T12:00:00Z', '2026-08-04T12:30:00Z', 1_800_000);
-        $this->activity($user, 'listen', 'daily_audio', '2026-07-27T12:00:00Z', '2026-07-27T12:15:00Z', 900_000);
-        $this->reviewedCard($user, '2026-08-03T12:00:00Z', '2026-08-03T13:00:00Z', CardReviewRating::Good);
-        $this->reviewedCard($user, '2026-08-04T12:00:00Z', '2026-08-04T13:00:00Z', CardReviewRating::Again);
-        $this->reviewedCard($user, '2026-07-27T12:00:00Z', '2026-07-27T13:00:00Z', CardReviewRating::Hard);
-        $cases[] = $this->case('owned-study-review-and-introduction-metrics', 'Completed and previous weeks include category totals, recall, introductions, and best day.', $action->handle($user->id, $timezone, 1, $now));
-
-        $this->assertFixtureCases('personal-weekly-recap.v1', $cases);
-    }
-
-    private function activity(User $user, string $category, string $activity, string $startedAt, string $endedAt, int $durationMs): void
+    /** @param array{category: string, activity: string, started_at: string, ended_at: string, duration_ms: int} $attributes */
+    private function activity(User $user, array $attributes): void
     {
         StudyActivitySession::query()->forceCreate([
             'user_id' => $user->id,
-            'client_session_id' => hash('sha256', "{$category}|{$activity}|{$startedAt}|{$endedAt}|{$durationMs}"),
-            'category' => $category,
-            'activity' => $activity,
+            'client_session_id' => hash('sha256', json_encode($attributes, JSON_THROW_ON_ERROR)),
             'source' => 'automatic',
-            'started_at' => $startedAt,
-            'ended_at' => $endedAt,
-            'duration_ms' => $durationMs,
+            ...$attributes,
         ]);
     }
 

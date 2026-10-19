@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Study;
 
 use App\Domain\Study\Actions\BuildStudyActivityAnalyticsAction;
+use App\Domain\Study\Data\StudyActivityAnalyticsOptions;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Study\ShowStudyActivityAnalyticsRequest;
 use App\Http\Support\AuthenticatedUser;
@@ -18,8 +19,10 @@ final class ShowStudyActivityAnalyticsController extends Controller
             AuthenticatedUser::id($request),
             $request->timezone(),
             $request->weekStartsOn(),
-            anchor: $request->anchor(),
-            adaptiveAllTime: $request->adaptiveAllTime(),
+            new StudyActivityAnalyticsOptions(
+                anchor: $request->anchor(),
+                adaptiveAllTime: $request->adaptiveAllTime(),
+            ),
         ));
     }
 }

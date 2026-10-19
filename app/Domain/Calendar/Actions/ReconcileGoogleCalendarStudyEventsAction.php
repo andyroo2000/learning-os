@@ -11,6 +11,7 @@ use App\Domain\Study\Enums\StudyActivityKind;
 use App\Domain\Study\Enums\StudyActivityOrigin;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Models\StudyActivitySession;
+use App\Domain\Study\Support\StudyActivityDailySummaryInvalidator;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
@@ -23,6 +24,7 @@ final class ReconcileGoogleCalendarStudyEventsAction
 
     public function __construct(
         private UpsertStudyActivitySessionsAction $upsert,
+        private StudyActivityDailySummaryInvalidator $summaries,
     ) {}
 
     /** @return array{upserted:int,deleted:int} */
@@ -147,17 +149,26 @@ final class ReconcileGoogleCalendarStudyEventsAction
                         ->count();
                 }
                 if ($deleteKeys !== []) {
-                    $deleted = StudyActivitySession::query()
-                        ->where('user_id', $userId)
-                        ->where('origin', StudyActivityOrigin::GoogleCalendar)
-                        ->where('source', StudyActivitySource::Calendar)
-                        ->whereIn('source_key', $deleteKeys)
-                        ->delete();
-                    $result['deleted'] += $deleted;
+                    $result['deleted'] += $this->removeSessions($userId, $deleteKeys);
                 }
             });
 
         return $result;
+    }
+
+    /** @param list<string> $sourceKeys */
+    private function removeSessions(int $userId, array $sourceKeys): int
+    {
+        $query = StudyActivitySession::query()
+            ->where('user_id', $userId)
+            ->where('origin', StudyActivityOrigin::GoogleCalendar)
+            ->where('source', StudyActivitySource::Calendar)
+            ->whereIn('source_key', $sourceKeys);
+        $sessions = (clone $query)->get();
+        $deleted = $query->delete();
+        $this->summaries->removed($userId, $sessions);
+
+        return $deleted;
     }
 
     private function canReconcile(?GoogleCalendarSettings $settings, bool $allowDisabled): bool

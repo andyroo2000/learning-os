@@ -26,8 +26,27 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         $this->seedAdminIdentityData($existingUser, $now);
         $this->seedIntegrationData($existingUser, $now);
         $this->seedVocabularyData($existingUser, $now);
+        $this->seedDailySummary($existingUser, $now);
         $this->runTruncatingImport();
         $this->assertFullUserDataBoundaryWasCleared();
+    }
+
+    private function seedDailySummary(User $user, CarbonInterface $now): void
+    {
+        DB::table('study_activity_daily_summaries')->insert([
+            'user_id' => $user->id,
+            'timezone' => 'UTC',
+            'algorithm_version' => 1,
+            'local_date' => '2026-10-18',
+            'started_at' => '2026-10-18 00:00:00',
+            'ended_at' => '2026-10-19 00:00:00',
+            'categories' => json_encode([
+                'review' => 600_000, 'listen' => 0, 'create' => 0,
+                'immerse' => 0, 'conversation' => 0, 'wanikani' => 0,
+            ], JSON_THROW_ON_ERROR),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     private function seedCoreBoundaryData(User $existingUser): void
@@ -222,6 +241,7 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         $this->assertDatabaseCount('admin_course_line_renderings', 0);
         $this->assertDatabaseCount('content_courses', 0);
         $this->assertDatabaseCount('study_card_drafts', 0);
+        $this->assertDatabaseCount('study_activity_daily_summaries', 0);
         $this->assertDatabaseCount('card_learning_concepts', 0);
         $this->assertDatabaseCount('card_introduction_cohorts', 0);
         $this->assertDatabaseCount('learning_concepts', 1490);

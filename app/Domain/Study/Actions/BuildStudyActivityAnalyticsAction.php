@@ -2,17 +2,16 @@
 
 namespace App\Domain\Study\Actions;
 
+use App\Domain\Study\Data\StudyActivityAnalyticsOptions;
 use App\Domain\Study\Enums\StudyActivityCategory;
 use App\Domain\Study\Models\StudyActivitySession;
-use App\Domain\Study\Support\StudyActivityDurationAllocator;
+use App\Domain\Study\Support\StudyActivityAnalyticsAccumulator;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 
 final class BuildStudyActivityAnalyticsAction
 {
-    public function __construct(private readonly StudyActivityDurationAllocator $durationAllocator) {}
-
     private const RANGE_TODAY = 'today';
 
     private const RANGE_WEEK = 'week';
@@ -35,107 +34,95 @@ final class BuildStudyActivityAnalyticsAction
         int $userId,
         DateTimeZone $timezone,
         int $weekStartsOn,
-        ?CarbonImmutable $now = null,
-        ?CarbonImmutable $anchor = null,
-        bool $adaptiveAllTime = false,
+        ?StudyActivityAnalyticsOptions $options = null,
     ): array {
         if ($weekStartsOn < 1 || $weekStartsOn > 7) {
             throw new InvalidArgumentException('The first weekday must be between 1 and 7.');
         }
 
-        $now = ($now ?? CarbonImmutable::now($timezone))->setTimezone($timezone);
-        $anchor = ($anchor ?? $now)->setTimezone($timezone);
+        $options ??= new StudyActivityAnalyticsOptions;
+        $now = ($options->now ?? CarbonImmutable::now($timezone))->setTimezone($timezone);
+        $anchor = ($options->anchor ?? $now)->setTimezone($timezone);
         $earliest = StudyActivitySession::query()
             ->where('user_id', $userId)
             ->min('started_at');
         $earliestStart = $earliest === null
             ? $now->startOfDay()
             : CarbonImmutable::parse($earliest, 'UTC')->setTimezone($timezone);
-        [$allStart, $allBucketUnit, $allBucketStep] = $adaptiveAllTime
+        $allDefinition = $options->adaptiveAllTime
             ? $this->allTimeBucketDefinition($earliestStart, $now, $weekStartsOn)
             : [$earliestStart->startOfYear(), 'year', 1];
+        $ranges = $this->makeRanges($anchor, $now, $allDefinition, $weekStartsOn);
+        $accumulator = new StudyActivityAnalyticsAccumulator($ranges, $now);
+
+        StudyActivitySession::query()
+            ->where('user_id', $userId)
+            ->where('ended_at', '>', $allDefinition[0]->utc())
+            ->where('started_at', '<', $now->utc())
+            ->orderBy('started_at')
+            ->select(['started_at', 'ended_at', 'duration_ms', 'category'])
+            ->toBase()
+            ->cursor()
+            ->each(fn (object $session) => $accumulator->accumulate($session));
+
+        return [
+            'generatedAt' => $now->utc()->format('Y-m-d\TH:i:s.u\Z'),
+            'anchorDate' => $anchor->toDateString(),
+            'timezone' => $timezone->getName(),
+            'ranges' => array_values($accumulator->ranges()),
+        ];
+    }
+
+    /**
+     * @param  array{CarbonImmutable, string, int}  $allDefinition
+     * @return array<string, array<string, mixed>>
+     */
+    private function makeRanges(CarbonImmutable $anchor, CarbonImmutable $now, array $allDefinition, int $weekStartsOn): array
+    {
+        [$allStart, $allBucketUnit, $allBucketStep] = $allDefinition;
         $todayStart = $anchor->startOfDay();
-        // Fixed calendar ranges include their complete future-facing display
-        // window. Session accumulation remains capped at $now below.
+        // Display complete calendar periods; accumulation remains capped at now.
         $weekStart = $anchor->startOfWeek($weekStartsOn - 1);
         $monthStart = $anchor->startOfMonth();
         $yearStart = $anchor->startOfYear();
 
-        $ranges = [
+        return [
             self::RANGE_TODAY => $this->makeRange(
                 self::RANGE_TODAY,
                 $todayStart,
                 $todayStart->addDay(),
-                'hour',
+                ['unit' => 'hour'],
             ),
             self::RANGE_WEEK => $this->makeRange(
                 self::RANGE_WEEK,
                 // Client contract follows Calendar.firstWeekday: 1=Sunday … 7=Saturday.
                 $weekStart,
                 $weekStart->addWeek(),
-                'day',
+                ['unit' => 'day'],
             ),
             self::RANGE_MONTH => $this->makeRange(
                 self::RANGE_MONTH,
                 $monthStart,
                 $monthStart->addMonth(),
-                'day',
+                ['unit' => 'day'],
             ),
             self::RANGE_YEAR => $this->makeRange(
                 self::RANGE_YEAR,
                 $yearStart,
                 $yearStart->addYear(),
-                'month',
+                ['unit' => 'month'],
             ),
             self::RANGE_ALL => $this->makeRange(
                 self::RANGE_ALL,
                 $allStart,
                 $now,
-                $allBucketUnit,
-                $allBucketStep,
+                ['unit' => $allBucketUnit, 'step' => $allBucketStep],
             ),
-        ];
-        $windows = array_map(
-            fn (array $range): array => [
-                'startsAt' => CarbonImmutable::parse($range['startsAt'])->setTimezone($timezone),
-                'endsAt' => CarbonImmutable::parse($range['endsAt'])->setTimezone($timezone),
-                'buckets' => array_map(
-                    fn (array $bucket): array => [
-                        'startsAt' => CarbonImmutable::parse($bucket['startsAt'])
-                            ->setTimezone($timezone),
-                        'endsAt' => CarbonImmutable::parse($bucket['endsAt'])
-                            ->setTimezone($timezone),
-                    ],
-                    $range['buckets'],
-                ),
-            ],
-            $ranges,
-        );
-
-        StudyActivitySession::query()
-            ->where('user_id', $userId)
-            ->where('ended_at', '>', $allStart->utc())
-            ->where('started_at', '<', $now->utc())
-            ->orderBy('started_at')
-            ->cursor()
-            ->each(function (StudyActivitySession $session) use (
-                &$ranges,
-                $now,
-                $timezone,
-                $windows,
-            ): void {
-                $this->accumulateSession($ranges, $windows, $session, $timezone, $now);
-            });
-
-        return [
-            'generatedAt' => $now->utc()->format('Y-m-d\TH:i:s.u\Z'),
-            'anchorDate' => $anchor->toDateString(),
-            'timezone' => $timezone->getName(),
-            'ranges' => array_values($ranges),
         ];
     }
 
     /**
+     * @param  array{unit: string, step?: int}  $bucketDefinition
      * @return array{
      *   key: string,
      *   startsAt: string,
@@ -151,9 +138,10 @@ final class BuildStudyActivityAnalyticsAction
         string $key,
         CarbonImmutable $startsAt,
         CarbonImmutable $endsAt,
-        string $bucketUnit,
-        int $bucketStep = 1,
+        array $bucketDefinition,
     ): array {
+        $bucketUnit = $bucketDefinition['unit'];
+        $bucketStep = $bucketDefinition['step'] ?? 1;
         $buckets = [];
         $cursor = $startsAt;
         while ($cursor->lessThan($endsAt)) {
@@ -236,63 +224,6 @@ final class BuildStudyActivityAnalyticsAction
         };
 
         return $factor * $magnitude;
-    }
-
-    /**
-     * @param  array<string, array<string, mixed>>  $ranges
-     * @param  array<string, array{startsAt: CarbonImmutable, endsAt: CarbonImmutable, buckets: list<array{startsAt: CarbonImmutable, endsAt: CarbonImmutable}>}>  $windows
-     */
-    private function accumulateSession(
-        array &$ranges,
-        array $windows,
-        StudyActivitySession $session,
-        DateTimeZone $timezone,
-        CarbonImmutable $now,
-    ): void {
-        // Database timestamps are UTC; parse the raw values explicitly so PHP's
-        // process timezone cannot move sessions between analytics buckets.
-        $startedAt = CarbonImmutable::parse((string) $session->getRawOriginal('started_at'), 'UTC')
-            ->setTimezone($timezone);
-        $recordedEnd = CarbonImmutable::parse((string) $session->getRawOriginal('ended_at'), 'UTC')
-            ->setTimezone($timezone);
-        $endedAt = $recordedEnd->min($now);
-        $category = $session->category->value;
-
-        foreach ($ranges as $rangeKey => &$range) {
-            $window = $windows[$rangeKey];
-            $allocated = $this->durationAllocator->forWindow(
-                $session->duration_ms,
-                $startedAt,
-                $endedAt,
-                $window['startsAt'],
-                $window['endsAt'],
-                $recordedEnd,
-            );
-            if ($allocated === 0) {
-                continue;
-            }
-
-            $range['totalMs'] += $allocated;
-            $range['categories'][$category] += $allocated;
-            foreach ($range['buckets'] as $bucketIndex => &$bucket) {
-                $bucketWindow = $window['buckets'][$bucketIndex];
-                $bucketAllocation = $this->durationAllocator->forWindow(
-                    $session->duration_ms,
-                    $startedAt,
-                    $endedAt,
-                    $bucketWindow['startsAt'],
-                    $bucketWindow['endsAt'],
-                    $recordedEnd,
-                );
-                if ($bucketAllocation === 0) {
-                    continue;
-                }
-                $bucket['totalMs'] += $bucketAllocation;
-                $bucket['categories'][$category] += $bucketAllocation;
-            }
-            unset($bucket);
-        }
-        unset($range);
     }
 
     /** @return array<string, int> */

@@ -22,6 +22,7 @@ final class ShowStudyActivityAnalyticsController extends Controller
             new StudyActivityAnalyticsOptions(
                 anchor: $request->anchor(),
                 adaptiveAllTime: $request->adaptiveAllTime(),
+                ranges: $request->ranges(),
             ),
         ));
     }

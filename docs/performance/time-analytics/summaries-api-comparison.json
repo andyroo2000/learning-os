@@ -1,0 +1,314 @@
+{
+  "fullWarm": [
+    {
+      "sessions": 2631,
+      "anchor": "2026-10-19",
+      "baselineMs": [
+        79.585,
+        79.6245,
+        76.966833
+      ],
+      "revisedMs": [
+        26.072,
+        25.984708,
+        25.9315
+      ],
+      "baselineMedianMs": 79.585,
+      "revisedMedianMs": 25.984708,
+      "reductionPercent": 67.34974178551234,
+      "originalMedianMs": 344.641292,
+      "reductionFromOriginalPercent": 92.4603613661012
+    },
+    {
+      "sessions": 2631,
+      "anchor": "2026-10-12",
+      "baselineMs": [
+        80.762458,
+        76.800917,
+        79.021333
+      ],
+      "revisedMs": [
+        26.401417,
+        26.041166,
+        26.649334
+      ],
+      "baselineMedianMs": 79.021333,
+      "revisedMedianMs": 26.401417,
+      "reductionPercent": 66.58950691201323,
+      "originalMedianMs": 349.760917,
+      "reductionFromOriginalPercent": 92.45158171860581
+    },
+    {
+      "sessions": 2631,
+      "anchor": "2026-09-19",
+      "baselineMs": [
+        78.421792,
+        78.010167,
+        77.340416
+      ],
+      "revisedMs": [
+        25.868917,
+        25.784333,
+        25.856459
+      ],
+      "baselineMedianMs": 78.010167,
+      "revisedMedianMs": 25.856459,
+      "reductionPercent": 66.85501391119955,
+      "originalMedianMs": 355.109333,
+      "reductionFromOriginalPercent": 92.71873290922488
+    },
+    {
+      "sessions": 20000,
+      "anchor": "2026-10-19",
+      "baselineMs": [
+        538.059958,
+        539.887625,
+        533.233292
+      ],
+      "revisedMs": [
+        29.152083,
+        29.070208,
+        28.871083
+      ],
+      "baselineMedianMs": 538.059958,
+      "revisedMedianMs": 29.070208,
+      "reductionPercent": 94.5972177323777,
+      "originalMedianMs": 2704.651875,
+      "reductionFromOriginalPercent": 98.92517745929871
+    },
+    {
+      "sessions": 20000,
+      "anchor": "2026-10-12",
+      "baselineMs": [
+        539.106625,
+        542.723959,
+        542.439708
+      ],
+      "revisedMs": [
+        29.953375,
+        29.330333,
+        29.237125
+      ],
+      "baselineMedianMs": 542.439708,
+      "revisedMedianMs": 29.330333,
+      "reductionPercent": 94.59288607241858,
+      "originalMedianMs": 2699.830667,
+      "reductionFromOriginalPercent": 98.91362323724579
+    },
+    {
+      "sessions": 20000,
+      "anchor": "2026-09-19",
+      "baselineMs": [
+        536.777417,
+        542.815959,
+        532.089625
+      ],
+      "revisedMs": [
+        29.18175,
+        29.302875,
+        29.384708
+      ],
+      "baselineMedianMs": 536.777417,
+      "revisedMedianMs": 29.302875,
+      "reductionPercent": 94.5409635219434,
+      "originalMedianMs": 2741.294708,
+      "reductionFromOriginalPercent": 98.93105710544421
+    }
+  ],
+  "phases": [
+    {
+      "sessions": 2631,
+      "phase": "fullCold",
+      "samplesMs": [
+        104.540041,
+        102.986916,
+        103.961917
+      ],
+      "medianMs": 103.961917,
+      "ledgerQueries": [
+        4,
+        4,
+        4
+      ],
+      "writes": [
+        17,
+        17,
+        17
+      ]
+    },
+    {
+      "sessions": 2631,
+      "phase": "fullWarm",
+      "samplesMs": [
+        26.172458,
+        26.153667,
+        26.298125
+      ],
+      "medianMs": 26.172458,
+      "ledgerQueries": [
+        3,
+        3,
+        3
+      ],
+      "writes": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "sessions": 2631,
+      "phase": "weekCold",
+      "samplesMs": [
+        3.110208,
+        2.974667,
+        3.069542
+      ],
+      "medianMs": 3.069542,
+      "ledgerQueries": [
+        1,
+        1,
+        1
+      ],
+      "writes": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "sessions": 2631,
+      "phase": "weekWarm",
+      "samplesMs": [
+        2.221458,
+        2.192416,
+        2.262333
+      ],
+      "medianMs": 2.221458,
+      "ledgerQueries": [
+        0,
+        0,
+        0
+      ],
+      "writes": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "sessions": 20000,
+      "phase": "fullCold",
+      "samplesMs": [
+        560.714542,
+        574.0455,
+        562.194416
+      ],
+      "medianMs": 562.194416,
+      "ledgerQueries": [
+        4,
+        4,
+        4
+      ],
+      "writes": [
+        17,
+        17,
+        17
+      ]
+    },
+    {
+      "sessions": 20000,
+      "phase": "fullWarm",
+      "samplesMs": [
+        30.055125,
+        30.08825,
+        29.793667
+      ],
+      "medianMs": 30.055125,
+      "ledgerQueries": [
+        3,
+        3,
+        3
+      ],
+      "writes": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "sessions": 20000,
+      "phase": "weekCold",
+      "samplesMs": [
+        6.923917,
+        6.748208,
+        6.669125
+      ],
+      "medianMs": 6.748208,
+      "ledgerQueries": [
+        1,
+        1,
+        1
+      ],
+      "writes": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "sessions": 20000,
+      "phase": "weekWarm",
+      "samplesMs": [
+        2.372625,
+        2.243041,
+        2.201375
+      ],
+      "medianMs": 2.243041,
+      "ledgerQueries": [
+        0,
+        0,
+        0
+      ],
+      "writes": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "fallback": [
+    {
+      "sessions": 2631,
+      "baselineMs": [
+        76.333334,
+        76.734583,
+        77.652833
+      ],
+      "revisedMs": [
+        76.232584,
+        75.751666,
+        76.052958
+      ],
+      "baselineMedianMs": 76.734583,
+      "revisedMedianMs": 76.052958,
+      "reductionPercent": 0.8882891824667838
+    },
+    {
+      "sessions": 20000,
+      "baselineMs": [
+        533.273208,
+        535.562958,
+        532.334041
+      ],
+      "revisedMs": [
+        530.326584,
+        529.614084,
+        531.281458
+      ],
+      "baselineMedianMs": 533.273208,
+      "revisedMedianMs": 530.326584,
+      "reductionPercent": 0.5525542922081184
+    }
+  ]
+}

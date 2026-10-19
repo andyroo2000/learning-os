@@ -5,6 +5,7 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Data\StudyActivitySessionData;
 use App\Domain\Study\Enums\StudyActivitySource;
 use App\Domain\Study\Models\StudyActivitySession;
+use App\Domain\Study\Support\StudyActivityDailySummaryInvalidator;
 use App\Domain\Study\Support\StudyActivitySessionId;
 use App\Domain\Study\Support\StudyActivitySessionIdentityResolver;
 use App\Models\User;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 
 class UpsertStudyActivitySessionsAction
 {
+    public function __construct(private readonly StudyActivityDailySummaryInvalidator $summaries) {}
+
     /**
      * @param  list<StudyActivitySessionData>  $sessions
      * @return Collection<int, StudyActivitySession>
@@ -45,7 +48,10 @@ class UpsertStudyActivitySessionsAction
                     }
                 })
                 ->lockForUpdate()
-                ->get(['id', 'client_session_id', 'source', 'origin', 'source_key']);
+                ->get([
+                    'id', 'client_session_id', 'source', 'origin', 'source_key',
+                    'category', 'started_at', 'ended_at', 'duration_ms',
+                ]);
             $resolved = StudyActivitySessionIdentityResolver::resolve($sessions, $existingSessions);
             $this->upsertResolvedSessions($resolved, $userId, $now);
 
@@ -55,6 +61,10 @@ class UpsertStudyActivitySessionsAction
                 ->whereIn('client_session_id', $resolvedClientSessionIds)
                 ->get()
                 ->keyBy('client_session_id');
+
+            // Compare persisted values, including database timestamp precision,
+            // after identity resolution and immutable-session rejection.
+            $this->summaries->changed($userId, $existingSessions, $byClientId);
 
             return $resolved->map(
                 fn (array $item): StudyActivitySession => $byClientId[$item['client_session_id']],

@@ -164,6 +164,7 @@ jobs:
             tests/Feature/Study/ManualStudyCardOwnerLockPostgresTest.php \
             tests/Feature/Study/RepairLegacyStudyMediaReferencesLockPostgresTest.php \
             tests/Feature/Study/StudyActivitySessionLockPostgresTest.php \
+            tests/Feature/Study/StudyActivityDailySummaryLockPostgresTest.php \
             tests/Feature/Study/StudyCardDraftOwnershipLockPostgresTest.php \
             tests/Feature/Study/StudyImportCancellationLockPostgresTest.php \
             tests/Feature/Study/StudyImportTimeoutLockPostgresTest.php

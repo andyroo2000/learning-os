@@ -38,7 +38,10 @@ final class CreateCardConflictResolver
         $this->assertContentMatches($card, $data, $ownerId);
         $this->assertVariantMatches($card, $data, $ownerId);
         $this->assertSchedulingMatches($card, $data, $ownerId);
-        $this->assertSame(CardBookSource::payload($card), $data->bookSource(), $ownerId);
+        // Older clients retry without source metadata after another device categorizes a card.
+        if ($data->bookSource() !== null) {
+            $this->assertSame(CardBookSource::payload($card), $data->bookSource(), $ownerId);
+        }
 
         return $card;
     }

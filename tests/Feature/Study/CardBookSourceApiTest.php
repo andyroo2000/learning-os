@@ -49,6 +49,18 @@ class CardBookSourceApiTest extends TestCase
         $this->assertSame($source, CardBookSource::payload(Card::sole()));
     }
 
+    public function test_legacy_creation_retry_does_not_remove_a_later_source_assignment(): void
+    {
+        $user = $this->signIn();
+        $input = $this->cardInput();
+        $this->postJson('/api/study/cards', $input)->assertCreated();
+        $source = $this->source($user->id);
+        $this->putJson('/api/study/card-sources', ['cardIds' => [$input['id']], 'bookSource' => $source])->assertOk();
+        $this->postJson('/api/study/cards', $input)->assertOk()->assertJsonPath('bookSource', $source);
+        $different = [...$source, 'position' => 99];
+        $this->postJson('/api/study/cards', [...$input, 'bookSource' => $different])->assertConflict();
+    }
+
     public function test_source_is_optional_and_cannot_reference_someone_elses_book_or_wrong_chapter(): void
     {
         $user = $this->signIn();
@@ -92,11 +104,14 @@ class CardBookSourceApiTest extends TestCase
         $deck = Deck::factory()->for($user)->create();
         $card = Card::factory()->for($deck)->create(['study_status' => 'review', 'due_at' => now()->addDay()]);
         $due = $card->due_at->toJSON();
-        $input = ['cardIds' => [$card->id], 'bookSource' => $source];
+        $input = ['cardIds' => [$card->id, strtoupper($card->id)], 'bookSource' => $source];
         $this->putJson('/api/study/card-sources', $input)->assertOk()->assertJsonPath('changed', 1);
         $this->putJson('/api/study/card-sources', $input)->assertOk()->assertJsonPath('changed', 0);
         $this->assertSame(1, SyncFeedEntry::where('resource_type', 'card')->count());
         $this->assertSame($due, $card->fresh()->due_at->toJSON());
+        $this->assertSame(1, $card->fresh()->content_revision);
+        $this->assertSame($card->study_status, $card->fresh()->study_status);
+        $this->assertSame($card->scheduler_state, $card->fresh()->scheduler_state);
         $foreign = Card::factory()->create();
         $this->putJson('/api/study/card-sources', ['cardIds' => [$card->id, $foreign->id], 'bookSource' => null])->assertNotFound();
         $this->assertSame($source, CardBookSource::payload($card->fresh()));

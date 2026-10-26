@@ -111,7 +111,7 @@ class StudyPreferenceJapaneseRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'PATCH api/study/wanikani/transfer-bridge',
-            'GET|HEAD api/study/google-calendar',
+            'GET|HEAD api/study/piles',
         );
     }
 

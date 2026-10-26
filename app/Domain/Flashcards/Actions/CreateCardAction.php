@@ -15,6 +15,7 @@ use App\Domain\Flashcards\Sync\CardSyncPayload;
 use App\Domain\Study\Actions\MatchLearningConceptsForCardAction;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Study\Models\CardIntroductionCohort;
+use App\Domain\Study\Support\CardBookSource;
 use App\Domain\Sync\Actions\RecordSyncFeedEntryAction;
 use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Domain\Sync\Enums\SyncFeedOperation;
@@ -71,6 +72,7 @@ class CreateCardAction
         $this->validateContent($data);
         $this->validateCardId($data->id);
         $this->validateIntroductionCohort($data);
+        CardBookSource::assertOwned($data->userId, $data->bookSource());
     }
 
     private function validateDeckId(string $deckId): void
@@ -195,6 +197,7 @@ class CreateCardAction
             'prompt_json' => $data->promptJson,
             'answer_json' => $data->answerJson,
         ]);
+        CardBookSource::apply($card, $data->bookSource());
         $card->variant_group_id = $data->variantGroupId;
         $card->variant_sentence_id = $data->variantSentenceId;
         $card->variant_kind = $data->variantKind?->value;

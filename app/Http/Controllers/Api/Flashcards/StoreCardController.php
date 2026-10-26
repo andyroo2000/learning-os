@@ -37,7 +37,7 @@ class StoreCardController extends Controller
                 variantStatus: $request->variantStatus(),
                 variantUnlockedAt: $request->variantUnlockedAt(),
                 id: $data['id'] ?? null,
-            ));
+            )->withBookSource($request->validated('book_source')));
         } catch (CardConflictException $exception) {
             // These conflict exception messages are deliberately user-facing.
             // Hide cross-user IDs before returning same-user deletion details.

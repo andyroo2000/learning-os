@@ -6,6 +6,7 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\CardBookSource;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
 use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use App\Support\Identifiers\CanonicalUlid;
@@ -75,6 +76,7 @@ class StoreStudyCardDraftRequest extends FormRequest
             'imagePlacement' => ['sometimes', 'nullable', 'string', Rule::in(StudyCardImagePlacement::values())],
             'imagePrompt' => ['sometimes', 'nullable', 'string', 'max:'.StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH],
             ...$this->variantMetadataRules(),
+            ...CardBookSource::rules('bookSource'),
         ];
     }
 

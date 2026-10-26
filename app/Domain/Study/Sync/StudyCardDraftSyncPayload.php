@@ -3,6 +3,7 @@
 namespace App\Domain\Study\Sync;
 
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\CardBookSource;
 use BackedEnum;
 use Carbon\CarbonInterface;
 
@@ -20,6 +21,7 @@ final class StudyCardDraftSyncPayload
     public static function fromDraft(StudyCardDraft $draft, ?CarbonInterface $deletedAt = null): array
     {
         return [
+            ...CardBookSource::fields($draft, 'book_source'),
             'id' => $draft->id,
             'revision' => $draft->revision,
             'status' => self::enumValue($draft->status),

@@ -20,6 +20,7 @@ final class StudyCardDraftCreationIdentity
     private static function storedValues(StudyCardDraft $draft): array
     {
         return [
+            'book_source' => CardBookSource::payload($draft),
             'user_id' => $draft->user_id,
             'creation_kind' => $draft->creation_kind,
             'card_type' => $draft->card_type,
@@ -40,6 +41,7 @@ final class StudyCardDraftCreationIdentity
     private static function requestedValues(CreateStudyCardDraftData $data): array
     {
         return [
+            'book_source' => $data->bookSource(),
             'user_id' => $data->userId,
             'creation_kind' => $data->creationKind,
             'card_type' => $data->cardType,

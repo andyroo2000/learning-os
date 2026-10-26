@@ -7,6 +7,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\CardBookSource;
 use App\Domain\Study\Support\StudyCardDraftCreationIdentity;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Database\IntegrityConstraintViolation;
@@ -35,6 +36,8 @@ class CreateStudyCardDraftAction
      */
     public function handle(CreateStudyCardDraftData $data, ?callable $afterCommit = null): StudyCardDraft
     {
+        CardBookSource::assertOwned($data->userId, $data->bookSource());
+
         if ($data->cardType !== $data->creationKind->cardType()) {
             throw StudyCardDraftValidationException::cardTypeMustMatchCreationKind();
         }
@@ -140,6 +143,7 @@ class CreateStudyCardDraftAction
     {
         $draft = new StudyCardDraft;
         $draft->user_id = $data->userId;
+        CardBookSource::apply($draft, $data->bookSource());
         $draft->status = StudyManualCardDraftStatus::Generating;
         $draft->creation_kind = $data->creationKind;
         $draft->card_type = $data->cardType;

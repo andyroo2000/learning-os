@@ -12,6 +12,7 @@ use App\Domain\Study\Enums\StudyManualCardDraftStatus;
 use App\Domain\Study\Exceptions\StudyCardDraftConflictException;
 use App\Domain\Study\Exceptions\StudyCardDraftNotFoundException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\CardBookSource;
 use App\Domain\Study\Support\StudyCardDraftOwnerLock;
 use App\Domain\Study\Support\StudyCardDraftRevision;
 use App\Domain\Study\Support\StudyCardPayloadText;
@@ -122,7 +123,7 @@ class CreateStudyCardFromDraftAction
                 introductionCohortId: $introductionCohortId,
                 selectionPolicy: $selectionPolicy,
                 priorityUntil: $priorityUntil,
-            ));
+            )->withBookSource(CardBookSource::payload($draft)));
 
             if ($draft->committed_card_id === null) {
                 $draft->committed_card_id = $result->card->id;

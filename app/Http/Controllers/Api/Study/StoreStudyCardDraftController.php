@@ -39,7 +39,7 @@ class StoreStudyCardDraftController extends Controller
                     variantStatus: $request->variantStatus(),
                     variantUnlockedAt: $request->variantUnlockedAt(),
                     id: $request->id(),
-                ),
+                )->withBookSource($request->validated('bookSource')),
                 afterCommit: static fn (string $processedDraftId) => ProcessStudyCardDraft::dispatch($processedDraftId),
             );
         } catch (StudyCardDraftValidationException $exception) {

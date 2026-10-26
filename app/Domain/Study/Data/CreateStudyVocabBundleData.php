@@ -2,11 +2,14 @@
 
 namespace App\Domain\Study\Data;
 
+use App\Domain\Study\Support\HasCardBookSource;
 use InvalidArgumentException;
 use LogicException;
 
-final readonly class CreateStudyVocabBundleData
+final class CreateStudyVocabBundleData
 {
+    use HasCardBookSource;
+
     public const MAX_TARGET_WORD_LENGTH = 500;
 
     public const MAX_SOURCE_SENTENCE_LENGTH = 500;
@@ -14,12 +17,12 @@ final readonly class CreateStudyVocabBundleData
     public const MAX_CONTEXT_LENGTH = 2000;
 
     private function __construct(
-        public int $userId,
-        public string $targetWord,
-        public ?string $sourceSentence,
-        public ?string $context,
-        public bool $includeLearnerContext,
-        public ?int $waniKaniSubjectId,
+        public readonly int $userId,
+        public readonly string $targetWord,
+        public readonly ?string $sourceSentence,
+        public readonly ?string $context,
+        public readonly bool $includeLearnerContext,
+        public readonly ?int $waniKaniSubjectId,
     ) {}
 
     public static function fromInput(

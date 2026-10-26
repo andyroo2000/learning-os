@@ -47,6 +47,10 @@ class Card extends Model
     private const CLIENT_TIMESTAMP_STORAGE_FORMAT = 'Y-m-d H:i:s.v';
 
     private const CONTENT_REVISION_FIELDS = [
+        'book_pile_id',
+        'book_chapter_id',
+        'book_position',
+        'book_reference',
         'front_text',
         'back_text',
         'card_type',

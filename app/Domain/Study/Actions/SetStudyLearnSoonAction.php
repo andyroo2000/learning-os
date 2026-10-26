@@ -30,8 +30,8 @@ final class SetStudyLearnSoonAction
             User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
             $changed = 0;
             foreach ($cardIds as $id) {
-                $card = Card::query()->whereKey($id)
-                    ->whereHas('deck', fn ($query) => $query->where('user_id', $userId))
+                $card = Card::withTrashed()->with(['deck' => fn ($query) => $query->withTrashed()])->whereKey($id)
+                    ->whereHas('deck', fn ($query) => $query->withTrashed()->where('user_id', $userId))
                     ->lockForUpdate()->firstOrFail();
                 $changed += $this->update($card, $userId, $learnSoon);
             }
@@ -40,10 +40,18 @@ final class SetStudyLearnSoonAction
         });
     }
 
+    private function isUnchanged(Card $card, bool $learnSoon): bool
+    {
+        return in_array(true, [$card->trashed(), $card->deck->trashed(), (bool) $card->learn_soon === $learnSoon], true);
+    }
+
     private function update(Card $card, int $userId, bool $learnSoon): int
     {
-        if ((bool) $card->learn_soon === $learnSoon) {
+        if ($this->isUnchanged($card, $learnSoon)) {
             return 0;
+        }
+        if ($card->study_status !== CardStudyStatus::New && ! $learnSoon) {
+            return 0; // Introduced cards retain their original attribution for daily lane accounting.
         }
         if ($card->study_status !== CardStudyStatus::New) {
             throw ValidationException::withMessages(['cardIds' => ['Learn soon applies to new cards.']]);

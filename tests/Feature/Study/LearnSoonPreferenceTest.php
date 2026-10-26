@@ -33,10 +33,25 @@ class LearnSoonPreferenceTest extends TestCase
         $this->assertSame(CardSelectionPolicy::Sprinkled, $card->fresh()->selection_policy);
         $this->putJson('/api/study/learn-soon', [...$input, 'learnSoon' => false])->assertOk();
         $this->assertFalse($card->fresh()->learn_soon);
+        $this->assertFalse(SyncFeedEntry::where('resource_type', 'card')->orderByDesc('checkpoint')->first()->payload['learn_soon']);
         $this->assertSame(CardSelectionPolicy::Sprinkled, $card->fresh()->selection_policy);
         $foreign = Card::factory()->create();
         $this->putJson('/api/study/learn-soon', ['cardIds' => [$card->id, $foreign->id], 'learnSoon' => true])->assertNotFound();
         $this->assertFalse($card->fresh()->learn_soon);
+    }
+
+    public function test_clear_after_introduction_and_deleted_card_retries_are_no_ops(): void
+    {
+        $user = $this->signIn();
+        $deck = Deck::factory()->for($user)->create();
+        $introduced = Card::factory()->for($deck)->create(['study_status' => 'review', 'learn_soon' => true]);
+        $deleted = Card::factory()->for($deck)->create();
+        $deleted->delete();
+        $this->putJson('/api/study/learn-soon', [
+            'cardIds' => [$introduced->id, $deleted->id], 'learnSoon' => false,
+        ])->assertOk()->assertJsonPath('changed', 0);
+        $this->assertTrue($introduced->fresh()->learn_soon);
+        $this->assertSame(0, SyncFeedEntry::where('resource_type', 'card')->count());
     }
 
     public function test_flagged_cards_keep_a_share_of_the_usual_mix_after_the_priority_deadline(): void

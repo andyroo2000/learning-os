@@ -72,6 +72,7 @@ class DeleteDeckActionTest extends TestCase
         $this->assertSame($card->id, $entry->resource_id);
         $this->assertSame(SyncFeedOperation::Delete, $entry->operation);
         $this->assertSame([
+            'learn_soon' => false,
             'id' => $card->id,
             'deck_id' => $deck->id,
             'course_id' => null,

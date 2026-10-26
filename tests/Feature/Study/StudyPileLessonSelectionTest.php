@@ -53,7 +53,7 @@ class StudyPileLessonSelectionTest extends TestCase
         $twenty = $this->chapter($user->id, $book, 20);
         $next = $this->chapter($user->id, $book, 21);
         Card::factory()->for($deck)->create(['new_queue_position' => 1, 'book_pile_id' => $book, 'book_chapter_id' => $twenty]);
-        $ready = Card::factory()->for($deck)->create(['new_queue_position' => 2, 'book_pile_id' => $book, 'book_chapter_id' => $next]);
+        $ready = Card::factory()->for($deck)->create(['new_queue_position' => 2, 'book_pile_id' => $book, 'book_chapter_id' => $next, 'learn_soon' => true]);
         Card::factory()->for($deck)->create(['new_queue_position' => 3, 'book_pile_id' => $book, 'book_chapter_id' => $next, 'variant_status' => 'locked']);
         $review = Card::factory()->for($deck)->create(['study_status' => 'review', 'due_at' => now()->subMinute(), 'book_pile_id' => $book, 'book_chapter_id' => $twenty]);
         $this->putJson("/api/study/piles/{$book}/chapters/{$twenty}", ['is_active' => false])->assertOk();
@@ -66,6 +66,8 @@ class StudyPileLessonSelectionTest extends TestCase
         $this->assertSame([$review->id, $ready->id], $reserve['cards']->pluck('id')->all());
         $this->putJson('/api/study/piles/'.$book, ['is_active' => false])->assertOk();
         $this->postJson('/api/study/lessons/start', ['pileId' => $book])->assertOk()->assertJsonCount(0, 'cards');
+        $this->postJson('/api/study/lessons/start', ['pileId' => 'learn-soon'])->assertOk()->assertJsonCount(0, 'cards');
+        $this->getJson('/api/study/piles')->assertOk()->assertJsonPath('learn_soon.ready_count', 0);
         $this->postJson('/api/study/session/start')->assertOk()->assertJsonPath('cards.0.syncId', $review->id);
     }
 

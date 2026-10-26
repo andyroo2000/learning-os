@@ -55,6 +55,7 @@ class StudyCardDraftSyncPayloadTest extends TestCase
         $this->assertSame('study', StudyCardDraftSyncPayload::DOMAIN);
         $this->assertSame('study_card_draft', StudyCardDraftSyncPayload::RESOURCE_TYPE);
         $this->assertSame([
+            'learn_soon' => false,
             'id' => '01ktt2q9z5vfpxsqgc3mwrdh35',
             'revision' => 7,
             'status' => 'ready',

@@ -24,8 +24,10 @@ final class StudyPileCounts
                 continue;
             }
             $existing = $result['piles'][$row->book_pile_id] ?? self::EMPTY_COUNTS;
-            $result['piles'][$row->book_pile_id] = array_map(fn ($a, $b) => $a + $b, $existing, $counts);
-            $result['piles'][$row->book_pile_id] = array_combine(array_keys(self::EMPTY_COUNTS), $result['piles'][$row->book_pile_id]);
+            foreach ($counts as $key => $count) {
+                $existing[$key] += $count;
+            }
+            $result['piles'][$row->book_pile_id] = $existing;
             if ($row->book_chapter_id !== null) {
                 $result['chapters'][$row->book_chapter_id] = $counts;
             }

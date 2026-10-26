@@ -16,6 +16,7 @@ use App\Domain\Study\Support\StudyCardDraftDeleteRateLimiter;
 use App\Domain\Study\Support\StudyCardDraftRetryRateLimiter;
 use App\Domain\Study\Support\StudyCardUpdateRateLimiter;
 use App\Domain\Study\Support\StudyImportRateLimiter;
+use App\Domain\Study\Support\StudyPileWriteRateLimiter;
 use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Study\Support\StudySettingsUpdateRateLimiter;
 use App\Domain\Study\Support\StudyVocabBundleDraftRateLimiter;
@@ -118,6 +119,8 @@ final class StudyRateLimiterRegistrar
         RateLimiter::for(StudySettingsUpdateRateLimiter::NAME, function (Request $request) use ($studySettingsUpdateRateLimiter): Limit {
             return $studySettingsUpdateRateLimiter->limit($request);
         });
+
+        RateLimiter::for(StudyPileWriteRateLimiter::NAME, fn (Request $request): Limit => (new StudyPileWriteRateLimiter)->limit($request));
 
         $studySessionStartRateLimiter = new StudySessionStartRateLimiter;
         RateLimiter::for(StudySessionStartRateLimiter::NAME, function (Request $request) use ($studySessionStartRateLimiter): Limit {

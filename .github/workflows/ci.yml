@@ -43,7 +43,10 @@ jobs:
         run: npm run audit:dependencies
 
       - name: Test ConvoLab CLI
-        run: npm test --prefix tools/convolab
+        run: |
+          npm ci --prefix tools/convolab --ignore-scripts
+          npm audit --prefix tools/convolab --audit-level=high
+          npm test --prefix tools/convolab
 
       - name: Validate Composer files
         run: composer validate --strict

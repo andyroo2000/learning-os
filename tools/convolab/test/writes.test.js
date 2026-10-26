@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { savePile } from '../src/piles.js';
 import { writeCommand } from '../src/writes.js';
 import { newId, requireUlid } from '../src/input.js';
 
@@ -53,4 +54,29 @@ test('ULID generator supplies canonical distinct IDs and rejects malformed IDs',
   const ids = Array.from({ length: 100 }, () => requireUlid(newId().id));
   assert.equal(new Set(ids).size, 100);
   assert.throws(() => requireUlid('not-an-id'), /stable ULID/);
+});
+
+
+test('pile CLI preserves sparse switches, canonicalizes IDs and rejects nonobjects', async t => {
+  const id = newId().id;
+  const values = await input(t, { title: 'Genki' });
+  const calls = [];
+  const api = async (path, options) => { calls.push({ path, options }); return {}; };
+  await savePile(api, 'pile-save', [id.toUpperCase()], values);
+  await savePile(api, 'chapter-save', [id, id.toUpperCase()], values);
+  assert.equal(calls[0].path, `/api/study/piles/${id}`);
+  assert.equal(calls[1].path, `/api/study/piles/${id}/chapters/${id}`);
+  assert.deepEqual(calls[1].options.body, { title: 'Genki' });
+  await assert.rejects(savePile(api, 'pile-save', ['invalid'], values), /stable ULID/);
+  await assert.rejects(savePile(api, 'pile-save', [id], await input(t, [])), /JSON object/);
+});
+
+test('batch CLI routes source assignment and Learn soon without dropping flags', async t => {
+  for (const [command, body] of [['card-sources', { cardIds: [newId().id], bookSource: null }], ['learn-soon', { cardIds: [newId().id], learnSoon: false }]]) {
+    await writeCommand(async (path, options) => {
+      assert.equal(path, `/api/study/${command}`);
+      assert.equal(options.method, 'PUT');
+      assert.deepEqual(options.body, body);
+    }, command, [], await input(t, body));
+  }
 });

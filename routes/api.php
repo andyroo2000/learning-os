@@ -49,6 +49,7 @@ $studyRouteRegistrars = [
     require __DIR__.'/api/study-media.php',
     require __DIR__.'/api/study-preferences-japanese.php',
     require __DIR__.'/api/study-calendar.php',
+    require __DIR__.'/api/study-piles.php',
 ];
 
 Route::middleware('auth:sanctum')->group(function () use ($authenticatedRouteRegistrars, $deckRoutes, $studyRouteRegistrars): void {

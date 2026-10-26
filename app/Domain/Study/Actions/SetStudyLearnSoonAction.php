@@ -11,7 +11,6 @@ use App\Domain\Sync\Data\RecordSyncFeedEntryData;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 
 final class SetStudyLearnSoonAction
 {
@@ -42,7 +41,7 @@ final class SetStudyLearnSoonAction
 
     private function isUnchanged(Card $card, bool $learnSoon): bool
     {
-        return in_array(true, [$card->trashed(), $card->deck->trashed(), (bool) $card->learn_soon === $learnSoon], true);
+        return $card->trashed() || $card->deck->trashed() || (bool) $card->learn_soon === $learnSoon;
     }
 
     private function update(Card $card, int $userId, bool $learnSoon): int
@@ -50,11 +49,8 @@ final class SetStudyLearnSoonAction
         if ($this->isUnchanged($card, $learnSoon)) {
             return 0;
         }
-        if ($card->study_status !== CardStudyStatus::New && ! $learnSoon) {
-            return 0; // Introduced cards retain their original attribution for daily lane accounting.
-        }
         if ($card->study_status !== CardStudyStatus::New) {
-            throw ValidationException::withMessages(['cardIds' => ['Learn soon applies to new cards.']]);
+            return 0; // Introduced cards retain their original attribution for daily lane accounting.
         }
         $card->learn_soon = $learnSoon;
         $card->save();

@@ -71,6 +71,18 @@ class StudyPileLessonSelectionTest extends TestCase
         $this->postJson('/api/study/session/start')->assertOk()->assertJsonPath('cards.0.syncId', $review->id);
     }
 
+    public function test_explicit_extra_batch_preserves_existing_behavior_after_daily_goal(): void
+    {
+        $user = $this->signIn();
+        $deck = Deck::factory()->for($user)->create();
+        StudySettings::factory()->for($user)->create(['new_cards_per_day' => 1, 'lesson_batch_size' => 5]);
+        Card::factory()->for($deck)->create(['study_status' => 'review', 'introduced_at' => now()]);
+        $ready = Card::factory()->for($deck)->create(['new_queue_position' => 1]);
+        $this->getJson('/api/study/overview')->assertOk()->assertJsonPath('newCardsAvailableToday', 0);
+        $this->postJson('/api/study/lessons/start')->assertOk()->assertJsonPath('cards.0.syncId', $ready->id);
+        $this->postJson('/api/study/lessons/start', ['pileId' => 'uncategorized'])->assertOk()->assertJsonPath('cards.0.syncId', $ready->id);
+    }
+
     public function test_learn_soon_is_persistent_and_explicit_choice_can_override_a_zero_lane_weight(): void
     {
         $user = $this->signIn();

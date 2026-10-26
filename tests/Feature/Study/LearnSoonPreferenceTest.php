@@ -50,6 +50,9 @@ class LearnSoonPreferenceTest extends TestCase
         $this->putJson('/api/study/learn-soon', [
             'cardIds' => [$introduced->id, $deleted->id], 'learnSoon' => false,
         ])->assertOk()->assertJsonPath('changed', 0);
+        $this->putJson('/api/study/learn-soon', [
+            'cardIds' => [$introduced->id, $deleted->id], 'learnSoon' => true,
+        ])->assertOk()->assertJsonPath('changed', 0);
         $this->assertTrue($introduced->fresh()->learn_soon);
         $this->assertSame(0, SyncFeedEntry::where('resource_type', 'card')->count());
     }
@@ -81,6 +84,7 @@ class LearnSoonPreferenceTest extends TestCase
         ];
         $card = $this->postJson('/api/study/cards', $input)->assertCreated()->assertJsonPath('learnSoon', true)->json();
         $this->postJson('/api/study/cards', $input)->assertOk();
+        $this->postJson('/api/study/cards', [...$input, 'learnSoon' => false])->assertOk()->assertJsonPath('learnSoon', true);
         $this->assertSame('standard', $card['selectionPolicy']);
         $draftResponse = $this->postJson('/api/study/card-drafts', $input)->assertCreated()->assertJsonPath('learnSoon', true);
         $draft = StudyCardDraft::findOrFail($draftResponse->json('id'));

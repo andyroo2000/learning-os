@@ -43,7 +43,7 @@ class StoreStudyCardController extends Controller
                     variantStatus: $request->variantStatus(),
                     variantUnlockedAt: $request->variantUnlockedAt(),
                     id: $request->id(),
-                )->withBookSource($request->validated('bookSource')));
+                )->withBookSource($request->validated('bookSource'))->withLearnSoon($request->boolean('learnSoon')));
             });
         } catch (CardConflictException $exception) {
             // Hide cross-user IDs before returning same-user deletion details.

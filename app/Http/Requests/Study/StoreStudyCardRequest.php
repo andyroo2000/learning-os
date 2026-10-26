@@ -70,6 +70,7 @@ class StoreStudyCardRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'learnSoon' => ['sometimes', 'boolean'],
             ...$this->studyCardPayloadRules(),
             'id' => ['nullable', 'ulid'],
             'creationKind' => ['sometimes', 'required', 'string', Rule::in(array_keys(self::CREATION_KIND_TO_CARD_TYPE))],

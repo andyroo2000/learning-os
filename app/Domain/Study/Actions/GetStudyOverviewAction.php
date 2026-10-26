@@ -9,6 +9,7 @@ use App\Domain\Study\Models\StudyImportJob;
 use App\Domain\Study\Models\StudySettings;
 use App\Domain\Study\Support\StudyListScopeFilter;
 use App\Domain\Study\Support\StudyOverviewCardsQuery;
+use App\Domain\Study\Support\StudyPileQueue;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Support\DateTime\ServerTimestamp;
 use DateTimeInterface;
@@ -181,6 +182,7 @@ class GetStudyOverviewAction
      */
     private function cardMetricsSql(array $statuses): string
     {
+        $sourceEligible = StudyPileQueue::eligibilitySql();
         $activeDueStatusPlaceholders = $this->statusPlaceholders($statuses['active_due'], 'active due statuses');
         $learningStatusPlaceholders = $this->statusPlaceholders($statuses['learning'], 'learning statuses');
         $suspendedStatusPlaceholders = $this->statusPlaceholders($statuses['suspended'], 'suspended statuses');
@@ -209,9 +211,9 @@ class GetStudyOverviewAction
             COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NULL THEN 1 ELSE 0 END), 0) AS due_count,
             COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.due_at <= ? AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_due_count,
             COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$activeDueStatusPlaceholders}) AND cards.failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed_count,
-            COALESCE(SUM(CASE WHEN {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND (cards.selection_policy IS NULL OR cards.selection_policy = ? OR cards.priority_until IS NULL OR cards.priority_until <= ?) THEN 1 ELSE 0 END), 0) AS standard_new_count,
-            COALESCE(SUM(CASE WHEN {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND cards.selection_policy = ? AND cards.priority_until > ? THEN 1 ELSE 0 END), 0) AS lesson_followup_new_count,
-            COALESCE(SUM(CASE WHEN {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND cards.selection_policy = ? AND cards.priority_until > ? THEN 1 ELSE 0 END), 0) AS wanikani_new_count,
+            COALESCE(SUM(CASE WHEN {$sourceEligible} AND {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND cards.learn_soon = false AND (cards.selection_policy IS NULL OR cards.selection_policy = ? OR cards.priority_until IS NULL OR cards.priority_until <= ?) THEN 1 ELSE 0 END), 0) AS standard_new_count,
+            COALESCE(SUM(CASE WHEN {$sourceEligible} AND {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND (cards.learn_soon = true OR (cards.selection_policy = ? AND cards.priority_until > ?)) THEN 1 ELSE 0 END), 0) AS lesson_followup_new_count,
+            COALESCE(SUM(CASE WHEN {$sourceEligible} AND {$progressionAvailable} AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?) AND cards.study_status = ? AND cards.new_queue_position IS NOT NULL AND cards.learn_soon = false AND cards.selection_policy = ? AND cards.priority_until > ? THEN 1 ELSE 0 END), 0) AS wanikani_new_count,
             COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$learningStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS learning_count,
             COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status = ? THEN 1 ELSE 0 END), 0) AS review_count,
             COALESCE(SUM(CASE WHEN {$progressionAvailable} AND cards.study_status IN ({$suspendedStatusPlaceholders}) THEN 1 ELSE 0 END), 0) AS suspended_count,

@@ -29,7 +29,7 @@ class StoreStudyVocabBundleDraftsController extends Controller
                     sourceSentence: $request->sourceSentence(),
                     context: $request->context(),
                     includeLearnerContext: $request->includeLearnerContext(),
-                )->withBookSource($request->validated('bookSource')),
+                )->withBookSource($request->validated('bookSource'))->withLearnSoon($request->boolean('learnSoon')),
             );
         } catch (StudyCardDraftConflictException $exception) {
             return response()->json([

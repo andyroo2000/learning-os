@@ -8,6 +8,7 @@ use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Study\Support\HasCardBookSource;
+use App\Domain\Study\Support\HasLearnSoonPreference;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
@@ -19,6 +20,7 @@ use LogicException;
 final class CreateStudyCardDraftData
 {
     use HasCardBookSource;
+    use HasLearnSoonPreference;
 
     public const MAX_IMAGE_PROMPT_LENGTH = StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH;
 

@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Data;
 use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Support\HasCardBookSource;
+use App\Domain\Study\Support\HasLearnSoonPreference;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
@@ -15,6 +16,7 @@ use LogicException;
 final class CreateCardData
 {
     use HasCardBookSource;
+    use HasLearnSoonPreference;
 
     private function __construct(
         public readonly int $userId,

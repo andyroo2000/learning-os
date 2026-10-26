@@ -7,6 +7,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueueOrdering;
 use App\Domain\Study\Enums\NewCardLane;
 use App\Domain\Study\Models\StudySettings;
+use App\Domain\Study\Support\StudyPileQueue;
 use DateTimeZone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -41,6 +42,10 @@ final class SelectNewStudyCards
                 }
 
                 $query = clone $baseQuery;
+                $query->whereRaw(StudyPileQueue::eligibilitySql());
+                if ($lane === NewCardLane::Standard) {
+                    StudyPileQueue::ordered($query);
+                }
                 $this->applyLane($query, $lane, $now, $availabilityThrough ?? $now);
 
                 return [$lane->value => NewCardQueueOrdering::positionedCards($query)
@@ -106,14 +111,15 @@ final class SelectNewStudyCards
             ->whereNull('cards.deleted_at')
             ->where('cards.introduced_at', '>=', $dayStart)
             ->where('cards.introduced_at', '<', $dayEnd)
-            ->selectRaw('cards.selection_policy, COUNT(*) AS aggregate')
-            ->groupBy('cards.selection_policy')
+            ->selectRaw("CASE WHEN cards.learn_soon = true THEN 'learn_soon' ELSE cards.selection_policy END AS selection_policy, COUNT(*) AS aggregate")
+            ->groupByRaw("CASE WHEN cards.learn_soon = true THEN 'learn_soon' ELSE cards.selection_policy END")
             ->pluck('aggregate', 'selection_policy');
 
         return [
             NewCardLane::Standard->value => (int) $counts->get(CardSelectionPolicy::Standard->value, 0)
                 + (int) $counts->get(null, 0),
-            NewCardLane::LessonFollowup->value => (int) $counts->get(CardSelectionPolicy::ReviewSoon->value, 0),
+            NewCardLane::LessonFollowup->value => (int) $counts->get(CardSelectionPolicy::ReviewSoon->value, 0)
+                + (int) $counts->get('learn_soon', 0),
             NewCardLane::WaniKani->value => (int) $counts->get(CardSelectionPolicy::Sprinkled->value, 0),
         ];
     }
@@ -130,7 +136,14 @@ final class SelectNewStudyCards
                 ->orWhere('cards.introduction_available_at', '<=', $availabilityThrough);
         });
 
+        if ($lane === NewCardLane::LessonFollowup) {
+            StudyPileQueue::learnSoon($query, $now);
+
+            return;
+        }
+
         if ($lane === NewCardLane::Standard) {
+            $query->where('cards.learn_soon', false);
             $query->where(function (Builder $query) use ($now): void {
                 $query->whereNull('cards.selection_policy')
                     ->orWhere('cards.selection_policy', CardSelectionPolicy::Standard->value)
@@ -144,6 +157,7 @@ final class SelectNewStudyCards
         }
 
         $query
+            ->where('cards.learn_soon', false)
             ->where('cards.selection_policy', $lane === NewCardLane::LessonFollowup
                 ? CardSelectionPolicy::ReviewSoon->value
                 : CardSelectionPolicy::Sprinkled->value)

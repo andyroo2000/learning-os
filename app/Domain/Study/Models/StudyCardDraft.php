@@ -114,6 +114,7 @@ class StudyCardDraft extends Model
             'preview_image_json' => 'array',
             'variant_stage' => 'integer',
             'variant_unlocked_at' => 'datetime',
+            'learn_soon' => 'boolean',
         ];
     }
 

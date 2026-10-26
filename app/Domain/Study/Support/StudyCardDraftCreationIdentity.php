@@ -21,6 +21,7 @@ final class StudyCardDraftCreationIdentity
     {
         return [
             'book_source' => CardBookSource::payload($draft),
+            'learn_soon' => (bool) $draft->learn_soon,
             'user_id' => $draft->user_id,
             'creation_kind' => $draft->creation_kind,
             'card_type' => $draft->card_type,
@@ -42,6 +43,7 @@ final class StudyCardDraftCreationIdentity
     {
         return [
             'book_source' => $data->bookSource(),
+            'learn_soon' => $data->learnSoon(),
             'user_id' => $data->userId,
             'creation_kind' => $data->creationKind,
             'card_type' => $data->cardType,

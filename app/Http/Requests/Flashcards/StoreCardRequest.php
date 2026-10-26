@@ -64,6 +64,7 @@ class StoreCardRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'learn_soon' => ['sometimes', 'boolean'],
             'id' => ['nullable', 'ulid'],
             // Ownership/existence stays in CreateCardAction so idempotent replays can
             // resolve existing card IDs even after a deck has been soft-deleted.

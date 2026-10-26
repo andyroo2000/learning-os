@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Support\NewCardQueueOrdering;
 use App\Domain\Study\Models\CardIntroductionCohort;
 use App\Domain\Study\Results\StartStudySessionResult;
+use App\Domain\Study\Support\StudyPileQueue;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 
@@ -45,6 +46,7 @@ class StartLessonFollowupCohortAction
             ->ownedByActiveDeck($userId)
             ->where('cards.introduction_cohort_id', $cohort->id)
             ->where('cards.study_status', CardStudyStatus::New->value)
+            ->whereRaw(StudyPileQueue::eligibilitySql())
             ->whereProgressionAvailable()
             ->where(function ($query) use ($now): void {
                 $query->whereNull('cards.introduction_available_at')

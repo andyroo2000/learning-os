@@ -24,6 +24,7 @@ class StudyCardSummaryResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            ...(($this->learn_soon ?? false) ? ['learnSoon' => true] : []),
             ...CardBookSource::fields($this->resource, 'bookSource'),
             'id' => $this->resource->clientId(),
             // Compatibility IDs remain stable for ConvoLab UI identity; offline sync writes

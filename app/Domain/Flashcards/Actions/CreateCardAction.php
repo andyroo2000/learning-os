@@ -198,6 +198,7 @@ class CreateCardAction
             'answer_json' => $data->answerJson,
         ]);
         CardBookSource::apply($card, $data->bookSource());
+        $card->learn_soon = $data->learnSoon();
         $card->variant_group_id = $data->variantGroupId;
         $card->variant_sentence_id = $data->variantSentenceId;
         $card->variant_kind = $data->variantKind?->value;

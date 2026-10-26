@@ -3,12 +3,14 @@
 namespace App\Domain\Study\Data;
 
 use App\Domain\Study\Support\HasCardBookSource;
+use App\Domain\Study\Support\HasLearnSoonPreference;
 use InvalidArgumentException;
 use LogicException;
 
 final class CreateStudyVocabBundleData
 {
     use HasCardBookSource;
+    use HasLearnSoonPreference;
 
     public const MAX_TARGET_WORD_LENGTH = 500;
 

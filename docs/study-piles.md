@@ -46,3 +46,15 @@ Card and draft creation accept `bookSource` with `pileId`, optional `chapterId`,
 Unassigned existing cards remain uncategorized. Do not infer a textbook from the Japanese word alone: use import deck names, tags, chapter annotations, or an explicit user decision. Keep uncertain matches for review.
 
 Source writes advance the server-owned content revision so clients refresh their metadata and detect stale edits. They do not modify due dates, scheduler state, study status, or introduction dates. A creation retry that omits source metadata remains compatible with a later assignment; a retry that explicitly supplies a different source returns 409, just as conflicting content does. A missing, deleted, or foreign card in an assignment batch returns 404 and rolls back the whole batch. DTO fields remain readonly; source metadata is private and changed only by making a validated copy.
+
+## Choosing new cards
+
+`POST /api/study/lessons/start` accepts an optional `pileId`. Omit it for the usual weighted mix, or choose a pile ULID, `uncategorized`, or `learn-soon`. An explicit choice bypasses lane weights for that batch, while preserving chapter switches, prerequisite locks, and introduction availability dates. An inactive book or disabled chapter supplies no new cards; already introduced cards continue their ordinary reviews.
+
+Standard draws from active books by pile position, chapter position, and the card's source position, with the existing queue order as a tie-breaker. Uncategorized cards follow the active books. The usual mix retains the existing Standard / lesson-followup / WaniKani weight keys for compatibility; clients label the middle lane **Learn soon**. Existing lesson follow-up deadlines still work. Personal `learnSoon` flags remain eligible for that lane until introduction, regardless of an expired deadline. A disabled source still pauses its flagged cards.
+
+Card, draft, and vocabulary-family creation accept `learnSoon: true` (shared Flashcards uses `learn_soon`). `PUT /api/study/learn-soon` accepts up to 100 canonical `cardIds` and a required boolean `learnSoon`. It changes only new cards, retains their original lane and source, and is retry-safe. Clearing the flag restores the original lane; it does not reset learning or review state. Sync payloads are full snapshots: absent optional source/urgency fields mean no source / false.
+
+The catalog list includes `new_count` (including locked or paused cards), `ready_count` (eligible now), and `introduced_count` for each book and chapter, plus counts for `uncategorized` and `learn_soon`. These are live summaries; chapter changes have their own sync records, so clients must not use the parent pile timestamp alone as a cache key. Reload the catalog after settings changes and refresh any cached new-card reserve.
+
+The daily new-card setting is a dashboard goal, not a server prohibition on extra lessons. As before, explicitly requesting another lesson can exceed that goal; the server caps each request at `lesson_batch_size`. `new_count` counts eligible inventory, while `new_cards_available_today` subtracts today’s introductions. Choosing a pile preserves this behavior.

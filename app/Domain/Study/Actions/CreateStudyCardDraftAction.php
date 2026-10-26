@@ -144,6 +144,7 @@ class CreateStudyCardDraftAction
         $draft = new StudyCardDraft;
         $draft->user_id = $data->userId;
         CardBookSource::apply($draft, $data->bookSource());
+        $draft->learn_soon = $data->learnSoon();
         $draft->status = StudyManualCardDraftStatus::Generating;
         $draft->creation_kind = $data->creationKind;
         $draft->card_type = $data->cardType;

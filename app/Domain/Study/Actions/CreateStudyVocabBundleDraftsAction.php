@@ -83,7 +83,7 @@ class CreateStudyVocabBundleDraftsAction
                         variantUnlockedAt: $variant['variantStatus'] === VocabVariantStatus::Available
                             ? now()
                             : null,
-                    )->withBookSource($data->bookSource()));
+                    )->withBookSource($data->bookSource())->withLearnSoon($data->learnSoon()));
                 });
 
             if ($afterCommit !== null) {

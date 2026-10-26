@@ -241,6 +241,7 @@ class FlashcardSyncPayloadTest extends TestCase
     private function clientFacingCardPayload(): array
     {
         return [
+            'learn_soon' => false,
             ...self::CARD_IDENTITY,
             'course_id' => '01k1j8j9m0e4k7r2y8p5w6q3at',
             ...self::CLIENT_CARD_SOURCE,
@@ -308,6 +309,7 @@ class FlashcardSyncPayloadTest extends TestCase
                 'deleted_at' => Carbon::parse('2026-05-28T10:20:00Z'),
             ],
             'payload' => [
+                'learn_soon' => false,
                 ...self::CARD_IDENTITY,
                 'course_id' => null,
                 ...self::SOFT_DELETED_CARD_SOURCE,

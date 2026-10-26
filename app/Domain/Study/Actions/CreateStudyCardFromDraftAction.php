@@ -123,7 +123,7 @@ class CreateStudyCardFromDraftAction
                 introductionCohortId: $introductionCohortId,
                 selectionPolicy: $selectionPolicy,
                 priorityUntil: $priorityUntil,
-            )->withBookSource(CardBookSource::payload($draft)));
+            )->withBookSource(CardBookSource::payload($draft))->withLearnSoon((bool) $draft->learn_soon));
 
             if ($draft->committed_card_id === null) {
                 $draft->committed_card_id = $result->card->id;

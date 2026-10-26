@@ -21,6 +21,7 @@ final class StudyCardDraftSyncPayload
     public static function fromDraft(StudyCardDraft $draft, ?CarbonInterface $deletedAt = null): array
     {
         return [
+            'learn_soon' => (bool) $draft->learn_soon,
             ...CardBookSource::fields($draft, 'book_source'),
             'id' => $draft->id,
             'revision' => $draft->revision,

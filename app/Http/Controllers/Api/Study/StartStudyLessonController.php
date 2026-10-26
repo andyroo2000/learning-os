@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Study;
 
 use App\Domain\Study\Actions\StartStudyLessonAction;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Study\StartStudySessionRequest;
+use App\Http\Requests\Study\StartStudyLessonRequest;
 use App\Http\Resources\Study\StudySessionResource;
 use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
@@ -12,16 +12,20 @@ use Illuminate\Http\JsonResponse;
 class StartStudyLessonController extends Controller
 {
     public function __invoke(
-        StartStudySessionRequest $request,
+        StartStudyLessonRequest $request,
         StartStudyLessonAction $startStudyLesson,
     ): JsonResponse {
-        return StudySessionResource::make(
-            $startStudyLesson->handle(
-                userId: AuthenticatedUser::id($request),
-                timeZone: $request->timeZone(),
-                deckId: $request->deckId(),
-                courseId: $request->courseId(),
-            ),
-        )->response()->setStatusCode(200);
+        $scope = [
+            'timeZone' => $request->timeZone(),
+            'deckId' => $request->deckId(),
+            'courseId' => $request->courseId(),
+        ];
+        $userId = AuthenticatedUser::id($request);
+        $pileId = $request->validated('pileId');
+        $result = $pileId === null
+            ? $startStudyLesson->handle(...['userId' => $userId, ...$scope])
+            : $startStudyLesson->fromPile($userId, $pileId, $scope);
+
+        return StudySessionResource::make($result)->response()->setStatusCode(200);
     }
 }

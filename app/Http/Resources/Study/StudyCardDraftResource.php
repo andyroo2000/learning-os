@@ -16,6 +16,7 @@ class StudyCardDraftResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            ...(($this->learn_soon ?? false) ? ['learnSoon' => true] : []),
             ...CardBookSource::fields($this->resource, 'bookSource'),
             'id' => $this->id,
             'revision' => $this->revision,

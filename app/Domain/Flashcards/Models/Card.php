@@ -47,6 +47,7 @@ class Card extends Model
     private const CLIENT_TIMESTAMP_STORAGE_FORMAT = 'Y-m-d H:i:s.v';
 
     private const CONTENT_REVISION_FIELDS = [
+        'learn_soon',
         'book_pile_id',
         'book_chapter_id',
         'book_position',
@@ -198,6 +199,7 @@ class Card extends Model
             'variant_stage' => 'integer',
             'variant_unlock_requirement' => CardProgressionUnlockRequirement::class,
             'variant_unlocked_at' => 'datetime',
+            'learn_soon' => 'boolean',
             'variant_retired_at' => 'datetime',
             'convolab_note_created_at' => 'datetime',
             'convolab_note_updated_at' => 'datetime',

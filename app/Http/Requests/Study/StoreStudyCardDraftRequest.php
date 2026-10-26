@@ -68,6 +68,7 @@ class StoreStudyCardDraftRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'learnSoon' => ['sometimes', 'boolean'],
             'id' => ['sometimes', 'required', 'string', 'ulid'],
             'prompt' => ['present', 'array'],
             'answer' => ['present', 'array'],

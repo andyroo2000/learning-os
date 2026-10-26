@@ -38,6 +38,7 @@ class StoreStudyVocabBundleDraftsRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'learnSoon' => ['sometimes', 'boolean'],
             'targetWord' => ['required', 'string', 'max:'.CreateStudyVocabBundleData::MAX_TARGET_WORD_LENGTH],
             'sourceSentence' => ['sometimes', 'nullable', 'string', 'max:'.CreateStudyVocabBundleData::MAX_SOURCE_SENTENCE_LENGTH],
             'context' => ['sometimes', 'nullable', 'string', 'max:'.CreateStudyVocabBundleData::MAX_CONTEXT_LENGTH],

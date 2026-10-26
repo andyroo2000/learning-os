@@ -22,6 +22,7 @@ final class CardSyncPayload
     public static function fromCard(Card $card): array
     {
         return [
+            'learn_soon' => (bool) $card->learn_soon,
             ...CardBookSource::fields($card, 'book_source'),
             'id' => $card->id,
             'deck_id' => $card->deck_id,

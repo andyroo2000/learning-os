@@ -42,6 +42,9 @@ final class CreateCardConflictResolver
         if ($data->bookSource() !== null) {
             $this->assertSame(CardBookSource::payload($card), $data->bookSource(), $ownerId);
         }
+        if ($data->learnSoon()) {
+            $this->assertSame((bool) $card->learn_soon, true, $ownerId);
+        }
 
         return $card;
     }

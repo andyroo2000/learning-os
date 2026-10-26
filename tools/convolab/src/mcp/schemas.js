@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ulid = z.string().regex(/^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$/, 'Use a saved, stable ULID.');
+export const ulid = z.string().regex(/^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$/, 'Use a saved, stable ULID.').transform(value => value.toLowerCase());
 export const bookSource = z.object({
   pileId: ulid,
   chapterId: ulid.nullable().optional(),

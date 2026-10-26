@@ -36,7 +36,7 @@ test('MCP writes preserve chapter state and source metadata on retries', async t
   assert.deepEqual(calls[0].options.body, { title: 'Chapter 20' });
   const card = { id, cardType: 'recognition', prompt: { cueText: '猫' }, answer: { meaning: 'cat' }, bookSource: { pileId: id, chapterId: id, position: 20 }, learnSoon: true };
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const response = await client.callTool({ name: 'create_card', arguments: { card } });
+    const response = await client.callTool({ name: 'create_card', arguments: { card: { ...card, id: id.toUpperCase(), bookSource: { ...card.bookSource, pileId: id.toUpperCase() } } } });
     assert.notEqual(response.isError, true);
   }
   assert.deepEqual(calls[1], calls[2]);
@@ -63,4 +63,16 @@ test('MCP returns API failures as tool errors and preserves clearing semantics',
   const failed = await client.callTool({ name: 'set_learn_soon', arguments: { cardIds: [id], learnSoon: false } });
   assert.equal(failed.isError, true);
   assert.match(failed.content[0].text, /429/);
+});
+
+
+test('draft creation keeps source data and validates creation kind', async t => {
+  const calls = [];
+  const client = await connected(t, async (path, options) => { calls.push({ path, options }); return {}; });
+  const draft = { id, cardType: 'recognition', creationKind: 'audio-recognition', prompt: {}, answer: {}, bookSource: { pileId: id }, learnSoon: true };
+  await client.callTool({ name: 'create_draft', arguments: { draft } });
+  assert.deepEqual(calls[0], { path: '/api/study/card-drafts', options: { method: 'POST', body: draft } });
+  const invalid = await client.callTool({ name: 'create_draft', arguments: { draft: { ...draft, creationKind: 'invalid' } } });
+  assert.equal(invalid.isError, true);
+  assert.equal(calls.length, 1);
 });

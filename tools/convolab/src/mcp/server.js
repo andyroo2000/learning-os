@@ -5,14 +5,14 @@ import { toolDefinitions } from './tools.js';
 const result = value => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 
 export function createMcpServer(api) {
-  const server = new McpServer({ name: 'convolab', version: '0.2.0' }, {
+  const server = new McpServer({ name: 'convolab', version: '0.1.1' }, {
     instructions: 'Discover existing piles first. Save stable IDs before writes and reuse them on retries. Keep imported books and chapters inactive unless the learner chooses them. Book sources and Learn soon are separate; all reviews remain unified.',
   });
   for (const tool of toolDefinitions) {
     server.registerTool(tool.name, {
       description: tool.description,
       inputSchema: z.object(tool.schema).strict(),
-      annotations: { readOnlyHint: tool.read === true, destructiveHint: false, idempotentHint: tool.name !== 'new_ids', openWorldHint: true },
+      annotations: { readOnlyHint: tool.read === true, destructiveHint: false, idempotentHint: tool.name !== 'new_ids', openWorldHint: !tool.local },
     }, async args => {
       try {
         if (tool.local) return result(tool.local(args));

@@ -4,6 +4,7 @@ namespace App\Domain\Flashcards\Data;
 
 use App\Domain\Flashcards\Enums\CardSelectionPolicy;
 use App\Domain\Flashcards\Enums\CardType;
+use App\Domain\Study\Support\HasCardBookSource;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
 use App\Domain\Vocabulary\Support\VocabVariantMetadataInput;
@@ -11,26 +12,28 @@ use App\Support\Identifiers\CanonicalUlid;
 use DateTimeInterface;
 use LogicException;
 
-final readonly class CreateCardData
+final class CreateCardData
 {
+    use HasCardBookSource;
+
     private function __construct(
-        public int $userId,
-        public string $deckId,
-        public string $frontText,
-        public string $backText,
-        public CardType $cardType,
-        public ?array $promptJson,
-        public ?array $answerJson,
-        public ?string $variantGroupId,
-        public ?string $variantSentenceId,
-        public ?VocabVariantKind $variantKind,
-        public ?int $variantStage,
-        public ?VocabVariantStatus $variantStatus,
-        public ?DateTimeInterface $variantUnlockedAt,
-        public ?string $id = null,
-        public ?string $introductionCohortId = null,
-        public CardSelectionPolicy $selectionPolicy = CardSelectionPolicy::Standard,
-        public ?DateTimeInterface $priorityUntil = null,
+        public readonly int $userId,
+        public readonly string $deckId,
+        public readonly string $frontText,
+        public readonly string $backText,
+        public readonly CardType $cardType,
+        public readonly ?array $promptJson,
+        public readonly ?array $answerJson,
+        public readonly ?string $variantGroupId,
+        public readonly ?string $variantSentenceId,
+        public readonly ?VocabVariantKind $variantKind,
+        public readonly ?int $variantStage,
+        public readonly ?VocabVariantStatus $variantStatus,
+        public readonly ?DateTimeInterface $variantUnlockedAt,
+        public readonly ?string $id = null,
+        public readonly ?string $introductionCohortId = null,
+        public readonly CardSelectionPolicy $selectionPolicy = CardSelectionPolicy::Standard,
+        public readonly ?DateTimeInterface $priorityUntil = null,
     ) {}
 
     public static function fromInput(

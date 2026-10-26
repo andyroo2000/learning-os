@@ -2,12 +2,15 @@
 
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
 use App\Domain\Study\Support\StudyPileWriteRateLimiter;
+use App\Http\Controllers\Api\Study\AssignStudyCardSourcesController;
 use App\Http\Controllers\Api\Study\StudyPileController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
     Route::get('/study/piles', [StudyPileController::class, 'index'])
         ->middleware('throttle:'.StudyCompatibilityTrafficRateLimiter::READ_NAME);
+    Route::put('/study/card-sources', AssignStudyCardSourcesController::class)
+        ->middleware('throttle:'.StudyPileWriteRateLimiter::NAME);
     Route::put('/study/piles/{pileId}', [StudyPileController::class, 'save'])
         ->whereUlid('pileId')
         ->middleware('throttle:'.StudyPileWriteRateLimiter::NAME);

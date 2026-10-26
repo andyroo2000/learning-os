@@ -5,6 +5,7 @@ namespace App\Domain\Flashcards\Sync;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Study\Support\CardBookSource;
 use BackedEnum;
 
 final class CardSyncPayload
@@ -21,6 +22,7 @@ final class CardSyncPayload
     public static function fromCard(Card $card): array
     {
         return [
+            ...CardBookSource::fields($card, 'book_source'),
             'id' => $card->id,
             'deck_id' => $card->deck_id,
             'course_id' => $card->deckCourseId(),

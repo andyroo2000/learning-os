@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardType;
+use App\Domain\Study\Support\CardBookSource;
 use App\Http\Requests\Flashcards\Concerns\ValidatesCardVariantMetadata;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Foundation\Http\FormRequest;
@@ -73,6 +74,7 @@ class StoreCardRequest extends FormRequest
             'prompt_json' => ['sometimes', 'nullable', 'array'],
             'answer_json' => ['sometimes', 'nullable', 'array'],
             ...$this->cardVariantMetadataRules(),
+            ...CardBookSource::rules('book_source'),
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Study;
 
 use App\Domain\Study\Data\CreateStudyVocabBundleData;
+use App\Domain\Study\Support\CardBookSource;
 use Illuminate\Foundation\Http\FormRequest;
 use LogicException;
 
@@ -41,6 +42,7 @@ class StoreStudyVocabBundleDraftsRequest extends FormRequest
             'sourceSentence' => ['sometimes', 'nullable', 'string', 'max:'.CreateStudyVocabBundleData::MAX_SOURCE_SENTENCE_LENGTH],
             'context' => ['sometimes', 'nullable', 'string', 'max:'.CreateStudyVocabBundleData::MAX_CONTEXT_LENGTH],
             'includeLearnerContext' => ['sometimes', 'boolean'],
+            ...CardBookSource::rules('bookSource'),
         ];
     }
 

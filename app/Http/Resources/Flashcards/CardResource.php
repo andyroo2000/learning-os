@@ -4,6 +4,7 @@ namespace App\Http\Resources\Flashcards;
 
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
+use App\Domain\Study\Support\CardBookSource;
 use App\Http\Resources\Media\MediaAssetResource;
 use BackedEnum;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ class CardResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            ...CardBookSource::fields($this->resource, 'book_source'),
             'id' => $this->id,
             'deck_id' => $this->deck_id,
             'course_id' => $this->deckCourseId(),

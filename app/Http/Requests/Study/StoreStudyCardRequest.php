@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Study;
 
 use App\Domain\Flashcards\Enums\CardType;
+use App\Domain\Study\Support\CardBookSource;
 use App\Http\Requests\Study\Concerns\ValidatesStudyCardPayloads;
 use App\Http\Requests\Study\Concerns\ValidatesVocabVariantMetadata;
 use App\Support\Identifiers\CanonicalUlid;
@@ -75,6 +76,7 @@ class StoreStudyCardRequest extends FormRequest
             // Legacy callers send cardType; when creationKind is present, it owns the persisted card type.
             'cardType' => ['exclude_with:creationKind', 'required_without:creationKind', 'string', Rule::in(CardType::values())],
             ...$this->variantMetadataRules(),
+            ...CardBookSource::rules('bookSource'),
         ];
     }
 

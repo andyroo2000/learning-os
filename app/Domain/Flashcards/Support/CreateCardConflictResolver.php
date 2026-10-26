@@ -8,6 +8,7 @@ use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Flashcards\Exceptions\CardConflictException;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
+use App\Domain\Study\Support\CardBookSource;
 use App\Support\Identifiers\CanonicalUlid;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
@@ -37,6 +38,10 @@ final class CreateCardConflictResolver
         $this->assertContentMatches($card, $data, $ownerId);
         $this->assertVariantMatches($card, $data, $ownerId);
         $this->assertSchedulingMatches($card, $data, $ownerId);
+        // Older clients retry without source metadata after another device categorizes a card.
+        if ($data->bookSource() !== null) {
+            $this->assertSame(CardBookSource::payload($card), $data->bookSource(), $ownerId);
+        }
 
         return $card;
     }

@@ -7,6 +7,7 @@ use App\Domain\Study\Enums\StudyCardCreationKind;
 use App\Domain\Study\Enums\StudyCardImagePlacement;
 use App\Domain\Study\Exceptions\StudyCardDraftValidationException;
 use App\Domain\Study\Models\StudyCardDraft;
+use App\Domain\Study\Support\HasCardBookSource;
 use App\Domain\Study\Support\StudyCardPayloadShapeValidator;
 use App\Domain\Vocabulary\Enums\VocabVariantKind;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
@@ -15,25 +16,27 @@ use App\Support\Identifiers\CanonicalUlid;
 use DateTimeInterface;
 use LogicException;
 
-final readonly class CreateStudyCardDraftData
+final class CreateStudyCardDraftData
 {
+    use HasCardBookSource;
+
     public const MAX_IMAGE_PROMPT_LENGTH = StudyCardDraft::MAX_IMAGE_PROMPT_LENGTH;
 
     private function __construct(
-        public int $userId,
-        public StudyCardCreationKind $creationKind,
-        public CardType $cardType,
-        public array $promptJson,
-        public array $answerJson,
-        public StudyCardImagePlacement $imagePlacement,
-        public ?string $imagePrompt,
-        public ?string $variantGroupId,
-        public ?string $variantSentenceId,
-        public ?VocabVariantKind $variantKind,
-        public ?int $variantStage,
-        public ?VocabVariantStatus $variantStatus,
-        public ?DateTimeInterface $variantUnlockedAt,
-        public ?string $id,
+        public readonly int $userId,
+        public readonly StudyCardCreationKind $creationKind,
+        public readonly CardType $cardType,
+        public readonly array $promptJson,
+        public readonly array $answerJson,
+        public readonly StudyCardImagePlacement $imagePlacement,
+        public readonly ?string $imagePrompt,
+        public readonly ?string $variantGroupId,
+        public readonly ?string $variantSentenceId,
+        public readonly ?VocabVariantKind $variantKind,
+        public readonly ?int $variantStage,
+        public readonly ?VocabVariantStatus $variantStatus,
+        public readonly ?DateTimeInterface $variantUnlockedAt,
+        public readonly ?string $id,
     ) {}
 
     public static function fromInput(

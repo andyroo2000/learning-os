@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Study;
 
+use App\Domain\Study\Support\CardBookSource;
 use BackedEnum;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -15,6 +16,7 @@ class StudyCardDraftResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            ...CardBookSource::fields($this->resource, 'bookSource'),
             'id' => $this->id,
             'revision' => $this->revision,
             'status' => $this->stringAttributeValue('status'),

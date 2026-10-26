@@ -5,6 +5,7 @@ namespace App\Http\Resources\Study;
 use App\Domain\Flashcards\Enums\CardStudyStatus;
 use App\Domain\Flashcards\Enums\CardType;
 use App\Domain\Study\Enums\StudyMasteryLevel;
+use App\Domain\Study\Support\CardBookSource;
 use App\Domain\Study\Support\StudyCardAudio;
 use App\Domain\Study\Support\StudyCardPresentation;
 use App\Support\DateTime\ConvoLabTimestamp;
@@ -23,6 +24,7 @@ class StudyCardSummaryResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            ...CardBookSource::fields($this->resource, 'bookSource'),
             'id' => $this->resource->clientId(),
             // Compatibility IDs remain stable for ConvoLab UI identity; offline sync writes
             // use the canonical ULID accepted by shared Flashcards and Reviews endpoints.

@@ -6,10 +6,12 @@ use App\Domain\Study\Actions\SaveStudyPileAction;
 use App\Domain\Study\Actions\SaveStudyPileChapterAction;
 use App\Domain\Study\Models\StudyPile;
 use App\Domain\Study\Models\StudyPileChapter;
+use App\Domain\Study\Support\StudyPileTransaction;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -49,6 +51,18 @@ class StudyPileCatalogActionTest extends TestCase
         $this->assertFalse($chapter->fresh()->is_active);
         $this->assertSame(1, StudyPileChapter::count());
         $this->assertSame(2, SyncFeedEntry::count());
+    }
+
+    public function test_primary_key_collision_is_hidden_after_transaction_rollback(): void
+    {
+        $user = User::factory()->create();
+        $pile = app(SaveStudyPileAction::class)->handle($user->id, (string) Str::ulid(), ['title' => 'Book']);
+        $this->expectException(ModelNotFoundException::class);
+        StudyPileTransaction::run('study_piles', function () use ($pile): void {
+            DB::table('study_piles')->insert([
+                'id' => $pile->id, 'user_id' => $pile->user_id, 'title' => 'Collision',
+            ]);
+        });
     }
 
     public function test_malformed_ids_fail_before_any_catalog_write(): void

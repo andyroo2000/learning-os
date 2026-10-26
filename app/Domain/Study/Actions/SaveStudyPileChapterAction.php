@@ -6,9 +6,9 @@ use App\Domain\Study\Models\StudyPileChapter;
 use App\Domain\Study\Services\PersistStudyPileRecord;
 use App\Domain\Study\Support\StudyPileAccess;
 use App\Domain\Study\Support\StudyPileInput;
+use App\Domain\Study\Support\StudyPileTransaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\DB;
 
 final class SaveStudyPileChapterAction
 {
@@ -20,7 +20,7 @@ final class SaveStudyPileChapterAction
         $chapterId = StudyPileAccess::id($chapterId);
         $attributes = StudyPileInput::validated($attributes);
 
-        return DB::transaction(function () use ($userId, $pileId, $chapterId, $attributes): StudyPileChapter {
+        return StudyPileTransaction::run('study_pile_chapters', function () use ($userId, $pileId, $chapterId, $attributes): StudyPileChapter {
             User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
             StudyPileAccess::owned($userId, $pileId);
             $chapter = StudyPileChapter::query()->find($chapterId);

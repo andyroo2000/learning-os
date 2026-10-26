@@ -6,9 +6,9 @@ use App\Domain\Study\Models\StudyPile;
 use App\Domain\Study\Services\PersistStudyPileRecord;
 use App\Domain\Study\Support\StudyPileAccess;
 use App\Domain\Study\Support\StudyPileInput;
+use App\Domain\Study\Support\StudyPileTransaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\DB;
 
 final class SaveStudyPileAction
 {
@@ -19,7 +19,7 @@ final class SaveStudyPileAction
         $pileId = StudyPileAccess::id($pileId);
         $attributes = StudyPileInput::validated($attributes);
 
-        return DB::transaction(function () use ($userId, $pileId, $attributes): StudyPile {
+        return StudyPileTransaction::run('study_piles', function () use ($userId, $pileId, $attributes): StudyPile {
             User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
             $pile = StudyPile::query()->find($pileId);
             if ($pile !== null && (int) $pile->user_id !== $userId) {

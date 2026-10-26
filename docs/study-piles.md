@@ -34,3 +34,5 @@ payloads also contain `pile_id`. Listing includes inactive piles and chapters.
 This initial catalog is additive: card assignment and new-card selection integrate
 in subsequent changes. No existing card or review eligibility is changed by this
 migration. Sources that cannot be identified confidently must remain uncategorized.
+
+Catalog writes have a dedicated 120/minute per-user bucket, independent of session startup. Pagination is an offset over the current order; clients should reload from cursor zero after reordering. Chapters are returned inline for book-sized collections; exceptionally large collections should be split into separate piles until chapter pagination is available.

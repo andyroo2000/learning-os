@@ -4,9 +4,12 @@ namespace Tests\Feature\Study;
 
 use App\Domain\Study\Models\StudyPile;
 use App\Domain\Study\Models\StudyPileChapter;
+use App\Domain\Study\Support\StudyPileWriteRateLimiter;
+use App\Domain\Study\Support\StudySessionStartRateLimiter;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -90,6 +93,33 @@ class StudyPileCatalogApiTest extends TestCase
         $this->putJson("/api/study/piles/{$first}/chapters/{$chapter}", ['title' => 'Chapter'])->assertOk();
         $this->putJson("/api/study/piles/{$second}/chapters/{$chapter}", ['title' => 'Moved'])->assertNotFound();
         $this->assertSame(strtolower($first), StudyPileChapter::sole()->pile_id);
+    }
+
+    public function test_another_users_chapter_cannot_be_claimed_under_an_owned_pile(): void
+    {
+        $this->signIn();
+        $first = (string) Str::ulid();
+        $chapter = (string) Str::ulid();
+        $this->putJson('/api/study/piles/'.$first, ['title' => 'Private book'])->assertOk();
+        $this->putJson("/api/study/piles/{$first}/chapters/{$chapter}", ['title' => 'Private chapter'])->assertOk();
+        $this->signIn();
+        $second = (string) Str::ulid();
+        $this->putJson('/api/study/piles/'.$second, ['title' => 'My book'])->assertOk();
+        $this->putJson("/api/study/piles/{$second}/chapters/{$chapter}", ['title' => 'Claimed'])->assertNotFound();
+        $this->assertSame(strtolower($first), StudyPileChapter::sole()->pile_id);
+    }
+
+    public function test_catalog_writes_have_a_separate_bucket_from_session_start(): void
+    {
+        $user = $this->signIn();
+        $request = Request::create('/');
+        $request->setUserResolver(fn () => $user);
+        $writes = (new StudyPileWriteRateLimiter)->limit($request);
+        $sessions = (new StudySessionStartRateLimiter)->limit($request);
+        $this->assertNotSame($writes->key, $sessions->key);
+        $route = app('router')->getRoutes()->match(Request::create('/api/study/piles/'.Str::ulid(), 'PUT'));
+        $this->assertContains('throttle:study-pile-write', $route->gatherMiddleware());
+        $this->assertNotContains('throttle:study-session-start', $route->gatherMiddleware());
     }
 
     public function test_validation_rejects_malformed_fields_and_requires_a_title_on_create(): void

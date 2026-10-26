@@ -7,6 +7,8 @@ use App\Domain\Content\Models\ContentCourse;
 use App\Domain\Content\Support\ContentSourceSystem;
 use App\Domain\Courses\Models\Course;
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Study\Actions\SaveStudyPileAction;
+use App\Domain\Study\Actions\SaveStudyPileChapterAction;
 use App\Domain\Study\Models\StudyCardDraft;
 use App\Domain\Sync\Models\SyncFeedEntry;
 use App\Models\User;
@@ -27,8 +29,16 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         $this->seedIntegrationData($existingUser, $now);
         $this->seedVocabularyData($existingUser, $now);
         $this->seedDailySummary($existingUser, $now);
+        $pile = app(SaveStudyPileAction::class)->handle(
+            $existingUser->id, (string) Str::ulid(), ['title' => 'Book'],
+        );
+        app(SaveStudyPileChapterAction::class)->handle(
+            $existingUser->id, $pile->id, (string) Str::ulid(), ['title' => 'Chapter'],
+        );
         $this->runTruncatingImport();
         $this->assertFullUserDataBoundaryWasCleared();
+        $this->assertDatabaseCount('study_piles', 0);
+        $this->assertDatabaseCount('study_pile_chapters', 0);
     }
 
     private function seedDailySummary(User $user, CarbonInterface $now): void

@@ -1,4 +1,6 @@
 export const readCommands = {
+  piles: { path: '/api/study/piles', query: ['cursor', 'limit'] },
+  'new-queue': { path: '/api/study/new-queue', query: ['q', 'cursor', 'limit'] },
   readings: { path: '/api/reading-library', query: ['page'] },
   reading: { path: '/api/convolab/readings/', id: true },
   books: { path: '/api/reading-books', query: ['page'] },

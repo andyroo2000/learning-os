@@ -1,6 +1,6 @@
 # ConvoLab CLI
 
-Dependency-free Node 24+ POSIX (macOS/Linux) client for Learning OS through the ConvoLab public API.
+Node 24+ POSIX (macOS/Linux) client for Learning OS through the ConvoLab public API.
 Install from a packaged release as described below, or run
 `node tools/convolab/cli.js help` directly. No application database access is used.
 
@@ -203,3 +203,27 @@ Pass `--voice Sato`, another catalog name, or `--voice fishaudio:REFERENCE_ID`
 to select a voice. The command prints progress to stderr and a final JSON result
 to stdout. It waits on quota responses; rerunning resumes through the audio cache.
 Only a completed run changes the reading's selected narrator.
+
+## Textbook piles and chapter sources
+
+Use `convolab piles` to discover existing IDs before importing. Save generated IDs in your import manifest, then call `pile-save PILE_ID --file pile.json` and `chapter-save PILE_ID CHAPTER_ID --file chapter.json`. Both accept sparse `title`, `position`, `source_reference`, and `is_active` fields. New books and chapters start inactive; ingesting a book does not start studying it.
+
+Card and draft JSON can include `bookSource: { pileId, chapterId, position, reference }` and `learnSoon: true`. Position controls textbook order; reference can record a page or exercise. Source metadata survives draft commit. Existing cards can be categorized with `card-sources --file assignment.json` (`cardIds` and a source object or null) and prioritized with `learn-soon --file priority.json` (`cardIds`, `learnSoon`). These commands never change review dates. Use canonical `syncId` values from card reads. Inspect real deck/tag/chapter evidence, leave uncertain sources unassigned, and preserve stable IDs when retrying.
+
+## MCP server
+
+The stdio MCP server uses the official MCP SDK and the same private credential profile as the CLI. Install its pinned dependencies with `npm ci --prefix tools/convolab --ignore-scripts`, then configure your agent host with:
+
+```json
+{
+  "mcpServers": {
+    "convolab": {
+      "command": "node",
+      "args": ["/absolute/path/to/learning-os/tools/convolab/mcp.js"],
+      "env": {"CONVOLAB_PROFILE": "/absolute/path/to/private/profile.json"}
+    }
+  }
+}
+```
+
+Discovery lists schemas for `new_ids`, `list_piles`, `save_pile`, `save_chapter`, `create_card`, `create_draft`, `assign_card_sources`, `set_learn_soon`, `search_cards`, `get_card`, and `new_queue`. Source and urgency fields are explicit in creation schemas. Writes require saved IDs and are never retried automatically. The server speaks JSON-RPC on stdout; credentials are loaded only for API calls and are never included in tool results. It exposes no database, shell, or arbitrary-URL tools.

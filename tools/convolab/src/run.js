@@ -5,6 +5,7 @@ import { createClient, loadProfile } from './client.js';
 import { readCommand, readCommands } from './reads.js';
 import { writeCommand, writeCommands } from './writes.js';
 import { newId } from './input.js';
+import { savePile } from './piles.js';
 import { importReading } from './readings.js';
 import { narrateReading } from './narration.js';
 
@@ -15,10 +16,11 @@ export async function run(argv) {
   });
   const [command = 'help', ...args] = positionals;
   if (command === 'help') {
-    return { commands: ['new-id', 'reading-import', 'reading-narrate', ...Object.keys(readCommands), ...Object.keys(writeCommands)], usage: 'convolab COMMAND [ID] [--profile FILE] [--file FILE|-] [--q TEXT] [--cursor CURSOR]', pagination: 'Responses retain API cursors; continue until the next cursor is null.' };
+    return { commands: ['new-id', 'pile-save', 'chapter-save', 'reading-import', 'reading-narrate', ...Object.keys(readCommands), ...Object.keys(writeCommands)], usage: 'convolab COMMAND [ID] [--profile FILE] [--file FILE|-] [--q TEXT] [--cursor CURSOR]', pagination: 'Responses retain API cursors; continue until the next cursor is null.' };
   }
   if (command === 'new-id') return newId();
   const api = createClient(await loadProfile(values.profile ?? process.env.CONVOLAB_PROFILE ?? join(homedir(), '.config/convolab/profile.json')));
+  if (['pile-save', 'chapter-save'].includes(command)) return savePile(api, command, args, values);
   if (command === 'reading-narrate') return narrateReading(api, args, values);
   if (command === 'reading-import') return importReading(api, args, values);
   if (Object.hasOwn(writeCommands, command)) return writeCommand(api, command, args, values);

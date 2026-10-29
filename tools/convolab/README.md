@@ -246,6 +246,8 @@ Draft and import listings use opaque string cursors; pass them back unchanged. `
 
 The backend preserves explicitly named `Expression`, `ExpressionReading`, `Meaning`, and `Notes` fields when the archive supplies matching field metadata, with Expression and Meaning required. This covers the canonical Japanese listening packages. Unrecognized, ambiguous or incomplete layouts retain the existing rendered-text fallback; they are not guessed from field positions. Original front audio references continue to use imported media. This preservation requires deployment of the matching backend change; the MCP alone cannot upgrade an older server's importer.
 
+The named-field mapping intentionally also supports ordinary text-front cards using those fields; their prompt remains text. A successful upload alone does not set `upload_completed_at`: only the completion endpoint does. Thus a transfer checksum failure leaves the job eligible for a fresh verified upload, without queuing the changed bytes.
+
 ### Codex connection
 
 Install the package and its pinned dependencies in a permanent directory before configuring it, so removing a development worktree cannot break the connection. Keep the credential profile outside that directory. Add a server entry to `~/.codex/config.toml` using absolute paths:

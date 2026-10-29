@@ -39,6 +39,34 @@ class ProcessStudyImportCanonicalAnswersTest extends TestCase
         $this->assertCanonicalApiCard($user, $card);
     }
 
+    public function test_named_answers_also_support_text_cards_and_revision_protected_edits(): void
+    {
+        Storage::fake('study-imports');
+        Storage::fake('media');
+        $user = User::factory()->create();
+        Storage::disk('study-imports')->put('text.colpkg', $this->canonicalArchive(listening: false));
+        $job = StudyImportJob::factory()->uploadCompleted()->create([
+            'user_id' => $user->id, 'source_object_path' => 'text.colpkg',
+        ]);
+        app(ProcessStudyImportJobAction::class)->handle($job->id);
+        $card = Card::query()->where('source_card_id', 701)->sole();
+        Sanctum::actingAs($user);
+        $response = $this->getJson('/api/study/cards/'.$card->id)->assertOk()
+            ->assertJsonPath('answer', $this->answer())
+            ->assertJsonPath('presentation.front.mode', 'text')
+            ->assertJsonPath('presentation.front.text', $this->answer()['expression'])
+            ->assertJsonPath('presentation.front.media.audio', null);
+        $answer = [...$response->json('answer'), 'notes' => 'Reviewed'];
+
+        $this->patchJson('/api/study/cards/'.$card->id, [
+            'expectedRevision' => $response->json('revision'),
+            'prompt' => $response->json('prompt'), 'answer' => $answer,
+        ])->assertOk()->assertJsonPath('answer', $answer)
+            ->assertJsonPath('presentation.front.text', $this->answer()['expression'])
+            ->assertJsonPath('presentation.answer.heading', $this->answer()['expression'])
+            ->assertJsonPath('state.queueState', 'new');
+    }
+
     private function assertCanonicalApiCard(User $user, Card $card): void
     {
         Sanctum::actingAs($user);
@@ -65,12 +93,12 @@ class ProcessStudyImportCanonicalAnswersTest extends TestCase
         ];
     }
 
-    private function canonicalArchive(): string
+    private function canonicalArchive(bool $listening = true): string
     {
         $path = tempnam(sys_get_temp_dir(), 'canonical-import-');
         try {
             $this->createStudyImportCollectionDatabase($path, []);
-            $this->replaceCanonicalModel($path);
+            $this->replaceCanonicalModel($path, $listening);
 
             return $this->buildStudyImportZipBytes([
                 'collection.anki21' => file_get_contents($path),
@@ -82,13 +110,13 @@ class ProcessStudyImportCanonicalAnswersTest extends TestCase
         }
     }
 
-    private function replaceCanonicalModel(string $path): void
+    private function replaceCanonicalModel(string $path, bool $listening): void
     {
         $pdo = new PDO('sqlite:'.$path);
         $models = json_decode($pdo->query('SELECT models FROM col')->fetchColumn(), true);
         $models['1001']['flds'] = array_map(fn ($name) => ['name' => $name], ['Expression', 'ExpressionReading', 'Meaning', 'Photo', 'AudioWord', 'Notes']);
         $models['1001']['tmpls'][0] = [
-            'ord' => 0, 'name' => 'Listening', 'qfmt' => '{{AudioWord}}',
+            'ord' => 0, 'name' => 'Canonical', 'qfmt' => $listening ? '{{AudioWord}}' : '{{Expression}}',
             'afmt' => '{{Expression}}<br>{{ExpressionReading}}<br>{{Meaning}}',
         ];
         $pdo->prepare('UPDATE col SET models = ?')->execute([json_encode($models)]);

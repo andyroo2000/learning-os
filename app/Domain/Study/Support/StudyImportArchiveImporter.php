@@ -251,7 +251,17 @@ final class StudyImportArchiveImporter
             ];
         }
 
-        return null;
+        return $this->textPromptPayload($archiveCard);
+    }
+
+    /** @return array{cueText: string}|null */
+    private function textPromptPayload(StudyImportArchiveCard $archiveCard): ?array
+    {
+        if ($archiveCard->answerPayload === null || trim($archiveCard->frontText) === '') {
+            return null;
+        }
+
+        return ['cueText' => $archiveCard->frontText];
     }
 
     private function portableUnsignedInteger(int $value): ?int

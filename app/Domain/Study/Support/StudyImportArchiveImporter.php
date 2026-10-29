@@ -215,7 +215,7 @@ final class StudyImportArchiveImporter
         $card->back_text = $archiveCard->backText;
         $card->card_type = CardType::Recognition;
         $card->prompt_json = $this->promptPayload($archiveCard, $mediaAssetsByFilename);
-        $card->answer_json = null;
+        $card->answer_json = $archiveCard->answerPayload;
         $card->search_text = CardSearchText::fromContent($archiveCard->frontText, $archiveCard->backText);
         $card->study_status = CardStudyStatus::New;
         $card->new_queue_position = $newQueuePosition;
@@ -251,7 +251,17 @@ final class StudyImportArchiveImporter
             ];
         }
 
-        return null;
+        return $this->textPromptPayload($archiveCard);
+    }
+
+    /** @return array{cueText: string}|null */
+    private function textPromptPayload(StudyImportArchiveCard $archiveCard): ?array
+    {
+        if ($archiveCard->answerPayload === null || trim($archiveCard->frontText) === '') {
+            return null;
+        }
+
+        return ['cueText' => $archiveCard->frontText];
     }
 
     private function portableUnsignedInteger(int $value): ?int

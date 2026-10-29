@@ -1,4 +1,5 @@
 import { readFile, lstat } from 'node:fs/promises';
+import { importUploadPayload } from './upload-request.js';
 
 function parseJson(text) {
   try { return JSON.parse(text); } catch { throw new Error('Invalid JSON received; contents withheld.'); }
@@ -66,6 +67,11 @@ function requestPayload(token, body, multipart) {
   return { headers, body: JSON.stringify(body) };
 }
 
+function requestTransport(token, request) {
+  if (request.upload) return importUploadPayload({ ...request, token });
+  return requestPayload(token, request.body, request.multipart);
+}
+
 async function audioResponse(response, method, path) {
   if (!response.ok) return responseBody(response, method, path);
   if (!/^audio\/mpeg(?:;|$)/.test(response.headers.get('content-type'))) {
@@ -78,11 +84,12 @@ async function audioResponse(response, method, path) {
 
 export function createClient({ baseUrl, token }) {
   const origin = apiOrigin(baseUrl);
-  return async (path, { method = 'GET', body, query = {}, multipart, audio = false, timeout = 30_000 } = {}) => {
+  return async (path, { method = 'GET', body, query = {}, multipart, upload, audio = false, timeout = 30_000 } = {}) => {
     const url = requestUrl(path, origin, query);
+    const payload = requestTransport(token, { path, method, upload, body, multipart });
     const response = await fetch(url, {
       method, redirect: 'error', signal: AbortSignal.timeout(timeout),
-      ...requestPayload(token, body, multipart),
+      ...payload,
     });
     return audio ? audioResponse(response, method, path) : responseBody(response, method, path);
   };

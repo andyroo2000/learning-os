@@ -227,3 +227,40 @@ The stdio MCP server uses the official MCP SDK and the same private credential p
 ```
 
 Discovery lists schemas for `new_ids`, `list_piles`, `save_pile`, `save_chapter`, `create_card`, `create_draft`, `assign_card_sources`, `set_learn_soon`, `search_cards`, `get_card`, and `new_queue`. Source and urgency fields are explicit in creation schemas. Writes require saved IDs and are never retried automatically. The server speaks JSON-RPC on stdout; credentials are loaded only for API calls and are never included in tool results. It exposes no database, shell, or arbitrary-URL tools.
+
+### Editing and verification
+
+`get_cards` reads up to 50 canonical card IDs at once. Compare returned IDs with the requested set: missing or inaccessible cards are omitted. `update_card` requires `expectedRevision` from a fresh read and complete `prompt` and `answer` objects. Preserve any existing fields you want to retain. A conflict must be reviewed rather than retried using an invented or blindly refreshed revision. These edits retain scheduling and source assignments.
+
+Draft handling is available through `list_drafts`, `get_draft`, `update_draft`, `commit_draft`, and `delete_draft`. Draft edits also require a revision and both complete payload objects. Save a stable destination card ID before committing and reuse it on retries. Preview audio is separate from card fields; explicitly put the intended recording in the prompt before committing a listening card. Inspect and preserve needed draft contents before targeted cleanup. Deleting a draft does not delete a committed card.
+
+Draft and import listings use opaque string cursors; pass them back unchanged. `list_drafts` takes `limit`; `list_imports` takes `per_page`. Tool errors are JSON objects with `message`, `status` and `retryAfter`, replacing the earlier plain-text messages. API failures retain HTTP status and Retry-After without exposing response bodies or credentials.
+
+### Original-audio archive imports
+
+1. Call `inspect_import_archive` with an absolute path to the user-selected `.colpkg`. Save its filename, byte count and SHA-256 with the planned source assignments.
+2. Call `create_import` with that filename. Save `data.import_job.id` before uploading. Creation is not automatically retried. If the response is lost, use `current_import` or `list_imports` to recover the job instead of creating a duplicate.
+3. Call `resume_import` with the saved job ID, absolute archive path and SHA-256. It checks the file and filename, streams the original bytes to the authenticated import endpoint, verifies the transferred checksum, and requests completion. The archive size limit is 2 GiB; redirects and arbitrary upload URLs are refused.
+4. Poll `get_import` until `completed` or `failed`. Processing is asynchronous. On interruption, repeat `resume_import` with the same arguments: unfinished uploads restart from byte zero; queued, processing and completed jobs are never reimported. Failed jobs are returned for inspection, not silently recreated. `cancel_import` cancels a selected pending upload.
+5. Verify counts and fields, then use `assign_card_sources` to assign the imported IDs to the planned inactive stack and chapters. Imports do not assign sources automatically; until assignment, new cards are uncategorized. Check the resulting stack switches and ready counts.
+
+The backend preserves explicitly named `Expression`, `ExpressionReading`, `Meaning`, and `Notes` fields when the archive supplies matching field metadata, with Expression and Meaning required. This covers the canonical Japanese listening packages. Unrecognized, ambiguous or incomplete layouts retain the existing rendered-text fallback; they are not guessed from field positions. Original front audio references continue to use imported media. This preservation requires deployment of the matching backend change; the MCP alone cannot upgrade an older server's importer.
+
+The named-field mapping intentionally also supports ordinary text-front cards using those fields; their prompt remains text. A successful upload alone does not set `upload_completed_at`: only the completion endpoint does. Thus a transfer checksum failure leaves the job eligible for a fresh verified upload, without queuing the changed bytes. The backend serializes upload state changes and makes completion idempotent for a saved job ID; callers should still avoid concurrent uploads to the same job.
+
+### Codex connection
+
+Install the package and its pinned dependencies in a permanent directory before configuring it, so removing a development worktree cannot break the connection. Keep the credential profile outside that directory. Add a server entry to `~/.codex/config.toml` using absolute paths:
+
+```toml
+[mcp_servers.convolab]
+command = "/absolute/path/to/node"
+args = ["/permanent/path/to/convolab/mcp.js"]
+startup_timeout_sec = 20
+tool_timeout_sec = 660
+
+[mcp_servers.convolab.env]
+CONVOLAB_PROFILE = "/private/path/to/profile.json"
+```
+
+The longer tool timeout allows archive uploads; use separate `get_import` calls for processing progress. Confirm tool discovery and a read-only `list_piles` call after installation. Existing chats may need their MCP connection refreshed before newly configured tools appear.

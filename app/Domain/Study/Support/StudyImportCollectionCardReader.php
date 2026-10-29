@@ -225,10 +225,9 @@ final class StudyImportCollectionCardReader
             sourceNoteTypeId: $noteTypeId,
             sourceNoteTypeName: $noteType['name'],
             sourceTemplateOrdinal: $templateOrdinal,
-            frontText: $renderedText['front'],
-            backText: $renderedText['back'],
+            renderedText: $renderedText,
             noteFields: $noteFields,
-            frontMediaReferences: $renderedText['front_media_references'],
+            answerPayload: StudyImportCanonicalAnswer::fromFields($noteType['fields'], $noteFields),
         );
     }
 

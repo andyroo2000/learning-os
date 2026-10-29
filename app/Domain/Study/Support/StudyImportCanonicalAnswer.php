@@ -2,6 +2,7 @@
 
 namespace App\Domain\Study\Support;
 
+/** Canonical field names are shared across languages and front presentations. */
 final class StudyImportCanonicalAnswer
 {
     private const FIELDS = [
@@ -43,7 +44,9 @@ final class StudyImportCanonicalAnswer
     private static function text(string $value): ?string
     {
         $value = preg_replace('/<br\s*\/?\s*>/iu', "\n", $value) ?? $value;
-        $value = trim(html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $value = preg_replace('/\[sound:[^\]\r\n]+\]/i', '', $value) ?? $value;
+        $value = preg_replace('/^[\s\p{Z}]+|[\s\p{Z}]+$/u', '', $value) ?? $value;
 
         return $value === '' ? null : $value;
     }

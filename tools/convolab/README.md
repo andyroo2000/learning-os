@@ -234,7 +234,7 @@ Discovery lists schemas for `new_ids`, `list_piles`, `save_pile`, `save_chapter`
 
 Draft handling is available through `list_drafts`, `get_draft`, `update_draft`, `commit_draft`, and `delete_draft`. Draft edits also require a revision and both complete payload objects. Save a stable destination card ID before committing and reuse it on retries. Preview audio is separate from card fields; explicitly put the intended recording in the prompt before committing a listening card. Inspect and preserve needed draft contents before targeted cleanup. Deleting a draft does not delete a committed card.
 
-Draft and import listings use opaque string cursors; pass them back unchanged. `list_drafts` takes `limit`; `list_imports` takes `per_page`. API failures retain HTTP status and Retry-After in the MCP error result, without exposing response bodies or credentials.
+Draft and import listings use opaque string cursors; pass them back unchanged. `list_drafts` takes `limit`; `list_imports` takes `per_page`. Tool errors are JSON objects with `message`, `status` and `retryAfter`, replacing the earlier plain-text messages. API failures retain HTTP status and Retry-After without exposing response bodies or credentials.
 
 ### Original-audio archive imports
 
@@ -246,7 +246,7 @@ Draft and import listings use opaque string cursors; pass them back unchanged. `
 
 The backend preserves explicitly named `Expression`, `ExpressionReading`, `Meaning`, and `Notes` fields when the archive supplies matching field metadata, with Expression and Meaning required. This covers the canonical Japanese listening packages. Unrecognized, ambiguous or incomplete layouts retain the existing rendered-text fallback; they are not guessed from field positions. Original front audio references continue to use imported media. This preservation requires deployment of the matching backend change; the MCP alone cannot upgrade an older server's importer.
 
-The named-field mapping intentionally also supports ordinary text-front cards using those fields; their prompt remains text. A successful upload alone does not set `upload_completed_at`: only the completion endpoint does. Thus a transfer checksum failure leaves the job eligible for a fresh verified upload, without queuing the changed bytes.
+The named-field mapping intentionally also supports ordinary text-front cards using those fields; their prompt remains text. A successful upload alone does not set `upload_completed_at`: only the completion endpoint does. Thus a transfer checksum failure leaves the job eligible for a fresh verified upload, without queuing the changed bytes. The backend serializes upload state changes and makes completion idempotent for a saved job ID; callers should still avoid concurrent uploads to the same job.
 
 ### Codex connection
 

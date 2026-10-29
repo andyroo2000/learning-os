@@ -26,4 +26,14 @@ class StudyImportCanonicalAnswerTest extends TestCase
         $this->assertNull(StudyImportCanonicalAnswer::fromFields(['Expression', 'expression', 'Meaning'], "猫\x1f犬\x1fcat"));
         $this->assertNull(StudyImportCanonicalAnswer::fromFields(['Expression', 'Meaning'], "猫\x1f"));
     }
+
+    public function test_blank_html_and_sound_tokens_do_not_become_answer_text(): void
+    {
+        $names = ['Expression', 'Meaning'];
+        $this->assertNull(StudyImportCanonicalAnswer::fromFields($names, "<div>&nbsp;</div>\x1fcat"));
+        $this->assertNull(StudyImportCanonicalAnswer::fromFields($names, "猫\x1f&nbsp;[sound:word.mp3]　"));
+        $this->assertSame(['expression' => '猫', 'meaning' => 'cat'], StudyImportCanonicalAnswer::fromFields(
+            $names, "&nbsp;猫[sound:word.mp3]　\x1f cat [sound:meaning.mp3]",
+        ));
+    }
 }

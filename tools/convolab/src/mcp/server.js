@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { toolDefinitions } from './tools.js';
 import { authoringTools } from './authoring-tools.js';
 import { importTools } from './import-tools.js';
+import { audioTools } from './audio-tools.js';
 
 const result = value => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 
@@ -10,7 +11,7 @@ export function createMcpServer(api) {
   const server = new McpServer({ name: 'convolab', version: '0.2.0' }, {
     instructions: 'Discover existing piles first. Save stable IDs before writes and reuse them on retries. Keep imported books and chapters inactive unless the learner chooses them. Book sources and Learn soon are separate; all reviews remain unified.',
   });
-  for (const tool of [...toolDefinitions, ...authoringTools, ...importTools]) {
+  for (const tool of [...toolDefinitions, ...authoringTools, ...importTools, ...audioTools]) {
     server.registerTool(tool.name, {
       description: tool.description,
       inputSchema: z.object(tool.schema).strict(),

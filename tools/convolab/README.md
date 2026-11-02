@@ -29,6 +29,21 @@ Successful commands emit API JSON on stdout. Failures emit a JSON diagnostic on
 stderr and exit nonzero, including HTTP status and Retry-After when available.
 No automatic write retries are performed. Requests time out after 30 seconds.
 
+### Replace existing audio through MCP
+
+Use `inspect_audio` with an absolute `audioPath` to a user-selected PCM WAV and
+save its SHA-256. Verify the clip contains the card's complete expression. Then
+call `replace_card_audio` with `id` (canonical `syncId`), `audioPath`, `sha256`, and
+`expectedRevision` from a fresh `get_card`. The API accepts WAV files up to 10 MiB
+and 60 seconds. It preserves the card's text, format, scheduling and reviews,
+replaces answer audio, and updates an existing listening cue without adding one
+to reading/production cards. Uploads have a two-minute timeout and no automatic
+retries. After a lost response or 409, inspect the current card before deciding
+whether a retry is needed; do not blindly reuse a stale revision. Source/chapter
+categorization remains a separate, explicitly requested operation.
+The local reader targets POSIX macOS/Linux and refuses a symlink at the final
+path component; parent directories are trusted user-selected paths.
+
 Lists return **one page**. Preserve the search/filter arguments and pass the
 returned cursor with `--cursor` until the API reports no next page. Search uses
 `nextCursor`; review events use Laravel pagination metadata. A partial page must

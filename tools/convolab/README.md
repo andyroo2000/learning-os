@@ -41,6 +41,8 @@ to reading/production cards. Uploads have a two-minute timeout and no automatic
 retries. After a lost response or 409, inspect the current card before deciding
 whether a retry is needed; do not blindly reuse a stale revision. Source/chapter
 categorization remains a separate, explicitly requested operation.
+The local reader targets POSIX macOS/Linux and refuses a symlink at the final
+path component; parent directories are trusted user-selected paths.
 
 Lists return **one page**. Preserve the search/filter arguments and pass the
 returned cursor with `--cursor` until the API reports no next page. Search uses

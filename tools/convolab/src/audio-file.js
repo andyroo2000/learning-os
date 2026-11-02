@@ -17,12 +17,20 @@ async function readAudio(path) {
       throw new Error('Audio must be a regular WAV file no larger than 10 MiB.');
     }
     // Bounded snapshot: the hash and uploaded bytes must be identical even if the file changes.
-    const buffer = Buffer.alloc(maxBytes + 1);
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    const bytes = buffer.subarray(0, bytesRead);
+    const bytes = await snapshotBytes(handle, stat.size);
     validateWav(bytes);
     return bytes;
   } finally { await handle.close(); }
+}
+
+async function snapshotBytes(handle, size) {
+  const chunks = [];
+  for await (const chunk of handle.createReadStream({ start: 0, end: size, autoClose: false })) {
+    chunks.push(chunk);
+  }
+  const bytes = Buffer.concat(chunks);
+  if (bytes.length !== size) throw new Error('Audio changed size while being read.');
+  return bytes;
 }
 
 function validAudioFile(stat) {

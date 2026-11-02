@@ -51,7 +51,7 @@ test('MCP uploads verified bytes with format preservation and revision protectio
 
 test('MCP rejects missing revisions, malformed IDs, unknown fields and changed bytes before uploading', async t => {
   const { client, args } = await fixture(t, async () => assert.fail('Unexpected upload'));
-  for (const overrides of [{ expectedRevision: undefined }, { expectedRevision: -1 }, { id: '../bad' }, { preserveCardFormat: false }, { sha256: '0'.repeat(64) }]) {
+  for (const overrides of [{ expectedRevision: undefined }, { expectedRevision: -1 }, { id: '../bad' }, { preserveCardFormat: false }, { sha256: '0'.repeat(64) }, { sha256: 'A'.repeat(64) }]) {
     const result = await client.callTool({ name: 'replace_card_audio', arguments: { ...uploadArgs(args), ...overrides } });
     assert.equal(result.isError, true);
   }

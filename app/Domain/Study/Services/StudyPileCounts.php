@@ -53,6 +53,8 @@ final class StudyPileCounts
     {
         $activeSource = StudyPileQueue::eligibilitySql();
 
+        // Legacy imports can already be learned without an introduction timestamp.
+        // Suspended/buried alone is not learning evidence; untouched cards can be parked.
         return $query->select([])->selectRaw(<<<SQL
             SUM(CASE WHEN cards.study_status = 'new' THEN 1 ELSE 0 END) AS new_count,
             SUM(CASE WHEN cards.study_status = 'new'
@@ -60,7 +62,11 @@ final class StudyPileCounts
                 AND cards.new_queue_position IS NOT NULL
                 AND (cards.introduction_available_at IS NULL OR cards.introduction_available_at <= ?)
                 AND {$activeSource} THEN 1 ELSE 0 END) AS ready_count,
-            SUM(CASE WHEN cards.introduced_at IS NOT NULL THEN 1 ELSE 0 END) AS introduced_count
+            SUM(CASE WHEN cards.introduced_at IS NOT NULL
+                OR cards.study_status IN ('learning', 'review', 'relearning')
+                OR (cards.study_status IN ('suspended', 'buried')
+                    AND (cards.last_reviewed_at IS NOT NULL OR cards.source_reps > 0))
+                THEN 1 ELSE 0 END) AS introduced_count
             SQL, [now()]);
     }
 

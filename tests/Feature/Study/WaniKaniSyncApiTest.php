@@ -32,7 +32,7 @@ class WaniKaniSyncApiTest extends TestCase
                 'reviewCount' => 32,
                 'vocabularyAdded' => 3,
                 'vocabularyKnownTotal' => 3,
-                'vocabularyMatchedTotal' => 2,
+                'vocabularyMatchedTotal' => 3,
             ]);
 
         $this->postJson('/api/study/wanikani/sync')
@@ -44,7 +44,7 @@ class WaniKaniSyncApiTest extends TestCase
                 'reviewCount' => 9,
                 'vocabularyAdded' => 0,
                 'vocabularyKnownTotal' => 3,
-                'vocabularyMatchedTotal' => 2,
+                'vocabularyMatchedTotal' => 3,
             ]);
 
         $this->assertIncrementalSyncState($user->id);
@@ -224,15 +224,16 @@ class WaniKaniSyncApiTest extends TestCase
         $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
             'subject_id' => 500,
             'concept_id' => 'n5-vocab-2013900-2dacb910',
-            'matcher_version' => 'wanikani-exact-v2',
+            'matcher_version' => 'wanikani-exact-v3',
         ]);
         $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
             'subject_id' => 503,
             'concept_id' => 'n5-vocab-1311110-8b82a027',
             'match_method' => 'expression_reading',
         ]);
-        $this->assertDatabaseMissing('wanikani_subject_learning_concepts', [
+        $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
             'subject_id' => 502,
+            'concept_id' => 'n2-vocab-1589430-c3448a12',
         ]);
     }
 

@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\DB;
 
 final class WaniKaniVocabularyConceptMatcher
 {
-    // Version 2 expands the exact-match catalog to N4, so every stored subject
+    // Version 3 expands the exact-match catalog to N3–N1, so every stored subject
     // is deliberately eligible for one re-match after deployment.
-    public const VERSION = 'wanikani-exact-v2';
+    public const VERSION = 'wanikani-exact-v3';
 
     /**
      * @param  list<WaniKaniVocabularyProgress>  $progress

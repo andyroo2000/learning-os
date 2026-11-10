@@ -17,17 +17,17 @@ class WaniKaniVocabularyConceptMatcherTest extends TestCase
     public function test_exact_expression_and_reading_matching_avoids_ambiguous_homographs(): void
     {
         $this->concept('test-red', '架空赤', 'かくうあか');
-        $this->concept('test-raw', '生', 'なま');
-        $this->concept('test-life', '生', 'せい');
+        $this->concept('test-raw', '架空生', 'なま');
+        $this->concept('test-life', '架空生', 'せい');
         $this->concept('test-ambiguous-a', '橋', 'はし');
         $this->concept('test-ambiguous-b', '橋', 'はし');
-        $this->concept('test-snack', 'おやつ', 'おやつ');
+        $this->concept('test-snack', '架空おやつ', '架空おやつ');
 
         $matches = app(WaniKaniVocabularyConceptMatcher::class)->matchSubjects([
             ['subject_id' => 1, 'characters' => '架空赤', 'readings' => ['かくうあか']],
-            ['subject_id' => 2, 'characters' => '生', 'readings' => ['せい']],
+            ['subject_id' => 2, 'characters' => '架空生', 'readings' => ['せい']],
             ['subject_id' => 3, 'characters' => '橋', 'readings' => ['はし']],
-            ['subject_id' => 4, 'characters' => 'おやつ', 'readings' => ['おやつ']],
+            ['subject_id' => 4, 'characters' => '架空おやつ', 'readings' => ['架空おやつ']],
             ['subject_id' => 5, 'characters' => '安心', 'readings' => ['あんしん']],
         ]);
 

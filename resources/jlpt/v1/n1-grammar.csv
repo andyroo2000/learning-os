@@ -1,0 +1,151 @@
+concept_id,jlpt_level,pattern,meaning,source,source_id,review_status
+n1-grammar-ni-kataku-nai,N1,Noun / V dict + に難くない,easy to imagine / not hard to,Japanese Language Data,ni-kataku-nai,draft
+n1-grammar-wo-yogi-naku-sareru,N1,Noun + を余儀なくされる,be forced to / have no choice but to,Japanese Language Data,wo-yogi-naku-sareru,draft
+n1-grammar-wo-kinjienai,N1,Noun (emotion) + を禁じ得ない,cannot suppress (an emotion) / can't help feeling,Japanese Language Data,wo-kinjienai,draft
+n1-grammar-zu-ni-wa-okanai,N1,V negative stem + ずにはおかない,will not leave without doing / inevitably will,Japanese Language Data,zu-ni-wa-okanai,draft
+n1-grammar-nai-dewa-okanai,N1,V ない-form + ではおかない,will not fail to / will inevitably,Japanese Language Data,nai-dewa-okanai,draft
+n1-grammar-ni-mo-mashite,N1,Noun + にもまして,more than / even more than (emphatic),Japanese Language Data,ni-mo-mashite,draft
+n1-grammar-wo-mono-to-mo-sezu,N1,Noun + をものともせず(に),braving / undaunted by / in defiance of,Japanese Language Data,wo-mono-to-mo-sezu,draft
+n1-grammar-ikan-ni-yorazu,N1,Noun + (の) + いかんによらず / いかんを問わず / いかんにかかわらず,regardless of / irrespective of (formal),Japanese Language Data,ikan-ni-yorazu,draft
+n1-grammar-tomo-arou,N1,Noun + ともあろう + noun,of all people / someone as prominent as,Japanese Language Data,tomo-arou,draft
+n1-grammar-narade-wa-no,N1,Noun + ならでは(の),unique to / distinctive of / only X has,Japanese Language Data,narade-wa-no,draft
+n1-grammar-ni-atte,N1,Noun + にあって,in / at / during (formal literary),Japanese Language Data,ni-atte,draft
+n1-grammar-taru-mono-as-x,N1,Noun + たる者,"as a (proper) X, one should / one who is X",Japanese Language Data,taru-mono-as-x,draft
+n1-grammar-nari-nari,N1,Noun/V + なり + noun/V + なり,either X or Y / whether X or Y,Japanese Language Data,nari-nari,draft
+n1-grammar-to-iwazu-to-iwazu,N1,Noun + といわず + noun + といわず,whether X or Y / all over / throughout,Japanese Language Data,to-iwazu-to-iwazu,draft
+n1-grammar-de-are-de-are,N1,Noun + であれ + noun + であれ,whether X or Y / no matter if X or Y,Japanese Language Data,de-are-de-are,draft
+n1-grammar-made-da,N1,V dict-form + までだ / までのことだ,(I'll) just / I'll simply X (if needed),Japanese Language Data,made-da,draft
+n1-grammar-made-no-koto-da,N1,V-た form + までのことだ,all I did was / it was simply because,Japanese Language Data,made-no-koto-da,draft
+n1-grammar-to-wa,N1,Plain form + とは,to think that / I didn't expect that / the fact that,Japanese Language Data,to-wa,draft
+n1-grammar-ni-itatte-wa,N1,Noun + に至っては,when it comes to / as for (extreme case),Japanese Language Data,ni-itatte-wa,draft
+n1-grammar-wo-oite,N1,Noun + をおいて (+ negative),other than / except for (no one else but),Japanese Language Data,wo-oite,draft
+n1-grammar-koto-nashi-ni,N1,V dict-form + ことなしに,without doing / without even,Japanese Language Data,koto-nashi-ni,draft
+n1-grammar-kitte-no,N1,Noun (group / category) + きっての,foremost / best in / most distinguished of,Japanese Language Data,kitte-no,draft
+n1-grammar-tomo-nareba,N1,Noun / V plain + ともなれば,when one becomes / when it comes to being,Japanese Language Data,tomo-nareba,draft
+n1-grammar-no-itari,N1,Noun (emotion) + の至り,the height of (an emotion) / extremely,Japanese Language Data,no-itari,draft
+n1-grammar-katawara,N1,V plain / noun + の + かたわら,while also / alongside (doing),Japanese Language Data,katawara,draft
+n1-grammar-gatera-while,N1,Verb ます-stem / noun + がてら,while (also) / taking the opportunity to,Japanese Language Data,gatera-while,draft
+n1-grammar-bekarazu,N1,V dict-form + べからず / べからざる,must not / should not (archaic prohibition),Japanese Language Data,bekarazu,draft
+n1-grammar-zu-ni-wa-sumanai,N1,V negative stem + ずにはすまない / ないではすまない,can't get by without / must inevitably do,Japanese Language Data,zu-ni-wa-sumanai,draft
+n1-grammar-to-itta-tokoro-da,N1,Number / noun + といったところだ,about / approximately / around,Japanese Language Data,to-itta-tokoro-da,draft
+n1-grammar-you-ni-mo-nai,N1,V volitional + にも + V potential negative,can't (do X) even if one wanted to,Japanese Language Data,you-ni-mo-nai,draft
+n1-grammar-n-ga-tame,N1,V ない-stem + んがため(に),in order to / for the purpose of (literary),Japanese Language Data,n-ga-tame,draft
+n1-grammar-n-bakari,N1,V ない-stem + んばかり(に),as if about to / looking as if,Japanese Language Data,n-bakari,draft
+n1-grammar-u-ni-mo,N1,Verb volitional + にも,even if one tried to / even attempting to,Japanese Language Data,u-ni-mo,draft
+n1-grammar-u-mono-nara,N1,Verb volitional + ものなら,if one were to X / if you dare to X,Japanese Language Data,u-mono-nara,draft
+n1-grammar-tari-tomo,N1,Number + counter + たりとも + negative,not even one / not even a single,Japanese Language Data,tari-tomo,draft
+n1-grammar-nashi-ni-without,N1,Noun + なしに(は),without / unless,Japanese Language Data,nashi-ni-without,draft
+n1-grammar-naku-shite-wa,N1,Noun + なくして(は),without / unable to X without,Japanese Language Data,naku-shite-wa,draft
+n1-grammar-ya-literary,N1,Verb dict-form + や / や否や,at the moment of / as soon as (literary),Japanese Language Data,ya-literary,draft
+n1-grammar-no-kiwami,N1,Noun + の極み,the height of / the ultimate / extreme,Japanese Language Data,no-kiwami,draft
+n1-grammar-te-mae,N1,V plain / noun + の + 手前,in view of / out of consideration for / for the sake of appearance,Japanese Language Data,te-mae,draft
+n1-grammar-ni-nottotte,N1,Noun + に則って / に則り,"in accordance with / according to (rules, customs)",Japanese Language Data,ni-nottotte,draft
+n1-grammar-wo-motte,N1,Noun + をもって,by means of / with / as of (formal),Japanese Language Data,wo-motte,draft
+n1-grammar-tokoro-wo,N1,V plain / adj + ところを,(although) at / while / in the middle of (polite apology),Japanese Language Data,tokoro-wo,draft
+n1-grammar-te-habakaranai,N1,V-て form + はばからない,does not hesitate to / declares openly,Japanese Language Data,te-habakaranai,draft
+n1-grammar-beku-mo-nai,N1,Verb dict-form + べくもない,no way to / cannot possibly,Japanese Language Data,beku-mo-nai,draft
+n1-grammar-to-yara,N1,Noun / plain form + とやら,some kind of / (I hear) something like,Japanese Language Data,to-yara,draft
+n1-grammar-nai-de-mo-nai,N1,V ない-form + でもない,not that I don't / it's not impossible to,Japanese Language Data,nai-de-mo-nai,draft
+n1-grammar-wo-kawakiri-ni,N1,Noun + を皮切りに(して),starting with / beginning with,Japanese Language Data,wo-kawakiri-ni,draft
+n1-grammar-wo-kagiri-ni,N1,Noun + を限りに,with X being the last / as of X (final),Japanese Language Data,wo-kagiri-ni,draft
+n1-grammar-ori-ni,N1,V plain / noun + の + 折(に),on the occasion of / when,Japanese Language Data,ori-ni,draft
+n1-grammar-nagara-ni,N1,Noun / V stem + ながらに(して),while / in (the state of) / from the start,Japanese Language Data,nagara-ni,draft
+n1-grammar-oose-ru,N1,Verb ます-stem + おおせる,succeed in completing / manage to do fully,Japanese Language Data,oose-ru,draft
+n1-grammar-konasu,N1,Verb ます-stem + こなす,handle skillfully / master / do expertly,Japanese Language Data,konasu,draft
+n1-grammar-mekasu,N1,Noun + めかす,hint at / show a look of,Japanese Language Data,mekasu,draft
+n1-grammar-ni-hoka-naranai,N1,Noun + に他ならない,is nothing but / is exactly / is none other than,Japanese Language Data,ni-hoka-naranai,draft
+n1-grammar-mo-saru-koto-nagara,N1,Noun + もさることながら,not to mention / while X is also (true),Japanese Language Data,mo-saru-koto-nagara,draft
+n1-grammar-made-mo-naku,N1,V dict-form + までもなく,without even needing to / not even requiring,Japanese Language Data,made-mo-naku,draft
+n1-grammar-nara-mada-shimo,N1,Noun / plain form + ならまだしも,"if it were at least X (that would be OK, but)",Japanese Language Data,nara-mada-shimo,draft
+n1-grammar-nara-iza-shirazu,N1,Noun / plain form + ならいざ知らず,"if it were X, I wouldn't know / X might be one thing but",Japanese Language Data,nara-iza-shirazu,draft
+n1-grammar-hitotabi,N1,ひとたび + V + (ば / と / たら),once (X happens),Japanese Language Data,hitotabi,draft
+n1-grammar-to-shita-tokoro-de,N1,Plain form + としたところで,even if we assume / even for,Japanese Language Data,to-shita-tokoro-de,draft
+n1-grammar-hodo-no,N1,Noun / plain form + ほどの + noun,of such a degree / to the extent of (a),Japanese Language Data,hodo-no,draft
+n1-grammar-zu-mogana,N1,V negative stem + ずもがな,unnecessary / better left unsaid,Japanese Language Data,zu-mogana,draft
+n1-grammar-ni-matsuwaru,N1,Noun + にまつわる,related to / concerning / surrounding,Japanese Language Data,ni-matsuwaru,draft
+n1-grammar-wo-kanete,N1,Noun + を兼ねて,serving (as both) / combined with,Japanese Language Data,wo-kanete,draft
+n1-grammar-de-ari-nagara,N1,Noun / na-adj + でありながら,while being / even though one is,Japanese Language Data,de-ari-nagara,draft
+n1-grammar-te-mi-se-ru,N1,V-て form + みせる,will definitely do / I'll show you (determination),Japanese Language Data,te-mi-se-ru,draft
+n1-grammar-ni-shite-hajimete,N1,Noun + にして初めて,only at / not until one is (X) / for someone of X's level,Japanese Language Data,ni-shite-hajimete,draft
+n1-grammar-nagara-no,N1,Noun + ながらの + noun,in its original state of / traditional / just like,Japanese Language Data,nagara-no,draft
+n1-grammar-ikan-se-n,N1,いかんせん (sentence-initial / mid-sentence),unfortunately / regrettably / the trouble is,Japanese Language Data,ikan-se-n,draft
+n1-grammar-ni-mo-hodo-ga-aru,N1,Noun / V plain + にもほどがある,there's a limit to / (X) goes too far,Japanese Language Data,ni-mo-hodo-ga-aru,draft
+n1-grammar-ba-sore-made,N1,V ば-form / conditional + それまでだ,"if X, that's the end / that's all there is to it",Japanese Language Data,ba-sore-made,draft
+n1-grammar-mo-nan-tomo-nai,N1,i-adj 〜くもなんともない / na-adj + でもなんでもない,not even slightly / not at all,Japanese Language Data,mo-nan-tomo-nai,draft
+n1-grammar-ni-teihyou-ga-aru,N1,Noun + に定評がある,is well-known for / has a solid reputation for,Japanese Language Data,ni-teihyou-ga-aru,draft
+n1-grammar-ni-tari-nai,N1,Noun / V dict-form + に足りない,not worth / insufficient for / unworthy of,Japanese Language Data,ni-tari-nai,draft
+n1-grammar-wo-mae-ni-shite,N1,Noun + を前にして,in front of / facing / on the verge of,Japanese Language Data,wo-mae-ni-shite,draft
+n1-grammar-tari-mo-shinai,N1,V た + り + もしない,doesn't even do / not even X,Japanese Language Data,tari-mo-shinai,draft
+n1-grammar-ni-ari-gachi,N1,Noun + にありがち,common to / typical of (often with negative nuance),Japanese Language Data,ni-ari-gachi,draft
+n1-grammar-sono-mono,N1,Noun + そのもの,(X) itself / the very essence of,Japanese Language Data,sono-mono,draft
+n1-grammar-katagata-combining,N1,V ます-stem / noun + かたがた,combining / at the same time / also as,Japanese Language Data,katagata-combining,draft
+n1-grammar-n-to-suru,N1,Verb volitional + んとする,about to / trying to / on the verge of (literary),Japanese Language Data,n-to-suru,draft
+n1-grammar-ni-soui-nai,N1,Plain form + に相違ない,no doubt / certainly / I'm sure,Japanese Language Data,ni-soui-nai,draft
+n1-grammar-yue-no,N1,Noun + (が)ゆえの / ゆえの + noun,stemming from / due to (attributive),Japanese Language Data,yue-no,draft
+n1-grammar-to-atte-wa,N1,Plain form / noun + とあっては,if it's (a case of) / given that it is,Japanese Language Data,to-atte-wa,draft
+n1-grammar-ni-kakawaru,N1,Noun + に関わる,involves / affects / concerns (seriously),Japanese Language Data,ni-kakawaru,draft
+n1-grammar-mono-wo-if-only,N1,Plain form + ものを,if only / you should have (regret),Japanese Language Data,mono-wo-if-only,draft
+n1-grammar-to-minasu,N1,Noun / plain form + とみなす,regard as / consider as / deem to be,Japanese Language Data,to-minasu,draft
+n1-grammar-mai-ka-wonder,N1,V plain / noun + ではまいか / ではあるまいか,I wonder if / isn't it possibly,Japanese Language Data,mai-ka-wonder,draft
+n1-grammar-hoka-naranu,N1,Noun + ほかならぬ + noun,none other than / this very (special case),Japanese Language Data,hoka-naranu,draft
+n1-grammar-ni-aki-tarazu,N1,Noun / plain form + に飽き足らず,not content with / not satisfied with (and seeking more),Japanese Language Data,ni-aki-tarazu,draft
+n1-grammar-beku-shite,N1,Verb dict-form + べくして,inevitably / as one would expect / destined to,Japanese Language Data,beku-shite,draft
+n1-grammar-taru-yuen,N1,Noun + たるゆえん,the reason for being / what makes (X) an X,Japanese Language Data,taru-yuen,draft
+n1-grammar-iyashiku-mo,N1,いやしくも (sentence-initial),if at least / if one is truly / given that one is,Japanese Language Data,iyashiku-mo,draft
+n1-grammar-n-to-bakari-ni,N1,Verb volitional + ん + とばかりに,as if to say / as if about to,Japanese Language Data,n-to-bakari-ni,draft
+n1-grammar-sanagara,N1,Noun / plain form + さながら,just like / as if / veritable,Japanese Language Data,sanagara,draft
+n1-grammar-de-atta-to-shitemo,N1,Plain form + であったとしても,even if it were / even assuming that (past hypothetical),Japanese Language Data,de-atta-to-shitemo,draft
+n1-grammar-nomi-only,N1,Noun / V plain + のみ,only / just (literary),Japanese Language Data,nomi-only,draft
+n1-grammar-iwaba,N1,いわば (sentence-initial / mid-sentence),so to speak / as it were,Japanese Language Data,iwaba,draft
+n1-grammar-mo-kamawa-zu,N1,Noun / plain form + も構わず,without caring about / regardless of (formal),Japanese Language Data,mo-kamawa-zu,draft
+n1-grammar-ma-no-atari-ni,N1,Noun + を + 目の当たりにする,witness / see with one's own eyes,Japanese Language Data,ma-no-atari-ni,draft
+n1-grammar-oyoba-zu-nagara,N1,及ばずながら,although my humble effort may fall short / to the best of my ability,Japanese Language Data,oyoba-zu-nagara,draft
+n1-grammar-naku-te-nan-de-arou,N1,i-adj 〜くて / na-adj + で + なんであろう,"if not X, what else / what else could it be but X",Japanese Language Data,naku-te-nan-de-arou,draft
+n1-grammar-koto-mo-arou-ni,N1,こともあろうに,of all things / unbelievably / of all places,Japanese Language Data,koto-mo-arou-ni,draft
+n1-grammar-ni-wa-oyoba-nai,N1,V dict / noun + には及ばない,no need to / not necessary to / not up to,Japanese Language Data,ni-wa-oyoba-nai,draft
+n1-grammar-ni-soku-shite,N1,Noun + に即して / に即した,in accordance with / based on / in line with,Japanese Language Data,ni-soku-shite,draft
+n1-grammar-to-aimatte,N1,Noun + と相まって,combined with / together with (producing X effect),Japanese Language Data,to-aimatte,draft
+n1-grammar-tara-kiri-ga-nai,N1,V-たら + きりがない,there's no end to / (if you list X) it would be endless,Japanese Language Data,tara-kiri-ga-nai,draft
+n1-grammar-ga-sai-go,N1,V-たら / V dict + が最後,"once X (happens), that's the end / if X, nothing can stop what follows",Japanese Language Data,ga-sai-go,draft
+n1-grammar-no-ue-nai,N1,i-adj / na-adj + この上ない,utmost / supreme / nothing could be more,Japanese Language Data,no-ue-nai,draft
+n1-grammar-to-sareru,N1,Plain form + とされる / とされている,is considered / is said to be,Japanese Language Data,to-sareru,draft
+n1-grammar-to-oboshii,N1,Plain form + とおぼしい / とおぼしき,seems to be / presumed to be,Japanese Language Data,to-oboshii,draft
+n1-grammar-wo-hikiai-ni,N1,Noun + を引き合いに (出して),citing as an example / drawing a comparison to,Japanese Language Data,wo-hikiai-ni,draft
+n1-grammar-aro-u-koto-ka,N1,あろうことか (sentence-initial),unbelievably / of all things / to make matters worse,Japanese Language Data,aro-u-koto-ka,draft
+n1-grammar-koso-are,N1,Plain form / noun + こそあれ,although having / although X is the case,Japanese Language Data,koso-are,draft
+n1-grammar-aro-u-tomo,N1,V volitional + とも / あろうとも,no matter what / whatever happens,Japanese Language Data,aro-u-tomo,draft
+n1-grammar-gurumi,N1,Noun + ぐるみ,whole / entire / collectively (including X),Japanese Language Data,gurumi,draft
+n1-grammar-ikkou-ni-nai,N1,いっこうに + V 〜ない,not at all / not in the slightest,Japanese Language Data,ikkou-ni-nai,draft
+n1-grammar-ni-nazoraete,N1,Noun + になぞらえて,likening to / comparing to (metaphorically),Japanese Language Data,ni-nazoraete,draft
+n1-grammar-nuki-de,N1,Noun + 抜きで / 抜きでは / 抜きに,without (X) / leaving out,Japanese Language Data,nuki-de,draft
+n1-grammar-tou-no,N1,当の + noun,the very (person/thing) in question / the X in question,Japanese Language Data,tou-no,draft
+n1-grammar-wo-kiwameru,N1,Noun + を極める,reach the extreme of / master / be in the height of,Japanese Language Data,wo-kiwameru,draft
+n1-grammar-to-wa-urahara-ni,N1,Noun / plain form + とは裏腹に,contrary to / in contrast to (expectation vs reality),Japanese Language Data,to-wa-urahara-ni,draft
+n1-grammar-hiite-wa,N1,ひいては (sentence-initial / mid-sentence),by extension / ultimately / eventually,Japanese Language Data,hiite-wa,draft
+n1-grammar-yoshi-mi,N1,Noun + のよしみで,for the sake of / by virtue of the connection,Japanese Language Data,yoshi-mi,draft
+n1-grammar-nagara-mo,N1,V ます-stem / i-adj / noun + ながらも,although / even while / despite,Japanese Language Data,nagara-mo,draft
+n1-grammar-tada-de-sae,N1,ただでさえ,even normally / already (in an unmodified state),Japanese Language Data,tada-de-sae,draft
+n1-grammar-ashikara-zu,N1,あしからず (sentence-final),please don't take it wrong / please excuse (refusal),Japanese Language Data,ashikara-zu,draft
+n1-grammar-manzara-de-mo-nai,N1,まんざら + plain form + でもない,not entirely / not completely (negation hedged),Japanese Language Data,manzara-de-mo-nai,draft
+n1-grammar-desura,N1,Noun + ですら,even (literary variant of さえ),Japanese Language Data,desura,draft
+n1-grammar-wo-shirime-ni,N1,Noun + を尻目に,disregarding / paying no heed to,Japanese Language Data,wo-shirime-ni,draft
+n1-grammar-koto-nagara,N1,Noun + の + こと + ながら,as usual / as expected / as one would expect,Japanese Language Data,koto-nagara,draft
+n1-grammar-to-nareba-if-comes-to,N1,Plain form + となれば,if it comes to / in the event that,Japanese Language Data,to-nareba-if-comes-to,draft
+n1-grammar-to-naru-to-when-comes,N1,Plain form + となると,when it comes to / if it's a matter of,Japanese Language Data,to-naru-to-when-comes,draft
+n1-grammar-majiki-unacceptable,N1,V dict-form + まじき + noun,unacceptable / unbecoming / should not,Japanese Language Data,majiki-unacceptable,draft
+n1-grammar-gotoku-as-if,N1,Plain form / noun + の + ごとく,just as / like / as if (literary),Japanese Language Data,gotoku-as-if,draft
+n1-grammar-gotoki-like,N1,Noun + ごとき (+ noun),"like (a) / such as (literary, often disparaging)",Japanese Language Data,gotoki-like,draft
+n1-grammar-ni-taru,N1,Verb dict-form / noun + に足る,worth / sufficient to / deserving of,Japanese Language Data,ni-taru,draft
+n1-grammar-ni-taeru,N1,Verb dict / noun + に堪える,can bear / is worth (X-ing),Japanese Language Data,ni-taeru,draft
+n1-grammar-ni-taenai,N1,Verb dict / noun + に堪えない,unbearable / can't bear to / not worth,Japanese Language Data,ni-taenai,draft
+n1-grammar-te-yamanai,N1,V-て form + やまない,never stop / can't help (feeling / doing),Japanese Language Data,te-yamanai,draft
+n1-grammar-wo-kaerimi-zu,N1,Noun + を顧みず,without regard to / disregarding,Japanese Language Data,wo-kaerimi-zu,draft
+n1-grammar-ni-sakigakete,N1,Noun + に先駆けて,ahead of / before (others),Japanese Language Data,ni-sakigakete,draft
+n1-grammar-to-iedomo,N1,Plain form + といえども,although / even though (literary),Japanese Language Data,to-iedomo,draft
+n1-grammar-to-omoi-kiya,N1,Plain form + と思いきや,but contrary to expectation / I thought but,Japanese Language Data,to-omoi-kiya,draft
+n1-grammar-naritomo,N1,Noun + なりとも,at least / whatever / even just,Japanese Language Data,naritomo,draft
+n1-grammar-nari-as-soon-as,N1,V dict-form + なり,as soon as / right after (literary),Japanese Language Data,nari-as-soon-as,draft
+n1-grammar-nari-ni-in-own-way,N1,Noun + なりに / なりの,in one's own way / in the manner suited to,Japanese Language Data,nari-ni-in-own-way,draft
+n1-grammar-ga-hayai-ka,N1,V dict-form + が早いか,as soon as / the moment that (literary),Japanese Language Data,ga-hayai-ka,draft
+n1-grammar-ni-kangamite,N1,Noun + に鑑みて,in view of / considering,Japanese Language Data,ni-kangamite,draft
+n1-grammar-te-shikarubeki,N1,V-て form + しかるべき,should be (fittingly) / ought to be,Japanese Language Data,te-shikarubeki,draft

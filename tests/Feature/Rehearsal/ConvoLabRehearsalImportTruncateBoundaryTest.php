@@ -254,7 +254,7 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         $this->assertDatabaseCount('study_activity_daily_summaries', 0);
         $this->assertDatabaseCount('card_learning_concepts', 0);
         $this->assertDatabaseCount('card_introduction_cohorts', 0);
-        $this->assertDatabaseCount('learning_concepts', 1490);
+        $this->assertDatabaseCount('learning_concepts', 8884);
         $this->assertDatabaseCount('sync_feed_entries', 0);
         $this->assertDatabaseCount('japanese_knowledge_profiles', 0);
         $this->assertDatabaseCount('wanikani_connections', 0);

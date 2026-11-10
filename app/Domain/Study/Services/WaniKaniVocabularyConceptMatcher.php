@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\DB;
 
 final class WaniKaniVocabularyConceptMatcher
 {
-    // Version 2 expands the exact-match catalog to N4, so every stored subject
+    // Version 3 expands the exact-match catalog to N3–N1, so every stored subject
     // is deliberately eligible for one re-match after deployment.
-    public const VERSION = 'wanikani-exact-v2';
+    public const VERSION = 'wanikani-exact-v3';
 
     /**
      * @param  list<WaniKaniVocabularyProgress>  $progress
@@ -51,15 +51,7 @@ final class WaniKaniVocabularyConceptMatcher
             ->whereIn('aliases.alias_kind', ['expression', 'reading'])
             ->get(['aliases.concept_id', 'aliases.alias_kind', 'aliases.normalized_key']);
 
-        $expressions = [];
-        $readings = [];
-        foreach ($aliases as $alias) {
-            if ($alias->alias_kind === 'expression') {
-                $expressions[$alias->normalized_key][$alias->concept_id] = true;
-            } else {
-                $readings[$alias->concept_id][$alias->normalized_key] = true;
-            }
-        }
+        [$expressions, $readings] = $this->indexAliases($aliases);
 
         $matches = [];
         foreach ($subjects as $subject) {
@@ -97,5 +89,21 @@ final class WaniKaniVocabularyConceptMatcher
         }
 
         return $matches;
+    }
+
+    /** @return array{array<string, array<string, true>>, array<string, array<string, true>>} */
+    private function indexAliases(iterable $aliases): array
+    {
+        $expressions = [];
+        $readings = [];
+        foreach ($aliases as $alias) {
+            if ($alias->alias_kind === 'expression') {
+                $expressions[$alias->normalized_key][$alias->concept_id] = true;
+            } else {
+                $readings[$alias->concept_id][$alias->normalized_key] = true;
+            }
+        }
+
+        return [$expressions, $readings];
     }
 }

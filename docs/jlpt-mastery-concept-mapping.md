@@ -1,7 +1,6 @@
 # JLPT mastery concept mapping
 
-The mastery estimate is intentionally approximate and currently covers N5 and
-N4. Vocabulary and grammar remain separate metrics; there is no combined score.
+The mastery estimate is intentionally approximate and covers N5 through N1. Vocabulary and grammar remain separate metrics; there is no combined score.
 
 ## Data model
 
@@ -50,12 +49,13 @@ N4. Vocabulary and grammar remain separate metrics; there is no combined score.
 
 ## Mastery calculation
 
-Each concept contributes the strongest current state among its linked active
-cards: Apprentice/new = 0%, Guru = 25%, Master = 50%, Enlightened = 75%, and
-Burned = 100%, using the existing FSRS stability thresholds. The level/type
-percentage is the sum of those concept weights divided by that type's catalog
-denominator. `covered` counts concepts linked to at least one active card even
-when their current mastery weight is zero.
+Each concept is known when an active linked card is in Review with FSRS stability
+of at least seven days (Guru+), or its vocabulary has ever been passed on
+WaniKani. The percentage is the known count divided by the level/type catalog
+denominator. Multiple cards and overlapping WaniKani matches count once per
+concept. `matched` (and legacy `covered`) counts concepts linked to an active
+card, independently of whether that card is known. Deck/course scopes exclude
+user-wide WaniKani knowledge.
 
 The compatibility API shape is:
 
@@ -74,5 +74,46 @@ The compatibility API shape is:
 }
 ```
 
-Future slices can add reviewed semantic grammar classification and N3–N1
-catalogs without changing the existing level response contracts.
+Future slices can expand reviewed semantic grammar classification without
+changing the existing level response contracts.
+
+## N3–N1 reference catalogs
+
+Six additional versioned CSVs now use the same vocabulary/grammar schemas:
+
+| Level | Vocabulary | Grammar |
+| --- | ---: | ---: |
+| N3 | 1,730 | 130 |
+| N2 | 1,812 | 149 |
+| N1 | 3,423 | 150 |
+
+These are level-specific buckets, not cumulative totals. Provenance, pinned
+revisions, transformations, and four omitted N1 duplicates are recorded in
+`resources/jlpt/v1/ATTRIBUTION.md`. The catalog test pins checksums and counts.
+N5/N4 catalog bytes remain unchanged.
+
+The N3–N1 migration verifies all six checksums before importing concepts and
+vocabulary aliases in a transaction. Rollback deletes only the imported IDs.
+Aggregation and vocabulary matching include all five levels; the web display
+shows the levels returned by the API in N5 → N1 order and still accepts older
+responses containing only N5/N4.
+
+`AdvancedGrammarRuleMatcher` starts with ten distinctive fixed constructions per
+new level. Matches require complete adjacent tokenizer tokens and cannot cross
+punctuation. The remaining patterns stay in the denominator, so grammar coverage
+is conservative and may substantially undercount knowledge at higher levels.
+The UI explicitly describes this limitation. Full morphology and semantic
+classification are not part of these estimates.
+
+### Rollout
+
+1. Deploy the backend and run the normal database migrations.
+2. Run `php artisan learning-concepts:backfill --dry-run` to verify tokenization,
+   then `php artisan learning-concepts:backfill` to refresh existing active cards.
+   The command is resumable and idempotent; manual links are preserved.
+3. WaniKani's matcher version is bumped to `wanikani-exact-v3`, making stored
+   subjects eligible for rematching on the next sync.
+4. Deploy the web client. It also works before the backend rollout; absent levels
+   are omitted rather than shown as zero knowledge.
+
+Catalog import does not run learner backfills inside the database migration.

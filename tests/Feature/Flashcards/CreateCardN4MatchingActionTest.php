@@ -43,14 +43,14 @@ class CreateCardN4MatchingActionTest extends TestCase
             'concept_id' => 'n4-vocab-1153890-afd1a981',
             'match_method' => 'token',
             'match_source' => 'creation',
-            'classifier_version' => 'jlpt-n5-n4-rules-v5',
+            'classifier_version' => 'jlpt-n1-n5-rules-v6',
         ]);
         $this->assertDatabaseHas('card_learning_concepts', [
             'card_id' => $result->card->id,
             'concept_id' => 'n4-grammar-kamoshirenai-might',
             'match_method' => 'classifier',
             'match_source' => 'creation',
-            'classifier_version' => 'jlpt-n5-n4-rules-v5',
+            'classifier_version' => 'jlpt-n1-n5-rules-v6',
         ]);
         $this->assertSame(3, DB::table('card_learning_concepts')
             ->where('card_id', $result->card->id)

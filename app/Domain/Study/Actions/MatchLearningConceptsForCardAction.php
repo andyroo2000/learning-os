@@ -8,6 +8,7 @@ use App\Domain\Japanese\Exceptions\JapaneseTokenizationException;
 use App\Domain\Study\Enums\LearningConceptMatchMethod;
 use App\Domain\Study\Enums\LearningConceptMatchSource;
 use App\Domain\Study\Results\LearningConceptMatchResult;
+use App\Domain\Study\Support\AdvancedGrammarRuleMatcher;
 use App\Domain\Study\Support\LearningConceptText;
 use App\Domain\Study\Support\N4GrammarRuleMatcher;
 use App\Domain\Study\Support\N5GrammarRuleMatcher;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 
 final class MatchLearningConceptsForCardAction
 {
-    public const CLASSIFIER_VERSION = 'jlpt-n5-n4-rules-v5';
+    public const CLASSIFIER_VERSION = 'jlpt-n1-n5-rules-v6';
 
     private const FURIGANA_FIELD_PATTERN = '/^([^\s\[\]]+)\[([^\[\]]+)]$/u';
 
@@ -24,6 +25,7 @@ final class MatchLearningConceptsForCardAction
         private readonly JapaneseTokenizer $tokenizer,
         private readonly N5GrammarRuleMatcher $grammarMatcher,
         private readonly N4GrammarRuleMatcher $n4GrammarMatcher,
+        private readonly AdvancedGrammarRuleMatcher $advancedGrammarMatcher,
     ) {}
 
     public function handle(Card $card, LearningConceptMatchSource $source, bool $persist = true): LearningConceptMatchResult
@@ -60,6 +62,7 @@ final class MatchLearningConceptsForCardAction
         $matches = $this->vocabularyMatches($candidates, $tokenCandidates, $normalizedCandidates);
         $this->appendClassifierMatches($matches, $this->grammarMatcher->match($tokenizedCandidates));
         $this->appendClassifierMatches($matches, $this->n4GrammarMatcher->match($tokenizedCandidates));
+        $this->appendClassifierMatches($matches, $this->advancedGrammarMatcher->match($tokenizedCandidates));
 
         return $matches;
     }
@@ -85,7 +88,7 @@ final class MatchLearningConceptsForCardAction
         $aliasesByKey = DB::table('learning_concept_aliases as aliases')
             ->join('learning_concepts as concepts', 'concepts.id', '=', 'aliases.concept_id')
             ->where('concepts.language', 'ja')
-            ->whereIn('concepts.jlpt_level', [4, 5])
+            ->whereIn('concepts.jlpt_level', [1, 2, 3, 4, 5])
             ->where('concepts.kind', 'vocabulary')
             ->whereIn('aliases.alias_kind', ['expression', 'reading'])
             ->whereIn('aliases.normalized_key', $normalizedCandidates)

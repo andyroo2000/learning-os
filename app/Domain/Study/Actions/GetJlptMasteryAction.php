@@ -7,13 +7,14 @@ use App\Domain\Study\Enums\LearningConceptKind;
 use App\Domain\Study\Enums\LearningConceptReviewStatus;
 use App\Domain\Study\Enums\StudyMasteryLevel;
 use App\Domain\Vocabulary\Enums\VocabVariantStatus;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use UnexpectedValueException;
 
 final class GetJlptMasteryAction
 {
     /**
-     * @return array{N5: array{vocabulary: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}, grammar: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}}, N4: array{vocabulary: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}, grammar: array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}}}
+     * @return array<'N5'|'N4'|'N3'|'N2'|'N1', array<'vocabulary'|'grammar', array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}>>
      */
     public function handle(int $userId, ?string $courseId = null, ?string $deckId = null): array
     {
@@ -71,7 +72,7 @@ final class GetJlptMasteryAction
                 ),
             )
             ->where('concepts.language', 'ja')
-            ->whereIn('concepts.jlpt_level', [4, 5])
+            ->whereIn('concepts.jlpt_level', [1, 2, 3, 4, 5])
             ->whereIn('concepts.review_status', [
                 LearningConceptReviewStatus::Seed->value,
                 LearningConceptReviewStatus::Draft->value,
@@ -87,16 +88,21 @@ final class GetJlptMasteryAction
             ->get()
             ->keyBy(fn (object $row): string => (string) $row->jlpt_level.'-'.$row->kind);
 
-        return [
-            'N5' => [
-                'vocabulary' => $this->metric($rows->get('5-'.LearningConceptKind::Vocabulary->value)),
-                'grammar' => $this->metric($rows->get('5-'.LearningConceptKind::Grammar->value)),
-            ],
-            'N4' => [
-                'vocabulary' => $this->metric($rows->get('4-'.LearningConceptKind::Vocabulary->value)),
-                'grammar' => $this->metric($rows->get('4-'.LearningConceptKind::Grammar->value)),
-            ],
-        ];
+        return $this->levelMetrics($rows);
+    }
+
+    /** @return array<'N5'|'N4'|'N3'|'N2'|'N1', array<'vocabulary'|'grammar', array{mastery_percent: int, known: int, known_from_cards: int, known_from_wanikani: int, known_from_both: int, matched: int, covered: int, total: int}>> */
+    private function levelMetrics(Collection $rows): array
+    {
+        $result = [];
+        foreach ([5, 4, 3, 2, 1] as $level) {
+            $result['N'.$level] = [
+                'vocabulary' => $this->metric($rows->get($level.'-'.LearningConceptKind::Vocabulary->value)),
+                'grammar' => $this->metric($rows->get($level.'-'.LearningConceptKind::Grammar->value)),
+            ];
+        }
+
+        return $result;
     }
 
     /**

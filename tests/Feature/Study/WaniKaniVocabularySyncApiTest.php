@@ -170,12 +170,12 @@ class WaniKaniVocabularySyncApiTest extends TestCase
 
         $this->assertDatabaseHas('wanikani_subjects', [
             'subject_id' => 900,
-            'matcher_version' => 'wanikani-exact-v2',
+            'matcher_version' => 'wanikani-exact-v3',
         ]);
         $this->assertDatabaseHas('wanikani_subject_learning_concepts', [
             'subject_id' => 900,
             'concept_id' => 'n5-vocab-2013900-2dacb910',
-            'matcher_version' => 'wanikani-exact-v2',
+            'matcher_version' => 'wanikani-exact-v3',
         ]);
     }
 

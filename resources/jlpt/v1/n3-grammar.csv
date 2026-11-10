@@ -1,0 +1,131 @@
+concept_id,jlpt_level,pattern,meaning,source,source_id,review_status
+n3-grammar-you-da-appearance,N3,Plain form + ようだ,"appears / seems (evidence-based, formal)",Japanese Language Data,you-da-appearance,draft
+n3-grammar-mitai-looks-like,N3,Plain form / noun + みたい(だ/です),looks like / seems / is like (casual),Japanese Language Data,mitai-looks-like,draft
+n3-grammar-rashii-seems,N3,Plain form / noun + らしい,seems / apparently / typical of,Japanese Language Data,rashii-seems,draft
+n3-grammar-te-oku,N3,Verb-て form + おく,do in advance / leave in a state,Japanese Language Data,te-oku,draft
+n3-grammar-te-shimau,N3,Verb-て form + しまう,completion / regret (finish doing / end up doing),Japanese Language Data,te-shimau,draft
+n3-grammar-te-aru,N3,Transitive verb-て form + ある,has been done (state from intentional action),Japanese Language Data,te-aru,draft
+n3-grammar-te-miru,N3,Verb-て form + みる,try doing (to see what happens),Japanese Language Data,te-miru,draft
+n3-grammar-te-iku,N3,Verb-て form + いく,going on / away from reference point (spatially or temporally),Japanese Language Data,te-iku,draft
+n3-grammar-te-kuru,N3,Verb-て form + くる,coming to / becoming (toward reference point),Japanese Language Data,te-kuru,draft
+n3-grammar-nagara,N3,Verb ます-stem + ながら,"while doing (two simultaneous actions, same subject)",Japanese Language Data,nagara,draft
+n3-grammar-uchi-ni,N3,V plain non-past / V ない-form / い-adj / noun-の / な-adj + な + うちに,while (the state holds) / before (it changes),Japanese Language Data,uchi-ni,draft
+n3-grammar-aida-ni,N3,V 〜ている / noun-の / adj + 間 or 間に,during / while (a period within which something happens),Japanese Language Data,aida-ni,draft
+n3-grammar-ta-bakari,N3,Verb-た form + ばかり,just (recently) did,Japanese Language Data,ta-bakari,draft
+n3-grammar-ta-tokoro,N3,Verb form + ところ,just (now) did / just about to do / in the middle of doing,Japanese Language Data,ta-tokoro,draft
+n3-grammar-tame-ni,N3,V plain / noun + の + ために,for the purpose of / for the sake of / because of,Japanese Language Data,tame-ni,draft
+n3-grammar-you-ni-purpose,N3,V plain non-past (potential / intransitive / ない-form) + ように,so that / in order to (non-volitional goal),Japanese Language Data,you-ni-purpose,draft
+n3-grammar-noni-although,N3,Plain form + のに,although / even though (contrary to expectation),Japanese Language Data,noni-although,draft
+n3-grammar-okage-sei-de,N3,V plain / noun-の + おかげで (positive) or せいで (negative),thanks to / because of (with explicit positive or negative attribution),Japanese Language Data,okage-sei-de,draft
+n3-grammar-bakari-only,N3,Noun / verb (〜て form / plain) + ばかり,only / nothing but / just (emphatic),Japanese Language Data,bakari-only,draft
+n3-grammar-kakeru-halfway,N3,Verb ます-stem + かける,half-done / in the middle of / about to (interrupted action),Japanese Language Data,kakeru-halfway,draft
+n3-grammar-hodo-extent,N3,Noun / verb plain + ほど; also A は B ほど [adj]-ない,to the extent of / not as ___ as,Japanese Language Data,hodo-extent,draft
+n3-grammar-kurai-extent,N3,Noun / verb plain + くらい / ぐらい,about / approximately / to the extent that,Japanese Language Data,kurai-extent,draft
+n3-grammar-koto-nominalizer,N3,Verb plain form / na-adj + な + こと,nominalizer: 'the act / fact of doing',Japanese Language Data,koto-nominalizer,draft
+n3-grammar-no-nominalizer,N3,Verb plain form / na-adj + な + の,nominalizer: 'the act / fact of doing' (perceptual/concrete),Japanese Language Data,no-nominalizer,draft
+n3-grammar-tabi-ni-every-time,N3,V plain non-past / noun-の + たびに,every time / whenever,Japanese Language Data,tabi-ni-every-time,draft
+n3-grammar-ka-dou-ka,N3,Plain form (or noun / na-adj root) + かどうか,whether or not,Japanese Language Data,ka-dou-ka,draft
+n3-grammar-ni-tsuite,N3,Noun + について,about / regarding,Japanese Language Data,ni-tsuite,draft
+n3-grammar-ni-totte,N3,Noun + にとって,for / to / from the perspective of,Japanese Language Data,ni-totte,draft
+n3-grammar-ni-yotte,N3,Noun + によって,by means of / depending on / by (passive agent),Japanese Language Data,ni-yotte,draft
+n3-grammar-beki-da,N3,Verb (dictionary form) + べきだ,should / ought to (moral or social obligation),Japanese Language Data,beki-da,draft
+n3-grammar-ta-hou-ga-ii,N3,Verb-た form + ほうがいい,had better / it's better to,Japanese Language Data,ta-hou-ga-ii,draft
+n3-grammar-nakucha-nakya,N3,Verb-ない stem + なくちゃ / なきゃ (+ いけない / ならない),must / have to (casual contractions),Japanese Language Data,nakucha-nakya,draft
+n3-grammar-ba-yokatta,N3,Verb-ば form + よかった,should have / would have been better if,Japanese Language Data,ba-yokatta,draft
+n3-grammar-ba-hodo,N3,Verb-ば form + Verb dictionary form + ほど,"the more X, the more Y",Japanese Language Data,ba-hodo,draft
+n3-grammar-causative-passive,N3,Verb → causative-passive form,be made to do / be forced to do,Japanese Language Data,causative-passive,draft
+n3-grammar-mama,N3,Verb-た / noun-の / i-adj / demonstrative + まま,without changing / as is / the way it was,Japanese Language Data,mama,draft
+n3-grammar-zu-ni,N3,Verb negative stem + ずに,without doing,Japanese Language Data,zu-ni,draft
+n3-grammar-tagaru-third-person-desire,N3,Verb stem + たがる / たがっている,(third person) wants to / shows signs of wanting,Japanese Language Data,tagaru-third-person-desire,draft
+n3-grammar-sae-even,N3,Noun + さえ (+ negative or extreme statement),"even (emphatic, minimal case)",Japanese Language Data,sae-even,draft
+n3-grammar-koso-precisely,N3,Noun + こそ,precisely / the very / it is exactly,Japanese Language Data,koso-precisely,draft
+n3-grammar-to-tan-moment,N3,Verb-た form + とたん(に),the moment that / as soon as,Japanese Language Data,to-tan-moment,draft
+n3-grammar-shidai-depending,N3,Noun + 次第 / V ます-stem + 次第,depending on / as soon as (formal),Japanese Language Data,shidai-depending,draft
+n3-grammar-kagiri-as-long-as,N3,V plain / i-adj / noun + である + 限り,as long as / to the extent that / as far as,Japanese Language Data,kagiri-as-long-as,draft
+n3-grammar-darake-full-of,N3,Noun + だらけ,full of / covered with (usually negative),Japanese Language Data,darake-full-of,draft
+n3-grammar-furi-wo-suru-pretend,N3,Plain form + ふりをする,to pretend to / act as if,Japanese Language Data,furi-wo-suru-pretend,draft
+n3-grammar-kuse-ni-despite,N3,Plain form + くせに,despite / although (critical / reproachful contrast),Japanese Language Data,kuse-ni-despite,draft
+n3-grammar-wake-da-meaning,N3,Plain form + わけだ,it means that / no wonder / that's why,Japanese Language Data,wake-da-meaning,draft
+n3-grammar-wake-dewa-nai,N3,Plain form + わけではない,it's not (necessarily) that / it doesn't mean that,Japanese Language Data,wake-dewa-nai,draft
+n3-grammar-you-ga-nai-no-way,N3,Verb ます-stem + ようがない / ようもない,there's no way to / can't possibly,Japanese Language Data,you-ga-nai-no-way,draft
+n3-grammar-pponashi-left,N3,Verb ます-stem + っぱなし,leave X in a state / continuously / without stopping,Japanese Language Data,pponashi-left,draft
+n3-grammar-ni-shitemo-even,N3,Plain form + にしても,even if / even assuming / even for,Japanese Language Data,ni-shitemo-even,draft
+n3-grammar-to-wa-kagiranai,N3,Plain form + とは限らない,not necessarily / not always,Japanese Language Data,to-wa-kagiranai,draft
+n3-grammar-nai-koto-wa-nai,N3,V ない / i-adj くない + ことはない,it's not that one doesn't / it's not impossible to,Japanese Language Data,nai-koto-wa-nai,draft
+n3-grammar-irai-since,N3,V-て form / noun + 以来,ever since / since (a specific past event),Japanese Language Data,irai-since,draft
+n3-grammar-ni-taishite-toward,N3,Noun + に対して,toward / against / in contrast to,Japanese Language Data,ni-taishite-toward,draft
+n3-grammar-ni-kanshite-regarding,N3,Noun + に関して / に関する,regarding / concerning (formal),Japanese Language Data,ni-kanshite-regarding,draft
+n3-grammar-ni-kawatte-instead,N3,Noun + にかわって / にかわり,instead of / on behalf of / in place of,Japanese Language Data,ni-kawatte-instead,draft
+n3-grammar-toshite-as,N3,Noun + として,as / in the role of / in the capacity of,Japanese Language Data,toshite-as,draft
+n3-grammar-ni-oite-in-at,N3,Noun + において / における,in / at / regarding (formal),Japanese Language Data,ni-oite-in-at,draft
+n3-grammar-muke-targeted-for,N3,Noun + 向け(に / の),targeted at / for (a specific audience),Japanese Language Data,muke-targeted-for,draft
+n3-grammar-muki-suitable-for,N3,Noun + 向き(の / に),suitable for / naturally fitting,Japanese Language Data,muki-suitable-for,draft
+n3-grammar-ni-tsurete-as,N3,V plain non-past / noun + につれて,"as (X progresses/increases), correspondingly",Japanese Language Data,ni-tsurete-as,draft
+n3-grammar-to-tomoni-together,N3,Noun / V plain + とともに,together with / as X happens,Japanese Language Data,to-tomoni-together,draft
+n3-grammar-kiri-only,N3,Noun / number + 切り / きり,only / exclusively / just,Japanese Language Data,kiri-only,draft
+n3-grammar-ta-kiri-since-last,N3,Verb-た form + きり + (negative continuation),"since last doing X, (haven't done Y) / only doing X and no more",Japanese Language Data,ta-kiri-since-last,draft
+n3-grammar-dake-ni-precisely,N3,Plain form + だけに,"precisely because / being X, all the more",Japanese Language Data,dake-ni-precisely,draft
+n3-grammar-dake-atte-as-expected,N3,Plain form + だけあって,as one would expect from / fittingly,Japanese Language Data,dake-atte-as-expected,draft
+n3-grammar-bakari-ni-merely,N3,Plain form + ばかりに,merely because / just because (often with negative outcome),Japanese Language Data,bakari-ni-merely,draft
+n3-grammar-bakari-ka-not-only,N3,Plain form + ばかりか,not only X but also Y,Japanese Language Data,bakari-ka-not-only,draft
+n3-grammar-to-iu-yori-rather,N3,Plain form + というより,rather than / more than saying X,Japanese Language Data,to-iu-yori-rather,draft
+n3-grammar-to-ieba-speaking-of,N3,Noun / plain form + と言えば,speaking of / when it comes to,Japanese Language Data,to-ieba-speaking-of,draft
+n3-grammar-to-itte-mo-although,N3,Plain form + と言っても,although I say / although we call it,Japanese Language Data,to-itte-mo-although,draft
+n3-grammar-to-itta-such-as,N3,Noun + といった + noun,such as / things like,Japanese Language Data,to-itta-such-as,draft
+n3-grammar-ppoi-seems,N3,Noun / i-adj stem / V stem + っぽい,seems / looks / -ish / tends to,Japanese Language Data,ppoi-seems,draft
+n3-grammar-ge-looking,N3,i-adj / na-adj / V stem + げ,looking / appearing (-like),Japanese Language Data,ge-looking,draft
+n3-grammar-dokoro-ka-far-from,N3,Plain form + どころか,far from / let alone / on the contrary,Japanese Language Data,dokoro-ka-far-from,draft
+n3-grammar-dokoro-dewa-nai-no-time,N3,Noun / V plain + どころではない,no time for / can't afford to / out of the question,Japanese Language Data,dokoro-dewa-nai-no-time,draft
+n3-grammar-ippou-de-one-hand,N3,Plain form + 一方で,on the other hand / while at the same time,Japanese Language Data,ippou-de-one-hand,draft
+n3-grammar-ippou-da-keeps,N3,Verb plain non-past + 一方だ,keeps X-ing / continues to increase (one direction),Japanese Language Data,ippou-da-keeps,draft
+n3-grammar-ue-de-upon,N3,V-た form / noun + の + 上で,upon doing / after careful X (as a prerequisite),Japanese Language Data,ue-de-upon,draft
+n3-grammar-warini-considering,N3,Plain form + わりに(は),"considering / for (an X), (relatively) Y",Japanese Language Data,warini-considering,draft
+n3-grammar-te-tamaranai-unbearably,N3,V-て form / i-adj 〜くて / na-adj で + たまらない,unbearably / can't stand how,Japanese Language Data,te-tamaranai-unbearably,draft
+n3-grammar-te-naranai-cant-help,N3,V-て form / i-adj 〜くて / na-adj で + ならない,can't help feeling / uncontrollably,Japanese Language Data,te-naranai-cant-help,draft
+n3-grammar-chuu-during,N3,Noun + 中 (ちゅう / じゅう),during / in the middle of / throughout,Japanese Language Data,chuu-during,draft
+n3-grammar-gimi-tendency,N3,Noun / V ます-stem + 気味,appearing / tending to / looking slightly,Japanese Language Data,gimi-tendency,draft
+n3-grammar-tsuzukeru-continue,N3,Verb ます-stem + 続ける,continue doing / keep doing,Japanese Language Data,tsuzukeru-continue,draft
+n3-grammar-naoshi-redo,N3,Verb ます-stem + 直す,redo / do (X) over again,Japanese Language Data,naoshi-redo,draft
+n3-grammar-au-together,N3,Verb ます-stem + 合う,do X mutually / reciprocally,Japanese Language Data,au-together,draft
+n3-grammar-dashi-suddenly-start,N3,Verb ます-stem + 出す,suddenly start (doing X) / begin abruptly,Japanese Language Data,dashi-suddenly-start,draft
+n3-grammar-komi-into,N3,Verb ます-stem + 込む,do X thoroughly / into (a space or state),Japanese Language Data,komi-into,draft
+n3-grammar-saichu-in-the-middle,N3,Noun / V 〜ている + 最中,in the middle of / right in the midst of,Japanese Language Data,saichu-in-the-middle,draft
+n3-grammar-kke-casual-wondering,N3,Plain form + っけ,was it the case that / I can't quite remember (casual),Japanese Language Data,kke-casual-wondering,draft
+n3-grammar-mono-reason-assertion,N3,Plain form + もの / もん,because / since (emotional or justifying),Japanese Language Data,mono-reason-assertion,draft
+n3-grammar-mon-casual-because,N3,Plain form + んだもん,(it's) because / that's why (casual whining),Japanese Language Data,mon-casual-because,draft
+n3-grammar-nai-de-without-doing,N3,Verb ない-form + で,without doing / instead of doing,Japanese Language Data,nai-de-without-doing,draft
+n3-grammar-ni-chigainai-must,N3,Plain form + にちがいない,must be / certainly / no doubt,Japanese Language Data,ni-chigainai-must,draft
+n3-grammar-koto-da-emphatic,N3,Verb plain non-past + ことだ,should do / it's advisable / the important thing is to,Japanese Language Data,koto-da-emphatic,draft
+n3-grammar-hoka-nai-no-choice,N3,Verb plain non-past + (より)ほか(は)ない,have no choice but to / there's no option except,Japanese Language Data,hoka-nai-no-choice,draft
+n3-grammar-koto-ni-surprise,N3,i-adj / na-adj (+ な) / V-た + ことに(は),to X's surprise / delight / disappointment,Japanese Language Data,koto-ni-surprise,draft
+n3-grammar-kurai-nara-rather,N3,V plain non-past + くらいなら,"rather than / if it comes to X, I'd rather Y",Japanese Language Data,kurai-nara-rather,draft
+n3-grammar-ni-kakete-through,N3,Noun + から + Noun + にかけて,from X through Y / over the span of,Japanese Language Data,ni-kakete-through,draft
+n3-grammar-igai-other-than,N3,Noun + 以外(に / には / は),other than / besides / except for,Japanese Language Data,igai-other-than,draft
+n3-grammar-okini-intervals,N3,Number + counter + おきに,at intervals of / every other,Japanese Language Data,okini-intervals,draft
+n3-grammar-gotoni-each,N3,Noun / V plain non-past + ごとに,every / each / every time,Japanese Language Data,gotoni-each,draft
+n3-grammar-kawari-ni-instead,N3,V plain / noun + の + 代わりに,instead of / in exchange for,Japanese Language Data,kawari-ni-instead,draft
+n3-grammar-n-da-kara-emphatic,N3,Plain form + んだから,since / because (emphatic),Japanese Language Data,n-da-kara-emphatic,draft
+n3-grammar-wake-ga-nai,N3,Plain form + わけがない,there's no way / it's impossible that,Japanese Language Data,wake-ga-nai,draft
+n3-grammar-shou-ga-nai,N3,しょうがない / しようがない (standalone),it can't be helped / nothing to do about it,Japanese Language Data,shou-ga-nai,draft
+n3-grammar-te-shou-ga-nai,N3,V-て / i-adj 〜くて / na-adj で + しょうがない,can't help feeling / unbearably,Japanese Language Data,te-shou-ga-nai,draft
+n3-grammar-te-shikata-ga-nai,N3,V-て / i-adj 〜くて / na-adj で + しかたがない,can't help feeling / unbearably (more formal),Japanese Language Data,te-shikata-ga-nai,draft
+n3-grammar-kko-nai,N3,Verb ます-stem + っこない,absolutely not / no way / there's no chance,Japanese Language Data,kko-nai,draft
+n3-grammar-nan-te-how,N3,Phrase + なんて,"how / such (a thing) as (often surprise, disdain, or dismissal)",Japanese Language Data,nan-te-how,draft
+n3-grammar-nan-ka-dismissive,N3,Noun + なんか,things like / (dismissive) such as,Japanese Language Data,nan-ka-dismissive,draft
+n3-grammar-buri-ni-first-time,N3,Time period + ぶり(に),for the first time in / after X,Japanese Language Data,buri-ni-first-time,draft
+n3-grammar-nai-wake-ni-ikanai,N3,V ない-form + わけにはいかない,can't not do / have to (social or moral obligation),Japanese Language Data,nai-wake-ni-ikanai,draft
+n3-grammar-wake-ni-wa-ikanai,N3,V plain non-past + わけにはいかない,can't afford to / can't simply do (due to circumstances),Japanese Language Data,wake-ni-wa-ikanai,draft
+n3-grammar-tsuide-ni,N3,V plain / noun + の + ついでに,while I'm at it / on the way / taking the opportunity,Japanese Language Data,tsuide-ni,draft
+n3-grammar-wo-hajime-including,N3,Noun + をはじめ(として / とする),starting with / including / such as (representative example),Japanese Language Data,wo-hajime-including,draft
+n3-grammar-te-koso-only-by,N3,V-て form + こそ,only by / it is precisely by doing,Japanese Language Data,te-koso-only-by,draft
+n3-grammar-bakari-de-naku,N3,Plain form + ばかりでなく,not only X but also Y (formal),Japanese Language Data,bakari-de-naku,draft
+n3-grammar-dake-de-naku,N3,Plain form + だけでなく,not only X but also Y (neutral),Japanese Language Data,dake-de-naku,draft
+n3-grammar-ni-kimatte-iru,N3,Plain form + に決まっている,it's definitely / of course / for sure,Japanese Language Data,ni-kimatte-iru,draft
+n3-grammar-zuni-sumu,N3,V negative stem + ずに済む,get by without / manage without having to,Japanese Language Data,zuni-sumu,draft
+n3-grammar-ni-kurabete-compared,N3,Noun + に比べて / に比べ,compared to / in comparison with,Japanese Language Data,ni-kurabete-compared,draft
+n3-grammar-te-hajimete-only-after,N3,V-て form + 初めて,only after / not until,Japanese Language Data,te-hajimete-only-after,draft
+n3-grammar-ni-ataru-correspond,N3,Noun + に当たる,correspond to / be equivalent to / fall on (a day),Japanese Language Data,ni-ataru-correspond,draft
+n3-grammar-tatoe-temo,N3,たとえ + V-て form + も,even if (hypothetical emphatic),Japanese Language Data,tatoe-temo,draft
+n3-grammar-te-goran-try-casual,N3,V-て form + ごらん(なさい),try doing (warm / parental suggestion),Japanese Language Data,te-goran-try-casual,draft
+n3-grammar-mono-da-general,N3,Plain form + ものだ,it's natural / should be / generally (general truth or tendency),Japanese Language Data,mono-da-general,draft
+n3-grammar-ki-ga-suru-feel-like,N3,Plain form + 気がする,feel like / have a feeling that,Japanese Language Data,ki-ga-suru-feel-like,draft

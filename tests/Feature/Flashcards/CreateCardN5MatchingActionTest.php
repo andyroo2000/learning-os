@@ -55,14 +55,14 @@ class CreateCardN5MatchingActionTest extends TestCase
             'concept_id' => 'n5-vocab-1198550-2120ff50',
             'match_method' => 'exact',
             'match_source' => 'creation',
-            'classifier_version' => 'jlpt-n5-n4-rules-v5',
+            'classifier_version' => 'jlpt-n1-n5-rules-v6',
         ]);
         $this->assertDatabaseHas('card_learning_concepts', [
             'card_id' => $cardId,
             'concept_id' => 'n5-grammar-arimasu-existence-inanimate',
             'match_method' => 'classifier',
             'match_source' => 'creation',
-            'classifier_version' => 'jlpt-n5-n4-rules-v5',
+            'classifier_version' => 'jlpt-n1-n5-rules-v6',
         ]);
         $this->assertSame(
             DB::table('card_learning_concepts')->where('card_id', $cardId)->count(),
@@ -105,7 +105,7 @@ class CreateCardN5MatchingActionTest extends TestCase
                 'concept_id' => $conceptId,
                 'match_method' => 'token',
                 'match_source' => 'creation',
-                'classifier_version' => 'jlpt-n5-n4-rules-v5',
+                'classifier_version' => 'jlpt-n1-n5-rules-v6',
             ]);
         }
     }

@@ -35,7 +35,7 @@ class JournalFeedbackTest extends TestCase
             ['segments.0.text', '映画を見ました。'], ['segments.0.text', ''],
             ['segments.0.reading', '映画を見ますた。'],
             ['segments.0.kind', 'unknown'], ['segments.0.suggestion', null],
-            ['segments.0.kind', 'plain'],
+            ['segments.0.kind', 'plain'], ['segments.0.kind', 'keep'],
             ['segments.0.suggestionReading', '映画を見ました。'],
             ['segments.0.explanationReading', 'Use 見ました for the past tense.'],
             ['correctedReading', '映画を見ました。'], ['questionReading', 'どんな映画ですか。'],

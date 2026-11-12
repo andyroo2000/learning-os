@@ -41,7 +41,7 @@ final class JournalFeedback
         $data = Validator::make($segment, [
             'text' => ['present', 'string', 'max:20000'],
             'reading' => ['present', 'string', 'max:80000'],
-            'kind' => ['required', 'in:plain,correction,optional,keep'],
+            'kind' => ['required', 'in:plain,correction,optional'],
             'suggestion' => [...$note, 'max:3000'],
             'suggestionReading' => [...$note, 'max:12000'],
             'explanation' => [...$note, 'max:2000'],

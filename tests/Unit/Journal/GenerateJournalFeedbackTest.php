@@ -28,6 +28,7 @@ class GenerateJournalFeedbackTest extends TestCase
                 && $request['reasoning']['effort'] === 'low'
                 && $request['text']['format']['strict'] === true
                 && $request['text']['format']['schema']['additionalProperties'] === false
+                && $request['text']['format']['schema']['properties']['segments']['items']['properties']['kind']['enum'] === ['plain', 'correction', 'optional']
                 && json_decode($request['input'][1]['content'], true) === ['body' => '映画を見ますた。'];
         });
     }

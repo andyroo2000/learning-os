@@ -19,8 +19,8 @@ final class JournalDraftInput
     public static function rules(): array
     {
         return [
-            'title' => ['present', 'nullable', 'string', 'max:255'],
-            'body' => ['present', 'string', 'max:20000'],
+            'title' => ['present', 'nullable', 'string', 'max:255', 'not_regex:/\x00/'],
+            'body' => ['present', 'string', 'max:20000', 'not_regex:/\x00/'],
             'entryDate' => ['required', 'date_format:Y-m-d'],
             'expectedVersion' => ['required', 'integer', 'min:0', 'max:2147483646'],
         ];

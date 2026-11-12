@@ -97,6 +97,7 @@ class JournalDraftApiTest extends TestCase
             ['body', null], ['body', ['text']], ['body', str_repeat('あ', 20001)],
             ['title', str_repeat('a', 256)], ['entryDate', '2026-02-30'],
             ['expectedVersion', -1], ['expectedVersion', 1.5],
+            ['body', "text\0"], ['title', "title\0"],
         ];
     }
 

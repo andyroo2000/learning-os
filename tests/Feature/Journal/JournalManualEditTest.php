@@ -72,6 +72,18 @@ class JournalManualEditTest extends TestCase
         $this->putJson($this->url($entry), $input)->assertNotFound();
     }
 
+    public function test_http_preserves_surrounding_whitespace_and_a_lost_response_requires_refetch(): void
+    {
+        [$entry, $analysis, $input] = $this->ready();
+        $input['text'] = "\n はい。\n";
+        $this->mock(StudyCaptureReadingGenerator::class)->shouldReceive('generate')->once()
+            ->with($input['text'])->andReturn($input['text']);
+        $this->putJson($this->url($entry), $input)->assertOk()->assertJsonPath('data.correctedDocument.text', $input['text']);
+        $this->putJson($this->url($entry), $input)->assertConflict();
+        $this->getJson('/api/journal/entries/'.$entry->id.'/analysis')->assertOk()
+            ->assertJsonPath('data.correctedDocument.text', $input['text'])->assertJsonPath('data.replyRevision', 1);
+    }
+
     private function ready(): array
     {
         $entry = JournalEntry::factory()->for($this->signIn())->create();

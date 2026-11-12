@@ -5,6 +5,7 @@ use App\Domain\Auth\Exceptions\InvalidCurrentPasswordException;
 use App\Domain\Flashcards\Exceptions\LearningPathConflictException;
 use App\Domain\Japanese\Exceptions\WaniKaniApiException;
 use App\Domain\Japanese\Exceptions\WaniKaniSyncInProgressException;
+use App\Domain\Journal\Exceptions\JournalVersionConflict;
 use App\Domain\Sync\Exceptions\StaleSyncFeedCheckpointException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        // Preserve journal whitespace and empty drafts exactly as written.
+        $journalRequest = static fn (Request $request): bool => $request->is('api/journal/*');
+        $middleware->trimStrings(except: [$journalRequest]);
+        $middleware->convertEmptyStringsToNull(except: [$journalRequest]);
         // Browser analytics is anonymous telemetry and sendBeacon cannot attach an XSRF header.
         $middleware->validateCsrfTokens(except: ['api/convolab/browser/tools/analytics']);
         $middleware->redirectGuestsTo(static fn (): null => null);
@@ -31,6 +36,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 || $request->expectsJson(),
         );
         $exceptions->dontReport(AdminMutationException::class);
+        $exceptions->dontReport(JournalVersionConflict::class);
+        $exceptions->render(function (JournalVersionConflict $exception): JsonResponse {
+            return response()->json(['message' => $exception->getMessage(), 'reason' => 'journal_version_conflict'], 409);
+        });
         $exceptions->dontReport(InvalidCurrentPasswordException::class);
         $exceptions->dontReport(LearningPathConflictException::class);
         $exceptions->dontReport(StaleSyncFeedCheckpointException::class);

@@ -70,5 +70,6 @@ Route::middleware('auth:sanctum')->group(function () use ($authenticatedRouteReg
 });
 
 Route::middleware('auth:sanctum')->group(require __DIR__.'/api/readings.php');
+Route::middleware('auth:sanctum')->group(require __DIR__.'/api/journal.php');
 
 unset($authenticatedRouteRegistrars, $authRoutes, $deckRoutes, $publicMediaAnalyticsRoutes, $studyRouteRegistrars);

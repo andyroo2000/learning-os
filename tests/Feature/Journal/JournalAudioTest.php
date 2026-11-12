@@ -16,7 +16,7 @@ class JournalAudioTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const VOICE = 'fishaudio:abb4362e736f40b7b5716f4fafcafa9f';
+    private const VOICE = 'fishaudio:21c74cb823fa45ef996ccc91cd6038b6';
 
     protected function setUp(): void
     {
@@ -36,7 +36,7 @@ class JournalAudioTest extends TestCase
         Http::assertSentCount(1);
         Http::assertSent(fn ($request) => $request['text'] === '映画を見ました。'
             && $request['reference_id'] === substr(self::VOICE, 10));
-        $this->getJson('/api/journal/voices')->assertOk()->assertJsonFragment(['id' => self::VOICE, 'name' => 'Ren']);
+        $this->getJson('/api/journal/voices')->assertOk()->assertJsonFragment(['id' => self::VOICE, 'name' => 'Haru (M)']);
     }
 
     public function test_audio_uses_the_current_answer_and_rejects_old_revisions(): void
@@ -85,7 +85,7 @@ class JournalAudioTest extends TestCase
     {
         [$entry, $analysis] = $this->readyEntry();
         $url = '/api/journal/entries/'.$entry->id.'/audio';
-        foreach ([self::VOICE, 'fishaudio:9639f090aa6346329d7d3aca7e6b7226'] as $voice) {
+        foreach ([self::VOICE, 'fishaudio:030fda5bec284b038ad930effd150f94'] as $voice) {
             $this->postJson($url, ['analysisId' => $analysis->id, 'voiceId' => $voice])->assertOk();
         }
         Http::assertSentCount(2);

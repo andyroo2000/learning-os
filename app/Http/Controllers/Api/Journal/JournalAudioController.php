@@ -17,8 +17,10 @@ class JournalAudioController extends Controller
 {
     public function voices(): JsonResponse
     {
-        return response()->json(['data' => collect(config('reading_voices'))
-            ->map(fn (string $name, string $id) => compact('id', 'name'))->values()]);
+        return response()->json(['data' => collect(config('journal_voices'))
+            ->map(fn (array $voice, string $id) => [
+                'id' => $id, 'name' => $voice['name'].' ('.$voice['gender'].')',
+            ])->values()]);
     }
 
     public function audio(JournalAudioRequest $request, JournalEntry $entry, GenerateJournalAudio $generate): StreamedResponse|JsonResponse

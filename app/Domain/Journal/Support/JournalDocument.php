@@ -77,12 +77,13 @@ final class JournalDocument
 
     public static function append(array $blocks, array $feedback, string $source): array
     {
-        $added = self::fromFeedback($feedback, $source);
+        $boundary = [...self::plain(new JournalText("\n\n", "\n\n")), 'id' => $source.':boundary'];
+        $added = [$boundary, ...self::fromFeedback($feedback, $source)];
         $existingIds = array_filter(array_column($blocks, 'id'));
         if (array_intersect($existingIds, array_filter(array_column($added, 'id'))) !== []) {
             throw ValidationException::withMessages(['source' => 'This answer is already part of the corrected entry.']);
         }
-        $result = [...$blocks, self::plain(new JournalText("\n\n", "\n\n")), ...$added];
+        $result = [...$blocks, ...$added];
         self::render($result)->assertEntryLength();
 
         return $result;

@@ -33,7 +33,7 @@ final class JournalReplyContext
         }
         $current = JournalReply::where('analysis_id', $analysis->id)->findOrFail($analysis->current_reply_id);
 
-        return $current->result['previousDocument'] ?? JournalDocumentState::atReply($analysis, $parent);
+        return JournalDocumentState::beforeReply($analysis, $current);
     }
 
     public static function append(array $context, array $feedback): array

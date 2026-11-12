@@ -4,6 +4,7 @@ namespace App\Domain\Journal\Support;
 
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalReply;
+use Illuminate\Validation\ValidationException;
 
 final class JournalDocumentState
 {
@@ -28,6 +29,22 @@ final class JournalDocumentState
             'correctedText' => $result['entryText'] ?? $result['correctedText'],
             'correctedReading' => $result['entryReading'] ?? $result['correctedReading'],
         ], $reply->id);
+    }
+
+    public static function beforeReply(JournalAnalysis $analysis, JournalReply $reply): array
+    {
+        if (isset($analysis->result['document'])) {
+            $blocks = $analysis->result['document'];
+            $index = array_search($reply->id.':boundary', array_column($blocks, 'id'), true);
+            if ($index === false) {
+                throw ValidationException::withMessages(['answer' => 'This answer overlaps manually edited text. Edit the corrected entry directly instead.']);
+            }
+
+            return array_slice($blocks, 0, $index);
+        }
+        $parent = JournalReply::where('analysis_id', $analysis->id)->find($reply->parent_id);
+
+        return self::atReply($analysis, $parent);
     }
 
     public static function payload(JournalAnalysis $analysis): ?array

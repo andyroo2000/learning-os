@@ -68,9 +68,33 @@ class JournalDocumentApiTest extends TestCase
             ->andReturn(JournalFeedbackFixture::result());
         (new AnalyzeJournalReply($replyId))->handle(app(ProcessJournalReply::class));
         $this->getJson($url.'/analysis')->assertOk()->assertJsonPath('data.correctedDocument.text', "映画を見ますた。\n\n映画を見ました。");
-        $this->postJson($url.'/undo', ['analysisId' => $analysis->id, 'expectedRevision' => 2])->assertOk()
-            ->assertJsonPath('data.correctedDocument.text', '映画を見ますた。')
-            ->assertJsonPath('data.correctedDocument.suggestions.0.applied', false);
+        $this->putJson($url.'/suggestion', [...$input, 'expectedRevision' => 2, 'applied' => true])->assertOk();
+        $this->postJson($url.'/undo', ['analysisId' => $analysis->id, 'expectedRevision' => 3])->assertOk()
+            ->assertJsonPath('data.correctedDocument.text', '映画を見ました。')
+            ->assertJsonPath('data.correctedDocument.suggestions.0.applied', true);
+    }
+
+    public function test_replacing_an_answer_keeps_choices_made_after_the_original_answer(): void
+    {
+        [$entry, $analysis, $input] = $this->ready();
+        $url = '/api/journal/entries/'.$entry->id;
+        $first = strtolower((string) Str::ulid());
+        $this->mock(GenerateJournalFeedback::class)->shouldReceive('handle')->once()->andReturn(JournalFeedbackFixture::result());
+        $this->putJson($url.'/replies/'.$first, ['analysisId' => $analysis->id,
+            'answer' => 'はい。', 'expectedRevision' => 0, 'replace' => false])->assertAccepted();
+        (new AnalyzeJournalReply($first))->handle(app(ProcessJournalReply::class));
+        $this->putJson($url.'/suggestion', [...$input, 'expectedRevision' => 1])->assertOk();
+        $second = strtolower((string) Str::ulid());
+        $this->putJson($url.'/replies/'.$second, ['analysisId' => $analysis->id,
+            'answer' => 'いいえ。', 'expectedRevision' => 2, 'replace' => true])->assertAccepted();
+        $this->mock(GenerateJournalFeedback::class)->shouldReceive('handle')->once()
+            ->withArgs(fn ($answer, $context) => $context['diary'] === '映画を見ますた。')
+            ->andReturn(JournalFeedbackFixture::result());
+        (new AnalyzeJournalReply($second))->handle(app(ProcessJournalReply::class));
+        $this->getJson($url.'/analysis')->assertOk()
+            ->assertJsonPath('data.correctedDocument.text', "映画を見ますた。\n\n映画を見ました。")
+            ->assertJsonMissingPath('data.result.document')
+            ->assertJsonMissingPath('data.currentReply.result.document');
     }
 
     private function ready(): array

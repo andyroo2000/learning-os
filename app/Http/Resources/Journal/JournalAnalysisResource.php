@@ -18,7 +18,7 @@ class JournalAnalysisResource extends JsonResource
             'id' => $this->id,
             'sourceVersion' => $this->source_version,
             'status' => $this->status->value,
-            'result' => $this->status === JournalAnalysisStatus::Ready ? $this->result : null,
+            'result' => $this->status === JournalAnalysisStatus::Ready ? array_diff_key($this->result ?? [], ['document' => true, 'previousDocument' => true]) : null,
             'error' => $this->status === JournalAnalysisStatus::Failed ? $this->error_message : null,
             'correctedDocument' => $this->status === JournalAnalysisStatus::Ready ? JournalDocumentState::payload($this->resource) : null,
             'replyRevision' => $this->reply_revision,

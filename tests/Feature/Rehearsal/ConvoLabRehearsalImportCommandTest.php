@@ -3,6 +3,7 @@
 namespace Tests\Feature\Rehearsal;
 
 use App\Domain\Flashcards\Models\Card;
+use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Models\DailyAudioPractice;
 use App\Domain\Study\Models\DailyAudioPracticeTrack;
@@ -15,7 +16,9 @@ class ConvoLabRehearsalImportCommandTest extends ConvoLabRehearsalImportTestCase
     public function test_imports_convolab_source_data_into_the_rehearsal_schema(): void
     {
         $this->seedConvoLabSourceData();
+        $draft = JournalEntry::factory()->create();
         $this->runImport();
+        $this->assertDatabaseMissing('journal_entries', ['id' => $draft->id]);
         $this->assertCanonicalIdentifiers();
         $this->assertImportedDailyAudio();
         $this->assertImportedStudyData();

@@ -8,6 +8,7 @@ use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalReply;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
+use App\Domain\Journal\Support\JournalDocument;
 use App\Domain\Journal\Support\JournalReplyContext;
 use App\Domain\Journal\Support\JournalReplyMutation;
 use RuntimeException;
@@ -24,8 +25,11 @@ class ProcessJournalReply
             return;
         }
         try {
-            $feedback = $this->generator->handle($input['answer'], $input['context']);
-            $this->finish($attempt, JournalReplyContext::append($input['context'], $feedback));
+            $feedback = $this->generator->handle($input['answer'], array_diff_key($input['context'], ['document' => true]));
+            $result = JournalReplyContext::append($input['context'], $feedback);
+            $result['previousDocument'] = $input['context']['document'];
+            $result['document'] = JournalDocument::append($result['previousDocument'], $feedback, $attempt->replyId);
+            $this->finish($attempt, $result);
         } catch (Throwable $exception) {
             $this->fail($attempt);
             throw $exception;
@@ -94,6 +98,7 @@ class ProcessJournalReply
             $reply->status = JournalAnalysisStatus::Ready;
             $reply->error_message = null;
             $reply->save();
+            $analysis->result = [...$analysis->result, 'document' => $result['document']];
             $analysis->current_reply_id = $reply->id;
             $analysis->pending_reply_id = null;
             $analysis->reply_revision++;

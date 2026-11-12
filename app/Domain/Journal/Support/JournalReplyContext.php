@@ -19,8 +19,21 @@ final class JournalReplyContext
         }
         $result = $parent?->result ?? $analysis->result;
 
-        return ['diary' => $result['entryText'] ?? $result['correctedText'],
-            'reading' => $result['entryReading'] ?? $result['correctedReading'], 'question' => $result['question']];
+        $document = self::document($reply, $analysis, $parent);
+        $rendered = JournalDocument::render($document);
+
+        return ['diary' => $rendered->text, 'reading' => $rendered->reading,
+            'question' => $result['question'], 'document' => $document];
+    }
+
+    private static function document(JournalReply $reply, JournalAnalysis $analysis, ?JournalReply $parent): array
+    {
+        if (! $reply->replaces_answer) {
+            return $analysis->result['document'] ?? JournalDocumentState::atReply($analysis, $parent);
+        }
+        $current = JournalReply::where('analysis_id', $analysis->id)->findOrFail($analysis->current_reply_id);
+
+        return $current->result['previousDocument'] ?? JournalDocumentState::atReply($analysis, $parent);
     }
 
     public static function append(array $context, array $feedback): array

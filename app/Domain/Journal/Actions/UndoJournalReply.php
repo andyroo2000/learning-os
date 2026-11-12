@@ -25,6 +25,12 @@ final class UndoJournalReply
             $analysis = JournalAnalysis::where('entry_id', $entry->id)->lockForUpdate()->findOrFail(CanonicalUlid::normalize($data['analysisId']));
             $this->assertCurrent($analysis, $entry, (int) $data['expectedRevision']);
             $reply = JournalReply::where('analysis_id', $analysis->id)->findOrFail($analysis->current_reply_id);
+            $result = $analysis->result;
+            unset($result['document']);
+            if (isset($reply->result['previousDocument'])) {
+                $result['document'] = $reply->result['previousDocument'];
+            }
+            $analysis->result = $result;
             $analysis->current_reply_id = $reply->parent_id;
             $analysis->reply_revision++;
             $analysis->save();

@@ -5,9 +5,12 @@ use App\Http\Controllers\Api\Journal\JournalAudioController;
 use App\Http\Controllers\Api\Journal\JournalDocumentController;
 use App\Http\Controllers\Api\Journal\JournalEntryController;
 use App\Http\Controllers\Api\Journal\JournalReplyController;
+use App\Http\Controllers\Api\Journal\JournalTutorController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
+    Route::get('journal/tutor', [JournalTutorController::class, 'show'])->middleware('throttle:120,1,journal');
+    Route::put('journal/tutor', [JournalTutorController::class, 'save'])->middleware('throttle:30,1,journal-tutor');
     Route::get('journal/voices', [JournalAudioController::class, 'voices'])->middleware('throttle:120,1,journal');
     Route::prefix('journal/entries')->middleware('throttle:120,1,journal')->group(function (): void {
         Route::get('/', [JournalEntryController::class, 'index']);

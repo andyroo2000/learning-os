@@ -2,9 +2,8 @@
 
 namespace App\Domain\Journal\Actions;
 
-use App\Domain\Journal\Enums\JournalAnalysisStatus;
-use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
+use App\Domain\Journal\Support\JournalAudioVersion;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
@@ -17,11 +16,7 @@ class GenerateJournalAudio
 
     public function handle(JournalEntry $entry, array $input): string
     {
-        $analysis = JournalAnalysis::where('entry_id', $entry->id)->orderByDesc('source_version')->first();
-        abort_unless($analysis?->id === $input['analysisId'] && $analysis->status === JournalAnalysisStatus::Ready
-            && $analysis->source_body === $entry->body, 409, 'Submit the current entry before playing its corrected version.');
-        $text = $analysis->result['correctedText'] ?? null;
-        abort_unless(is_string($text) && trim($text) !== '', 409, 'Corrected text is unavailable. Submit again.');
+        $text = JournalAudioVersion::text($entry, $input);
         if (mb_strlen($text) > FishAudioSpeechGenerator::MAX_TEXT_LENGTH) {
             throw ValidationException::withMessages(['audio' => 'Audio supports corrected entries up to 15,000 characters.']);
         }
@@ -29,7 +24,7 @@ class GenerateJournalAudio
         $hash = hash('sha256', $voice.'|'.$text);
         $path = 'journal/'.$entry->id.'/audio/'.$hash.'.mp3';
 
-        return Cache::lock('journal-audio:'.$entry->id.':'.$hash, 120)->block(5, function () use ($entry, $text, $voice, $path): string {
+        return Cache::lock('journal-audio:'.$entry->id.':'.$hash, 120)->block(5, function () use ($entry, $text, $voice, $path, $input): string {
             if (! Storage::disk('local')->exists($path)) {
                 $allowed = RateLimiter::attempt('journal-audio:'.$entry->user_id, 5, fn () => true, 60);
                 abort_unless($allowed, 429, 'Please wait a minute before generating more audio.');
@@ -37,13 +32,13 @@ class GenerateJournalAudio
                 abort_unless(Storage::disk('local')->put($path, $bytes), 503, 'Audio could not be saved.');
             }
 
-            $this->checkCurrentEntry($entry, $path);
+            JournalAudioVersion::text($this->checkCurrentEntry($entry, $path), $input);
 
             return $path;
         });
     }
 
-    private function checkCurrentEntry(JournalEntry $snapshot, string $path): void
+    private function checkCurrentEntry(JournalEntry $snapshot, string $path): JournalEntry
     {
         $current = $snapshot->fresh();
         if ($current === null || $current->trashed()) {
@@ -54,5 +49,7 @@ class GenerateJournalAudio
             Storage::disk('local')->delete($path);
             abort(409, 'The entry changed while audio was being prepared.');
         }
+
+        return $current;
     }
 }

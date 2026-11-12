@@ -19,6 +19,7 @@ return static function (): void {
         Route::get('{entry}/audio', [JournalAudioController::class, 'state'])->whereUlid('entry');
         Route::put('{entry}/replies/{replyId}', [JournalReplyController::class, 'save'])->whereUlid('entry')->whereUlid('replyId')->middleware('throttle:3,1,journal-reply');
         Route::get('{entry}/replies/{replyId}', [JournalReplyController::class, 'show'])->whereUlid('entry')->whereUlid('replyId');
+        Route::put('{entry}/corrected', [JournalDocumentController::class, 'edit'])->whereUlid('entry')->middleware('throttle:5,1,journal-edit');
         Route::put('{entry}/suggestion', [JournalDocumentController::class, 'suggestion'])->whereUlid('entry');
         Route::post('{entry}/undo', [JournalReplyController::class, 'undo'])->whereUlid('entry');
         Route::get('{entry}/analysis', [JournalAnalysisController::class, 'show'])->whereUlid('entry');

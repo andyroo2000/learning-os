@@ -45,6 +45,7 @@ final class StartJournalAnalysis
         }
         if ($analysis->status === JournalAnalysisStatus::Failed) {
             $analysis->status = JournalAnalysisStatus::Queued;
+            $analysis->result = null;
             $analysis->error_message = null;
             $analysis->attempt_id = null;
             $analysis->processing_started_at = null;

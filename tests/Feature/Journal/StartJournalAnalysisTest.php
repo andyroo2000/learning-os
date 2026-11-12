@@ -38,11 +38,13 @@ class StartJournalAnalysisTest extends TestCase
         $analysis = $action->handle($entry->user_id, $entry->id, 1);
         $analysis->status = JournalAnalysisStatus::Failed;
         $analysis->error_message = 'Provider unavailable';
+        $analysis->result = ['partial' => 'discard'];
         $analysis->save();
         $retry = $action->handle($entry->user_id, $entry->id, 1);
         $this->assertSame($analysis->id, $retry->id);
         $this->assertSame(JournalAnalysisStatus::Queued, $retry->status);
         $this->assertNull($retry->error_message);
+        $this->assertNull($retry->result);
         $this->assertSame($entry->body, $retry->source_body);
     }
 

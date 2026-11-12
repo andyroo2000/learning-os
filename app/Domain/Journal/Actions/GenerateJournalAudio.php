@@ -4,6 +4,7 @@ namespace App\Domain\Journal\Actions;
 
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalAudioVersion;
+use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
@@ -29,12 +30,21 @@ class GenerateJournalAudio
                 $allowed = RateLimiter::attempt('journal-audio:'.$entry->user_id, 5, fn () => true, 60);
                 abort_unless($allowed, 429, 'Please wait a minute before generating more audio.');
                 $bytes = $this->speech->generate($text, $voice);
-                abort_unless(Storage::disk('local')->put($path, $bytes), 503, 'Audio could not be saved.');
+                $this->publish($entry, $input, $path, $bytes);
             }
 
             JournalAudioVersion::text($this->checkCurrentEntry($entry, $path), $input);
 
             return $path;
+        });
+    }
+
+    private function publish(JournalEntry $entry, array $input, string $path, string $bytes): void
+    {
+        // Synthesis stays outside the transaction; publication serializes with account deletion.
+        JournalWriteTransaction::run($entry->user_id, function () use ($entry, $input, $path, $bytes): void {
+            JournalAudioVersion::text($this->checkCurrentEntry($entry, $path), $input);
+            abort_unless(Storage::disk('local')->put($path, $bytes), 503, 'Audio could not be saved.');
         });
     }
 

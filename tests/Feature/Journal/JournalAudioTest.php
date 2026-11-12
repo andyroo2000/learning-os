@@ -101,15 +101,49 @@ class JournalAudioTest extends TestCase
         Http::assertNothingSent();
     }
 
-    private function readyEntry(int $providerStatus = 200): array
+    public function test_deleting_an_entry_removes_its_cached_audio_and_retries_are_safe(): void
     {
-        Http::fake(['fish.test/*' => Http::response('ID3test-audio', $providerStatus)]);
+        [$entry, $analysis] = $this->readyEntry();
+        $url = '/api/journal/entries/'.$entry->id;
+        $this->postJson($url.'/audio', ['analysisId' => $analysis->id, 'voiceId' => self::VOICE])->assertOk();
+        $this->assertNotEmpty(Storage::disk('local')->allFiles());
+        $this->deleteJson($url, ['expectedVersion' => 1])->assertNoContent();
+        $this->deleteJson($url, ['expectedVersion' => 1])->assertNoContent();
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_deletion_during_synthesis_cannot_recreate_private_audio(): void
+    {
+        [$entry, $analysis] = $this->readyEntry(200, true);
+        $this->postJson('/api/journal/entries/'.$entry->id.'/audio', ['analysisId' => $analysis->id, 'voiceId' => self::VOICE])->assertNotFound();
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_malformed_ready_feedback_does_not_reach_the_provider(): void
+    {
+        [$entry, $analysis] = $this->readyEntry();
+        $analysis->result = [];
+        $analysis->save();
+        $this->postJson('/api/journal/entries/'.$entry->id.'/audio', ['analysisId' => $analysis->id, 'voiceId' => self::VOICE])->assertConflict();
+        Http::assertNothingSent();
+    }
+
+    private function readyEntry(int $providerStatus = 200, bool $deleteDuringSynthesis = false): array
+    {
         $user = $this->signIn();
         $entry = JournalEntry::factory()->for($user)->create(['body' => '映画を見ますた。']);
         $analysis = JournalAnalysis::factory()->create([
             'entry_id' => $entry->id, 'source_body' => $entry->body,
             'status' => JournalAnalysisStatus::Ready, 'result' => ['correctedText' => '映画を見ました。'],
         ]);
+
+        Http::fake(['fish.test/*' => function () use ($entry, $providerStatus, $deleteDuringSynthesis) {
+            if ($deleteDuringSynthesis) {
+                $entry->delete();
+            }
+
+            return Http::response('ID3test-audio', $providerStatus);
+        }]);
 
         return [$entry, $analysis];
     }

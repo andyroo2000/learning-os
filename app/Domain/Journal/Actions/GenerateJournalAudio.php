@@ -20,7 +20,8 @@ class GenerateJournalAudio
         $analysis = JournalAnalysis::where('entry_id', $entry->id)->orderByDesc('source_version')->first();
         abort_unless($analysis?->id === $input['analysisId'] && $analysis->status === JournalAnalysisStatus::Ready
             && $analysis->source_body === $entry->body, 409, 'Submit the current entry before playing its corrected version.');
-        $text = $analysis->result['correctedText'];
+        $text = $analysis->result['correctedText'] ?? null;
+        abort_unless(is_string($text) && trim($text) !== '', 409, 'Corrected text is unavailable. Submit again.');
         if (mb_strlen($text) > FishAudioSpeechGenerator::MAX_TEXT_LENGTH) {
             throw ValidationException::withMessages(['audio' => 'Audio supports corrected entries up to 15,000 characters.']);
         }
@@ -36,7 +37,22 @@ class GenerateJournalAudio
                 abort_unless(Storage::disk('local')->put($path, $bytes), 503, 'Audio could not be saved.');
             }
 
+            $this->checkCurrentEntry($entry, $path);
+
             return $path;
         });
+    }
+
+    private function checkCurrentEntry(JournalEntry $snapshot, string $path): void
+    {
+        $current = $snapshot->fresh();
+        if ($current === null || $current->trashed()) {
+            Storage::disk('local')->deleteDirectory('journal/'.$snapshot->id);
+            abort(404);
+        }
+        if ($current->body !== $snapshot->body) {
+            Storage::disk('local')->delete($path);
+            abort(409, 'The entry changed while audio was being prepared.');
+        }
     }
 }

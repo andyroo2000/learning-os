@@ -45,8 +45,16 @@ class ProcessJournalAnalysis
 
     private function claim(JournalAnalysisAttempt $attempt): ?string
     {
-        return $this->mutate($attempt, function (JournalAnalysis $analysis) use ($attempt): ?string {
+        return $this->mutate($attempt, function (JournalAnalysis $analysis, JournalEntry $entry) use ($attempt): ?string {
             if ($analysis->status === JournalAnalysisStatus::Ready) {
+                return null;
+            }
+            if ($entry->body !== $analysis->source_body) {
+                $analysis->status = JournalAnalysisStatus::Failed;
+                $analysis->error_message = 'The entry changed. Submit it again.';
+                $analysis->result = null;
+                $analysis->save();
+
                 return null;
             }
             if ($analysis->status === JournalAnalysisStatus::Processing && $analysis->processing_started_at?->gt(now()->subSeconds(120))) {

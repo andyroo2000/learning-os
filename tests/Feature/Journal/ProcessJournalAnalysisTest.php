@@ -18,6 +18,26 @@ class ProcessJournalAnalysisTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_job_timeout_fits_the_database_queue_retry_window(): void
+    {
+        $job = new AnalyzeJournalEntry((string) Str::ulid());
+        $this->assertGreaterThan($job->timeout, (int) config('queue.connections.database.retry_after'));
+        $this->assertTrue($job->afterCommit);
+    }
+
+    public function test_edit_before_processing_avoids_a_wasted_provider_call(): void
+    {
+        $entry = JournalEntry::factory()->create(['body' => '映画を見ますた。']);
+        $analysis = app(StartJournalAnalysis::class)->handle($entry->user_id, $entry->id, 1);
+        $entry->body = '新しい文章。';
+        $entry->version = 2;
+        $entry->save();
+        $this->mock(GenerateJournalFeedback::class)->shouldNotReceive('handle');
+        (new AnalyzeJournalEntry($analysis->id))->handle(app(ProcessJournalAnalysis::class));
+        $this->assertSame(JournalAnalysisStatus::Failed, $analysis->fresh()->status);
+        $this->assertNull($analysis->fresh()->result);
+    }
+
     public function test_job_saves_feedback_and_only_generates_a_title_for_an_untitled_entry(): void
     {
         $entry = JournalEntry::factory()->create(['body' => '映画を見ますた。']);

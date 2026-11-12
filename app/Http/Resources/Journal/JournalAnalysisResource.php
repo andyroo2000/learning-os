@@ -15,7 +15,7 @@ class JournalAnalysisResource extends JsonResource
             'sourceVersion' => $this->source_version,
             'status' => $this->status->value,
             'result' => $this->status === JournalAnalysisStatus::Ready ? $this->result : null,
-            'error' => $this->error_message,
+            'error' => $this->status === JournalAnalysisStatus::Failed ? $this->error_message : null,
             'updatedAt' => $this->updated_at->toISOString(),
         ];
     }

@@ -6,6 +6,7 @@ use App\Domain\Journal\Actions\ProcessJournalReply;
 use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
+use App\Domain\Journal\Models\JournalReply;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
 use App\Domain\Journal\Support\JournalAudioVersion;
 use App\Jobs\AnalyzeJournalReply;
@@ -95,6 +96,22 @@ class JournalDocumentApiTest extends TestCase
             ->assertJsonPath('data.correctedDocument.text', "映画を見ますた。\n\n映画を見ました。")
             ->assertJsonMissingPath('data.result.document')
             ->assertJsonMissingPath('data.currentReply.result.document');
+    }
+
+    public function test_legacy_reply_cannot_acquire_guesswork_toggles_and_can_still_be_undone(): void
+    {
+        [$entry, $analysis, $input] = $this->ready();
+        $reply = JournalReply::factory()->create([
+            'analysis_id' => $analysis->id, 'parent_id' => null, 'status' => JournalAnalysisStatus::Ready,
+            'result' => [...JournalFeedbackFixture::result(), 'entryText' => 'はい。', 'entryReading' => 'はい。'],
+        ]);
+        $analysis->current_reply_id = $reply->id;
+        $analysis->save();
+        $url = '/api/journal/entries/'.$entry->id;
+        $this->putJson($url.'/suggestion', $input)->assertUnprocessable();
+        $this->assertArrayNotHasKey('document', $analysis->fresh()->result);
+        $this->postJson($url.'/undo', ['analysisId' => $analysis->id, 'expectedRevision' => 0])->assertOk()
+            ->assertJsonPath('data.correctedDocument.text', '映画を見ました。');
     }
 
     private function ready(): array

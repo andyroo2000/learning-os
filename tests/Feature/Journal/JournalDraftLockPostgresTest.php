@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Journal;
 
+use App\Domain\Journal\Actions\DeleteJournalEntry;
 use App\Domain\Journal\Actions\SaveJournalDraft;
 use App\Domain\Journal\Exceptions\JournalVersionConflict;
 use App\Domain\Journal\Models\JournalEntry;
@@ -15,7 +16,7 @@ use Throwable;
 class JournalDraftLockPostgresTest extends TestCase
 {
     #[DataProvider('versions')]
-    public function test_concurrent_writes_preserve_the_first_committed_text(int $version): void
+    public function test_concurrent_writes_preserve_the_first_committed_text(int $version, bool $delete): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {
             $this->markTestSkipped('PostgreSQL is required for runtime locks.');
@@ -39,7 +40,7 @@ class JournalDraftLockPostgresTest extends TestCase
         stream_set_timeout($sockets[0], 10);
         try {
             $this->assertSame("locked\n", fgets($sockets[0]));
-            $this->assertConflictingWrite($user->id, $id, $version);
+            $this->assertConflictingWrite($user->id, $id, $version, $delete);
             pcntl_waitpid($pid, $status);
             $this->assertTrue(pcntl_wifexited($status));
             $this->assertSame(0, pcntl_wexitstatus($status), (string) stream_get_contents($sockets[0]));
@@ -57,15 +58,19 @@ class JournalDraftLockPostgresTest extends TestCase
 
     public static function versions(): array
     {
-        return ['first create' => [0], 'existing draft' => [1]];
+        return ['first create' => [0, false], 'existing draft' => [1, false], 'stale deletion' => [1, true]];
     }
 
-    private function assertConflictingWrite(int $userId, string $id, int $version): void
+    private function assertConflictingWrite(int $userId, string $id, int $version, bool $delete): void
     {
         DB::purge();
         DB::statement("SET lock_timeout = '5s'");
         try {
-            app(SaveJournalDraft::class)->handle($userId, $id, $this->draft($version, '別の端末の文章。'));
+            if ($delete) {
+                app(DeleteJournalEntry::class)->handle($userId, $id, $version);
+            } else {
+                app(SaveJournalDraft::class)->handle($userId, $id, $this->draft($version, '別の端末の文章。'));
+            }
             $this->fail('A stale writer must not overwrite the committed entry.');
         } catch (JournalVersionConflict) {
             $this->assertTrue(true);

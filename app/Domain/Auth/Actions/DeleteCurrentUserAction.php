@@ -3,12 +3,15 @@
 namespace App\Domain\Auth\Actions;
 
 use App\Domain\Auth\Exceptions\InvalidCurrentPasswordException;
+use App\Domain\Journal\Actions\DeleteJournalAccountAudio;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 final class DeleteCurrentUserAction
 {
+    public function __construct(private readonly DeleteJournalAccountAudio $journalAudio) {}
+
     public function handle(User $user, string $currentPassword): void
     {
         DB::transaction(function () use ($currentPassword, $user): void {
@@ -25,6 +28,10 @@ final class DeleteCurrentUserAction
             $lockedUser->tokens()->delete();
             DB::table('sessions')->where('user_id', $lockedUser->getKey())->delete();
             DB::table('password_reset_tokens')->where('email', $lockedUser->email)->delete();
+
+            // Cleanup failure leaves the account available for an authenticated retry.
+            // Already-removed audio is regenerable if a later database operation rolls back.
+            $this->journalAudio->handle((int) $lockedUser->getKey());
 
             // Domain-owned rows use user foreign keys with ON DELETE CASCADE.
             $lockedUser->delete();

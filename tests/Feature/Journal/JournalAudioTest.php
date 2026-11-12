@@ -163,6 +163,20 @@ class JournalAudioTest extends TestCase
         $this->assertSame([], Storage::disk('local')->allFiles());
     }
 
+    public function test_account_deletion_during_synthesis_cannot_publish_audio(): void
+    {
+        [$entry, $analysis] = $this->readyEntry();
+        Http::fake(function () use ($entry) {
+            $entry->user->delete();
+
+            return Http::response('ID3audio', 200, ['Content-Type' => 'audio/mpeg']);
+        });
+        $this->postJson('/api/journal/entries/'.$entry->id.'/audio', [
+            'analysisId' => $analysis->id, 'voiceId' => self::VOICE,
+        ])->assertNotFound();
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
     public function test_malformed_ready_feedback_does_not_reach_the_provider(): void
     {
         [$entry, $analysis] = $this->readyEntry();

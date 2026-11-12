@@ -50,11 +50,24 @@ final class JournalFeedback
         if ($data['text'] === '') {
             throw new RuntimeException('Journal highlights cannot contain empty spans.');
         }
+        self::validatePlainSegment($data);
         foreach (['text' => 'reading', 'suggestion' => 'suggestionReading', 'explanation' => 'explanationReading'] as $text => $reading) {
             self::validateReadingPair($data[$text], $data[$reading]);
         }
 
         return $data;
+    }
+
+    private static function validatePlainSegment(array $data): void
+    {
+        if ($data['kind'] !== 'plain') {
+            return;
+        }
+        foreach (['suggestion', 'suggestionReading', 'explanation', 'explanationReading'] as $field) {
+            if ($data[$field] !== null) {
+                throw new RuntimeException('Plain journal segments cannot contain feedback notes.');
+            }
+        }
     }
 
     private static function validateReadingPair(?string $text, ?string $reading): void

@@ -6,7 +6,10 @@ use App\Domain\Journal\Support\JournalFeedback;
 use App\Domain\Journal\Support\JournalFeedbackSchema;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use JsonException;
 use RuntimeException;
 
@@ -14,7 +17,13 @@ class GenerateJournalFeedback
 {
     public function handle(string $body): array
     {
-        return JournalFeedback::validated($body, $this->decode($this->request($body)));
+        try {
+            Validator::make(['body' => $body], ['body' => ['required', 'string', 'max:20000', 'not_regex:/\x00/']])->validate();
+
+            return JournalFeedback::validated($body, $this->decode($this->request($body)));
+        } catch (ValidationException $exception) {
+            throw new RuntimeException('Journal feedback did not match the required format.', previous: $exception);
+        }
     }
 
     private function request(string $body): Response
@@ -68,7 +77,7 @@ class GenerateJournalFeedback
             'store' => false,
             'max_output_tokens' => 16000,
             'input' => [
-                ['role' => 'system', 'content' => file_get_contents(resource_path('prompts/journal/feedback.txt'))],
+                ['role' => 'system', 'content' => File::get(resource_path('prompts/journal/feedback.txt'))],
                 ['role' => 'user', 'content' => json_encode(['body' => $body], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)],
             ],
             'text' => ['format' => [

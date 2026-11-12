@@ -40,7 +40,7 @@ class GenerateJournalFeedbackTest extends TestCase
         return [
             [['status' => 'incomplete'], 200], [['status' => 'failed'], 200], [[], 429],
             [['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'refusal']]]]], 200],
-            [self::response('bad JSON'), 200], [self::response('null'), 200],
+            [self::response('bad JSON'), 200], [self::response('null'), 200], [self::response('{}'), 200],
         ];
     }
 

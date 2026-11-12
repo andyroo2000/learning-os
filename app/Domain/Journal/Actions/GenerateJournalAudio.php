@@ -3,6 +3,7 @@
 namespace App\Domain\Journal\Actions;
 
 use App\Domain\Journal\Models\JournalEntry;
+use App\Domain\Journal\Support\JournalAudioState;
 use App\Domain\Journal\Support\JournalAudioVersion;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Audio\FishAudioSpeechGenerator;
@@ -10,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class GenerateJournalAudio
 {
@@ -23,7 +25,7 @@ class GenerateJournalAudio
         }
         $voice = $input['voiceId'];
         $hash = hash('sha256', $voice.'|'.$text);
-        $path = 'journal/'.$entry->id.'/audio/'.$hash.'.mp3';
+        $path = JournalAudioState::path($entry, $voice, $text);
 
         return Cache::lock('journal-audio:'.$entry->id.':'.$hash, 120)->block(5, function () use ($entry, $text, $voice, $path, $input): string {
             if (! Storage::disk('local')->exists($path)) {
@@ -42,10 +44,18 @@ class GenerateJournalAudio
     private function publish(JournalEntry $entry, array $input, string $path, string $bytes): void
     {
         // Synthesis stays outside the transaction; publication serializes with account deletion.
-        JournalWriteTransaction::run($entry->user_id, function () use ($entry, $input, $path, $bytes): void {
-            JournalAudioVersion::text($this->checkCurrentEntry($entry, $path), $input);
-            abort_unless(Storage::disk('local')->put($path, $bytes), 503, 'Audio could not be saved.');
-        });
+        try {
+            JournalWriteTransaction::run($entry->user_id, function () use ($entry, $input, $path, $bytes): void {
+                $current = $this->checkCurrentEntry($entry, $path);
+                $text = JournalAudioVersion::text($current, $input);
+                abort_unless(Storage::disk('local')->put($path, $bytes), 503, 'Audio could not be saved.');
+                JournalAudioState::rememberGeneration($current, $input['voiceId'], $text);
+            });
+        } catch (Throwable $exception) {
+            // A rolled-back preference write must not leave a cache hit that bypasses publication.
+            Storage::disk('local')->delete($path);
+            throw $exception;
+        }
     }
 
     private function checkCurrentEntry(JournalEntry $snapshot, string $path): JournalEntry

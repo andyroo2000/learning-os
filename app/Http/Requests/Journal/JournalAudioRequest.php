@@ -25,7 +25,7 @@ class JournalAudioRequest extends FormRequest
         return [
             'analysisId' => ['required', 'ulid'],
             'expectedReplyRevision' => ['sometimes', 'integer', 'min:0', 'max:2147483646'],
-            'voiceId' => ['required', 'string', Rule::in(array_keys(config('journal_voices')))],
+            'voiceId' => [Rule::requiredIf($this->isMethod('post')), 'string', Rule::in(array_keys(config('journal_voices')))],
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 final class DeleteJournalEntry
@@ -31,5 +32,6 @@ final class DeleteJournalEntry
             }
             $entry->delete();
         });
+        abort_unless(Storage::disk('local')->deleteDirectory('journal/'.$id), 503, 'Audio cleanup failed. Please retry deleting this entry.');
     }
 }

@@ -9,7 +9,7 @@ final class JournalDraftInput
     public static function normalize(array $input): array
     {
         if (is_string($input['title'] ?? null)) {
-            $title = trim($input['title']);
+            $title = preg_replace('/^\s+|\s+$/u', '', $input['title']);
             $input['title'] = $title === '' ? null : $title;
         }
 

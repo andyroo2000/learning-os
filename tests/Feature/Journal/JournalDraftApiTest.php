@@ -25,11 +25,11 @@ class JournalDraftApiTest extends TestCase
     public function test_saves_exact_original_text_and_only_exposes_public_fields(): void
     {
         $user = $this->signIn();
-        $id = (string) Str::ulid();
+        $id = strtoupper((string) Str::ulid());
         $url = $this->url($id);
         $body = "  昨日は映画を見た。\n\n楽しかった！🍿\n";
         $response = $this->putJson($url, $this->draft([
-            'body' => $body, 'title' => ' A movie night ', 'user_id' => 999, 'version' => 88,
+            'body' => $body, 'title' => '　A movie night　', 'user_id' => 999, 'version' => 88,
         ]))->assertCreated()->assertJsonPath('data.id', strtolower($id))
             ->assertJsonPath('data.body', $body)->assertJsonPath('data.title', 'A movie night')
             ->assertJsonPath('data.version', 1)->assertJsonMissingPath('data.user_id');
@@ -41,7 +41,7 @@ class JournalDraftApiTest extends TestCase
     {
         $this->signIn();
         $url = $this->url();
-        $this->putJson($url, $this->draft(['title' => '  ']))->assertCreated()
+        $this->putJson($url, $this->draft(['title' => '　 ']))->assertCreated()
             ->assertJsonPath('data.title', null)->assertJsonPath('data.body', '');
         $this->putJson($url, $this->draft(['title' => '0', 'expectedVersion' => 1]))
             ->assertOk()->assertJsonPath('data.title', '0');
@@ -58,6 +58,9 @@ class JournalDraftApiTest extends TestCase
         $second = $this->putJson($url, $this->draft(['body' => '新しい文章。', 'expectedVersion' => 1]))
             ->assertOk()->assertJsonPath('data.version', 2)->json('data');
         $this->putJson($url, $draft)->assertConflict()->assertJsonPath('reason', 'journal_version_conflict');
+        // Matching the current content is intentionally safe even after multiple revisions.
+        $this->putJson($url, $this->draft(['body' => '新しい文章。']))->assertOk()
+            ->assertJsonPath('data.version', 2)->assertJsonPath('data.updatedAt', $second['updatedAt']);
         $this->getJson($url)->assertOk()->assertJsonPath('data', $second);
         $this->assertDatabaseCount('journal_entries', 1);
     }

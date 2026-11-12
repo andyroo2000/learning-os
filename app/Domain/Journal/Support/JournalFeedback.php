@@ -19,7 +19,7 @@ final class JournalFeedback
             'questionReading' => [...$text, 'max:4000'],
             'questionTranslation' => [...$text, 'max:2000'],
             'segments' => ['required', 'array', 'list', 'min:1', 'max:500'],
-            'segments.*' => ['array:text,reading,kind,suggestion,suggestionReading,explanation,explanationReading'],
+            'segments.*' => ['array:text,reading,kind,suggestion,suggestionReading,explanation,explanationReading,replacement,replacementReading'],
         ])->validate();
         $reconstructed = '';
         foreach ($data['segments'] as $index => $segment) {
@@ -32,7 +32,7 @@ final class JournalFeedback
         BracketFurigana::validate($data['correctedText'], $data['correctedReading']);
         BracketFurigana::validate($data['question'], $data['questionReading']);
 
-        return $data;
+        return JournalReplacements::prepare($data);
     }
 
     private static function segment(array $segment): array
@@ -46,6 +46,8 @@ final class JournalFeedback
             'suggestionReading' => [...$note, 'max:12000'],
             'explanation' => [...$note, 'max:2000'],
             'explanationReading' => [...$note, 'max:8000'],
+            'replacement' => ['sometimes', 'nullable', 'string', 'max:20000', 'not_regex:/\x00/'],
+            'replacementReading' => ['sometimes', 'nullable', 'string', 'max:80000', 'not_regex:/\x00/'],
         ])->validate();
         if ($data['text'] === '') {
             throw new RuntimeException('Journal highlights cannot contain empty spans.');

@@ -5,6 +5,7 @@ namespace Tests\Feature\Journal;
 use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
+use App\Domain\Journal\Models\JournalReply;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -36,6 +37,48 @@ class JournalAudioTest extends TestCase
         Http::assertSent(fn ($request) => $request['text'] === '映画を見ました。'
             && $request['reference_id'] === substr(self::VOICE, 10));
         $this->getJson('/api/journal/voices')->assertOk()->assertJsonFragment(['id' => self::VOICE, 'name' => 'Ren']);
+    }
+
+    public function test_audio_uses_the_current_answer_and_rejects_old_revisions(): void
+    {
+        [$entry, $analysis] = $this->readyEntry();
+        $reply = new JournalReply;
+        $reply->analysis_id = $analysis->id;
+        $reply->base_revision = 0;
+        $reply->replaces_answer = false;
+        $reply->answer = '友達と。';
+        $reply->status = JournalAnalysisStatus::Ready;
+        $reply->result = ['entryText' => "映画を見ました。\n\n友達と見ました。"];
+        $reply->save();
+        $analysis->current_reply_id = $reply->id;
+        $analysis->reply_revision = 1;
+        $analysis->save();
+        $input = ['analysisId' => $analysis->id, 'voiceId' => self::VOICE];
+        $url = '/api/journal/entries/'.$entry->id.'/audio';
+        $this->postJson($url, $input)->assertConflict();
+        $this->postJson($url, [...$input, 'expectedReplyRevision' => 1])->assertOk();
+        Http::assertSent(fn ($request) => $request['text'] === $reply->result['entryText']);
+        Http::assertSentCount(1);
+        $analysis->current_reply_id = null;
+        $analysis->reply_revision = 2;
+        $analysis->save();
+        $this->postJson($url, [...$input, 'expectedReplyRevision' => 1])->assertConflict();
+        $this->postJson($url, [...$input, 'expectedReplyRevision' => 2])->assertOk();
+        Http::assertSentCount(2);
+    }
+
+    public function test_answer_changes_during_audio_generation_cannot_return_obsolete_audio(): void
+    {
+        [$entry, $analysis] = $this->readyEntry();
+        Http::fake(function () use ($analysis) {
+            $analysis->reply_revision++;
+            $analysis->save();
+
+            return Http::response('ID3audio', 200, ['Content-Type' => 'audio/mpeg']);
+        });
+        $this->postJson('/api/journal/entries/'.$entry->id.'/audio', [
+            'analysisId' => $analysis->id, 'voiceId' => self::VOICE,
+        ])->assertConflict();
     }
 
     public function test_another_voice_uses_a_different_cached_audio_file(): void

@@ -10,6 +10,7 @@ use App\Domain\Journal\Models\JournalReply;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
 use App\Domain\Journal\Support\JournalReplyContext;
 use App\Domain\Journal\Support\JournalReplyMutation;
+use RuntimeException;
 use Throwable;
 
 class ProcessJournalReply
@@ -43,7 +44,7 @@ class ProcessJournalReply
     private function claim(JournalReplyAttempt $attempt): ?array
     {
         return JournalReplyMutation::run($attempt, function (JournalReply $reply, JournalAnalysis $analysis, JournalEntry $entry) use ($attempt): ?array {
-            if ($reply->status === JournalAnalysisStatus::Ready) {
+            if ($this->skipClaim($reply, $attempt)) {
                 return null;
             }
             if (! $this->current($reply, $analysis, $entry)) {
@@ -51,7 +52,11 @@ class ProcessJournalReply
 
                 return null;
             }
-            if ($reply->status === JournalAnalysisStatus::Processing && $reply->processing_started_at?->gt(now()->subSeconds(120))) {
+            try {
+                $context = JournalReplyContext::forReply($reply, $analysis);
+            } catch (RuntimeException) {
+                $this->markFailed($reply, $analysis);
+
                 return null;
             }
             $reply->status = JournalAnalysisStatus::Processing;
@@ -59,8 +64,19 @@ class ProcessJournalReply
             $reply->processing_started_at = now();
             $reply->save();
 
-            return ['answer' => $reply->answer, 'context' => JournalReplyContext::forReply($reply, $analysis)];
+            return ['answer' => $reply->answer, 'context' => $context];
         });
+    }
+
+    private function skipClaim(JournalReply $reply, JournalReplyAttempt $attempt): bool
+    {
+        // A redelivered serialized job must not reclaim its own fencing token.
+        // A user retry creates a new job/token; failed() keeps the original token.
+        if ($reply->status === JournalAnalysisStatus::Ready || $reply->attempt_id === $attempt->token) {
+            return true;
+        }
+
+        return $reply->status === JournalAnalysisStatus::Processing && $reply->processing_started_at?->gt(now()->subSeconds(120));
     }
 
     private function finish(JournalReplyAttempt $attempt, array $result): void

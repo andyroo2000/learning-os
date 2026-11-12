@@ -94,12 +94,31 @@ class ProcessJournalReplyTest extends TestCase
         $this->assertSame($reply->id, $analysis->fresh()->pending_reply_id);
     }
 
-    public function test_ready_replies_and_deleted_entries_do_not_repeat_provider_calls(): void
+    public function test_deleted_entries_do_not_repeat_provider_calls(): void
     {
         [$entry, , $reply] = $this->pending();
         $entry->delete();
         $this->mock(GenerateJournalFeedback::class)->shouldNotReceive('handle');
         (new AnalyzeJournalReply($reply->id))->handle(app(ProcessJournalReply::class));
+    }
+
+    public function test_same_serialized_job_cannot_reclaim_but_a_new_retry_can(): void
+    {
+        [, , $reply] = $this->pending();
+        $old = new AnalyzeJournalReply($reply->id);
+        $reply->status = JournalAnalysisStatus::Processing;
+        $reply->attempt_id = $old->attempt->token;
+        $reply->processing_started_at = now();
+        $reply->save();
+        $this->mock(GenerateJournalFeedback::class)->shouldReceive('handle')->once()->andReturn(JournalFeedbackFixture::result());
+        $process = app(ProcessJournalReply::class);
+        (new AnalyzeJournalReply($reply->id))->handle($process);
+        $this->travel(121)->seconds();
+        $old->handle($process);
+        $this->assertSame(JournalAnalysisStatus::Processing, $reply->fresh()->status);
+        (new AnalyzeJournalReply($reply->id))->handle($process);
+        (new AnalyzeJournalReply($reply->id))->handle($process);
+        $this->assertSame(JournalAnalysisStatus::Ready, $reply->fresh()->status);
     }
 
     private function pending(): array

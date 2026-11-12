@@ -2,6 +2,7 @@
 
 namespace App\Domain\Journal\Support;
 
+use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalReply;
 use RuntimeException;
@@ -11,6 +12,11 @@ final class JournalReplyContext
     public static function forReply(JournalReply $reply, JournalAnalysis $analysis): array
     {
         $parent = $reply->parent_id === null ? null : JournalReply::where('analysis_id', $analysis->id)->findOrFail($reply->parent_id);
+        if ($parent !== null) {
+            if ($parent->status !== JournalAnalysisStatus::Ready || $parent->result === null) {
+                throw new RuntimeException('The previous answer is not ready.');
+            }
+        }
         $result = $parent?->result ?? $analysis->result;
 
         return ['diary' => $result['entryText'] ?? $result['correctedText'],

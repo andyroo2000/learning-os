@@ -34,6 +34,7 @@ final class StartJournalReply
                 return $this->reserve($analysis, $input);
             });
         } catch (UniqueConstraintViolationException) {
+            // Different owners can race to claim the same client ID; hide the winner.
             throw new ModelNotFoundException;
         }
     }
@@ -63,12 +64,13 @@ final class StartJournalReply
 
     private function assertAvailable(JournalAnalysis $analysis, JournalReplyInput $input): void
     {
-        if ($analysis->reply_revision !== $input->expectedRevision || $analysis->pending_reply_id !== null) {
+        if ($analysis->reply_revision !== $input->expectedRevision) {
             throw new JournalVersionConflict;
         }
-        if ($input->replace && $analysis->current_reply_id === null) {
-            throw ValidationException::withMessages(['replace' => 'There is no answer to edit yet.']);
+        if ($analysis->pending_reply_id !== null && $analysis->pending_reply_id !== $input->id) {
+            throw new JournalVersionConflict;
         }
+
     }
 
     private function assertSameRequest(JournalReply $reply, JournalReplyInput $input): void
@@ -83,6 +85,9 @@ final class StartJournalReply
 
     private function newReply(JournalAnalysis $analysis, JournalReplyInput $input): JournalReply
     {
+        if ($input->replace && $analysis->current_reply_id === null) {
+            throw ValidationException::withMessages(['replace' => 'There is no answer to edit yet.']);
+        }
         $reply = new JournalReply;
         $reply->id = $input->id;
         $reply->analysis_id = $analysis->id;

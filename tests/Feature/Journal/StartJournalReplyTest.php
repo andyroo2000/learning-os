@@ -95,6 +95,44 @@ class StartJournalReplyTest extends TestCase
         $this->assertDatabaseCount('journal_replies', 0);
     }
 
+    public function test_failed_pending_answer_can_be_requeued_with_the_same_id(): void
+    {
+        [$analysis, $input] = $this->context();
+        $action = app(StartJournalReply::class);
+        $reply = $action->handle($analysis->entry->user_id, $input);
+        $reply->status = JournalAnalysisStatus::Failed;
+        $reply->error_message = 'Unavailable';
+        $reply->save();
+        $retry = $action->handle($analysis->entry->user_id, $input);
+        $this->assertSame($reply->id, $retry->id);
+        $this->assertSame(JournalAnalysisStatus::Queued, $retry->status);
+        $this->assertNull($retry->error_message);
+    }
+
+    public function test_individual_reply_deletion_cannot_leave_dangling_analysis_pointers(): void
+    {
+        $reply = JournalReply::factory()->create();
+        $this->expectException(LogicException::class);
+        $reply->delete();
+    }
+
+    public function test_same_id_with_different_answer_conflicts(): void
+    {
+        [$analysis, $input] = $this->context();
+        app(StartJournalReply::class)->handle($analysis->entry->user_id, $input);
+        $changed = new JournalReplyInput([...$this->input($analysis), 'id' => $input->id, 'answer' => '違う回答']);
+        $this->expectException(JournalVersionConflict::class);
+        app(StartJournalReply::class)->handle($analysis->entry->user_id, $changed);
+    }
+
+    public function test_replacing_before_any_answer_is_invalid(): void
+    {
+        [$analysis] = $this->context();
+        $input = new JournalReplyInput([...$this->input($analysis), 'replace' => true]);
+        $this->expectException(ValidationException::class);
+        app(StartJournalReply::class)->handle($analysis->entry->user_id, $input);
+    }
+
     private function context(): array
     {
         $entry = JournalEntry::factory()->create(['body' => '映画を見た。']);

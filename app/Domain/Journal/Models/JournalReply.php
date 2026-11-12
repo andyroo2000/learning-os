@@ -28,6 +28,9 @@ class JournalReply extends Model
 
     protected static function booted(): void
     {
+        static::deleting(function (): void {
+            throw new LogicException('Reply history is removed only by its entry or account cascade.');
+        });
         static::updating(function (JournalReply $reply): void {
             if ($reply->isDirty(['analysis_id', 'parent_id', 'base_revision', 'replaces_answer', 'answer'])) {
                 throw new LogicException('A journal reply source cannot be changed.');

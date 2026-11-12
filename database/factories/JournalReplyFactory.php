@@ -6,7 +6,7 @@ use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalReply;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<JournalReplyFactory> */
+/** @extends Factory<JournalReply> */
 class JournalReplyFactory extends Factory
 {
     protected $model = JournalReply::class;

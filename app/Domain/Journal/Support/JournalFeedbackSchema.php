@@ -19,7 +19,7 @@ final class JournalFeedbackSchema
             'segments' => ['type' => 'array', 'items' => self::object([
                 'text' => $string,
                 'reading' => $string,
-                'kind' => ['type' => 'string', 'enum' => ['plain', 'correction', 'optional', 'keep']],
+                'kind' => ['type' => 'string', 'enum' => ['plain', 'correction', 'optional']],
                 'suggestion' => $nullable,
                 'suggestionReading' => $nullable,
                 'explanation' => $nullable,

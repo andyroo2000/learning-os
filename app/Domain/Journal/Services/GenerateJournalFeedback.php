@@ -72,8 +72,8 @@ class GenerateJournalFeedback
     private function payload(string $body, array $context): array
     {
         return [
-            'model' => config('services.openai.content_model'),
-            'reasoning' => ['effort' => config('services.openai.content_reasoning_effort')],
+            'model' => config('journal.model'),
+            'reasoning' => ['effort' => config('journal.reasoning_effort')],
             'store' => false,
             'max_output_tokens' => 16000,
             'input' => [

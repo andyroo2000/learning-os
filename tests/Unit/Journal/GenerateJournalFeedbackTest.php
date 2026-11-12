@@ -13,15 +13,22 @@ class GenerateJournalFeedbackTest extends TestCase
 {
     public function test_uses_stateless_structured_output_and_validates_the_response(): void
     {
-        config(['services.openai.api_key' => 'test-key', 'services.openai.base_url' => 'https://openai.test/v1']);
+        config([
+            'services.openai.api_key' => 'test-key', 'services.openai.base_url' => 'https://openai.test/v1',
+            'services.openai.content_model' => 'unrelated-content-model',
+            'journal.model' => 'journal-test-model', 'journal.reasoning_effort' => 'low',
+        ]);
         $output = JournalFeedbackFixture::result();
         Http::fake(['openai.test/*' => Http::response($this->response(json_encode($output)))]);
         $this->assertSame($output, app(GenerateJournalFeedback::class)->handle('映画を見ますた。'));
         Http::assertSent(function (Request $request): bool {
             return $request->url() === 'https://openai.test/v1/responses'
                 && $request['store'] === false
+                && $request['model'] === 'journal-test-model'
+                && $request['reasoning']['effort'] === 'low'
                 && $request['text']['format']['strict'] === true
                 && $request['text']['format']['schema']['additionalProperties'] === false
+                && $request['text']['format']['schema']['properties']['segments']['items']['properties']['kind']['enum'] === ['plain', 'correction', 'optional']
                 && json_decode($request['input'][1]['content'], true) === ['body' => '映画を見ますた。'];
         });
     }

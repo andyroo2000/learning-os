@@ -5,6 +5,7 @@ namespace Tests\Feature\Journal;
 use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -126,6 +127,18 @@ class JournalAudioTest extends TestCase
         $analysis->save();
         $this->postJson('/api/journal/entries/'.$entry->id.'/audio', ['analysisId' => $analysis->id, 'voiceId' => self::VOICE])->assertConflict();
         Http::assertNothingSent();
+    }
+
+    public function test_cleanup_failure_can_be_retried_after_the_entry_was_soft_deleted(): void
+    {
+        [$entry] = $this->readyEntry();
+        $disk = \Mockery::mock(FilesystemAdapter::class);
+        $disk->shouldReceive('deleteDirectory')->with('journal/'.$entry->id)->twice()->andReturn(false, true);
+        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+        $url = '/api/journal/entries/'.$entry->id;
+        $this->deleteJson($url, ['expectedVersion' => 1])->assertStatus(503);
+        $this->assertSoftDeleted('journal_entries', ['id' => $entry->id]);
+        $this->deleteJson($url, ['expectedVersion' => 1])->assertNoContent();
     }
 
     private function readyEntry(int $providerStatus = 200, bool $deleteDuringSynthesis = false): array

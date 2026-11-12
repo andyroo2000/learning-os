@@ -78,6 +78,35 @@ class JournalAudioPreferencesTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_a_missing_recording_uses_the_account_default_instead_of_the_old_entry_voice(): void
+    {
+        $user = $this->signIn();
+        [$entry, $analysis] = $this->entry($user);
+        [$other, $otherAnalysis] = $this->entry($user);
+        $this->generate($entry, $analysis, self::HARU)->assertOk();
+        $this->generate($other, $otherAnalysis, self::YUA)->assertOk();
+        Storage::disk('local')->deleteDirectory('journal/'.$entry->id);
+        $this->state($entry, $analysis)->assertExactJson(['data' => ['voiceId' => self::YUA, 'hasAudio' => false]]);
+        $this->assertSame(self::HARU, $entry->fresh()->audio_voice_id);
+        Http::assertSentCount(2);
+    }
+
+    public function test_restoring_older_corrected_text_selects_its_cached_voice_despite_newer_metadata(): void
+    {
+        [$entry, $analysis] = $this->entry($this->signIn());
+        $this->generate($entry, $analysis, self::HARU)->assertOk();
+        $original = $analysis->result;
+        $analysis->result = ['correctedText' => '映画の後で話しました。'];
+        $analysis->save();
+        $this->generate($entry, $analysis, self::YUA)->assertOk();
+        $analysis->result = $original;
+        $analysis->save();
+        $this->state($entry, $analysis)->assertExactJson(['data' => ['voiceId' => self::HARU, 'hasAudio' => true]]);
+        $this->assertSame(self::YUA, $entry->fresh()->audio_voice_id);
+        $this->assertDatabaseHas('journal_audio_preferences', ['user_id' => $entry->user_id, 'voice_id' => self::YUA]);
+        Http::assertSentCount(2);
+    }
+
     public function test_state_is_private_and_rejects_stale_or_malformed_versions(): void
     {
         [$entry, $analysis] = $this->entry($this->signIn());

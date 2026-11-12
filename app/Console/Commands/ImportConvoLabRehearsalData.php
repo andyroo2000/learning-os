@@ -39,6 +39,7 @@ class ImportConvoLabRehearsalData extends Command
         'journal_entries',
         'journal_analyses',
         'journal_replies',
+        'journal_audio_preferences',
         'reading_progress',
         'reading_book_entries',
         'reading_books',

@@ -39,6 +39,7 @@ class JournalAnalysis extends Model
     {
         return [
             'source_version' => 'integer',
+            'reply_revision' => 'integer',
             'status' => JournalAnalysisStatus::class,
             'result' => 'array',
             'processing_started_at' => 'immutable_datetime',

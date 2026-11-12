@@ -29,7 +29,7 @@ class JournalAnalysisController extends Controller
         Gate::authorize('view', $entry);
         $analysis = JournalAnalysis::where('entry_id', $entry->id)->orderByDesc('source_version')->first();
         // Ready feedback and its generated title commit together. Route binding may predate that commit.
-        $entry->refresh();
+        $entry = JournalEntry::findOrFail($entry->id);
         if ($analysis?->source_body !== $entry->body) {
             $analysis = null;
         }

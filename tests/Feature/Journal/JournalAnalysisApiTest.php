@@ -7,6 +7,7 @@ use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Http\Controllers\Api\Journal\JournalAnalysisController;
 use App\Jobs\AnalyzeJournalEntry;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -14,6 +15,14 @@ use Tests\TestCase;
 class JournalAnalysisApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_an_entry_deleted_after_route_binding_cannot_be_returned_by_polling(): void
+    {
+        $entry = JournalEntry::factory()->for($this->signIn())->create();
+        $entry->fresh()->delete();
+        $this->expectException(ModelNotFoundException::class);
+        app(JournalAnalysisController::class)->show($entry);
+    }
 
     public function test_ready_feedback_reads_the_generated_title_even_when_route_binding_predates_completion(): void
     {

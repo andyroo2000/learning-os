@@ -15,18 +15,18 @@ use RuntimeException;
 
 class GenerateJournalFeedback
 {
-    public function handle(string $body): array
+    public function handle(string $body, array $context = []): array
     {
         try {
             Validator::make(['body' => $body], ['body' => ['required', 'string', 'max:20000', 'not_regex:/\x00/']])->validate();
 
-            return JournalFeedback::validated($body, $this->decode($this->request($body)));
+            return JournalFeedback::validated($body, $this->decode($this->request($body, $context)));
         } catch (ValidationException $exception) {
             throw new RuntimeException('Journal feedback did not match the required format.', previous: $exception);
         }
     }
 
-    private function request(string $body): Response
+    private function request(string $body, array $context): Response
     {
         $key = trim((string) config('services.openai.api_key'));
         if ($key === '') {
@@ -35,7 +35,7 @@ class GenerateJournalFeedback
         try {
             return Http::baseUrl((string) config('services.openai.base_url'))->withToken($key)
                 ->acceptJson()->asJson()->connectTimeout(5)->timeout(75)
-                ->post('/responses', $this->payload($body));
+                ->post('/responses', $this->payload($body, $context));
         } catch (ConnectionException $exception) {
             throw new RuntimeException('Journal feedback is temporarily unavailable.', previous: $exception);
         }
@@ -69,7 +69,7 @@ class GenerateJournalFeedback
         return $output;
     }
 
-    private function payload(string $body): array
+    private function payload(string $body, array $context): array
     {
         return [
             'model' => config('services.openai.content_model'),
@@ -78,7 +78,7 @@ class GenerateJournalFeedback
             'max_output_tokens' => 16000,
             'input' => [
                 ['role' => 'system', 'content' => File::get(resource_path('prompts/journal/feedback.txt'))],
-                ['role' => 'user', 'content' => json_encode(['body' => $body], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)],
+                ['role' => 'user', 'content' => json_encode(['body' => $body, ...($context === [] ? [] : ['context' => $context])], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)],
             ],
             'text' => ['format' => [
                 'type' => 'json_schema', 'name' => 'journal_feedback', 'strict' => true,

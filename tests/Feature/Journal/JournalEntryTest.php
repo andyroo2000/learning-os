@@ -68,7 +68,7 @@ class JournalEntryTest extends TestCase
     {
         return array_map(fn ($field) => [$field], [
             'id', 'user_id', 'version', 'deleted_at', 'created_at', 'updated_at',
-            'title', 'body', 'entry_date',
+            'title', 'body', 'entry_date', 'audio_voice_id', 'audio_text_hash',
         ]);
     }
 

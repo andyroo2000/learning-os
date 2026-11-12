@@ -132,6 +132,7 @@ class JournalAudioTest extends TestCase
         $entry = JournalEntry::factory()->create();
         $this->getJson('/api/journal/voices')->assertUnauthorized();
         $this->postJson('/api/journal/entries/'.$entry->id.'/audio')->assertUnauthorized();
+        $this->getJson('/api/journal/entries/'.$entry->id.'/audio')->assertUnauthorized();
         Http::assertNothingSent();
     }
 

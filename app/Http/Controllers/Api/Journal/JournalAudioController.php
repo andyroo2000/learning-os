@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Journal;
 
 use App\Domain\Journal\Actions\GenerateJournalAudio;
 use App\Domain\Journal\Models\JournalEntry;
+use App\Domain\Journal\Support\JournalAudioState;
+use App\Domain\Journal\Support\JournalAudioVersion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Journal\JournalAudioRequest;
 use App\Support\Audio\AudioSpeechGenerationException;
@@ -15,6 +17,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class JournalAudioController extends Controller
 {
+    public function state(JournalAudioRequest $request, JournalEntry $entry): JsonResponse
+    {
+        Gate::authorize('view', $entry);
+        $text = JournalAudioVersion::text($entry, $request->validated());
+
+        return response()->json(['data' => JournalAudioState::selection($entry, $text)])
+            ->header('Cache-Control', 'private, no-store');
+    }
+
     public function voices(): JsonResponse
     {
         return response()->json(['data' => collect(config('journal_voices'))

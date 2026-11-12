@@ -15,6 +15,7 @@ return static function (): void {
         Route::delete('{entryId}', [JournalEntryController::class, 'destroy'])->whereUlid('entryId');
         Route::post('{entryId}/submit', [JournalAnalysisController::class, 'submit'])->whereUlid('entryId')->middleware('throttle:3,1,journal-submit');
         Route::post('{entry}/audio', [JournalAudioController::class, 'audio'])->whereUlid('entry');
+        Route::get('{entry}/audio', [JournalAudioController::class, 'state'])->whereUlid('entry');
         Route::put('{entry}/replies/{replyId}', [JournalReplyController::class, 'save'])->whereUlid('entry')->whereUlid('replyId')->middleware('throttle:3,1,journal-reply');
         Route::get('{entry}/replies/{replyId}', [JournalReplyController::class, 'show'])->whereUlid('entry')->whereUlid('replyId');
         Route::post('{entry}/undo', [JournalReplyController::class, 'undo'])->whereUlid('entry');

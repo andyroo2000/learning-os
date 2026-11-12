@@ -21,10 +21,12 @@ class ConvoLabRehearsalImportCommandTest extends ConvoLabRehearsalImportTestCase
         $draft = JournalEntry::factory()->create();
         $analysis = JournalAnalysis::factory()->create(['entry_id' => $draft->id]);
         $reply = JournalReply::factory()->create(['analysis_id' => $analysis->id]);
+        DB::table('journal_audio_preferences')->insert(['user_id' => $draft->user_id, 'voice_id' => 'test-voice']);
         $this->runImport();
         $this->assertDatabaseMissing('journal_entries', ['id' => $draft->id]);
         $this->assertDatabaseMissing('journal_analyses', ['id' => $analysis->id]);
         $this->assertDatabaseMissing('journal_replies', ['id' => $reply->id]);
+        $this->assertDatabaseCount('journal_audio_preferences', 0);
         $this->assertCanonicalIdentifiers();
         $this->assertImportedDailyAudio();
         $this->assertImportedStudyData();

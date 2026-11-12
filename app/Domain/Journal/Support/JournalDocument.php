@@ -68,12 +68,21 @@ final class JournalDocument
     {
         BracketFurigana::validate($plan['text'], $reading);
 
-        return [...$plan['before'], self::plain(new JournalText($plan['text'], $reading)), ...$plan['after']];
+        $middle = $plan['text'] === '' ? [] : [self::plain(new JournalText($plan['text'], $reading))];
+        $result = [...$plan['before'], ...$middle, ...$plan['after']];
+        self::render($result)->assertEntryLength();
+
+        return $result;
     }
 
     public static function append(array $blocks, array $feedback, string $source): array
     {
-        $result = [...$blocks, self::plain(new JournalText("\n\n", "\n\n")), ...self::fromFeedback($feedback, $source)];
+        $added = self::fromFeedback($feedback, $source);
+        $existingIds = array_filter(array_column($blocks, 'id'));
+        if (array_intersect($existingIds, array_filter(array_column($added, 'id'))) !== []) {
+            throw ValidationException::withMessages(['source' => 'This answer is already part of the corrected entry.']);
+        }
+        $result = [...$blocks, self::plain(new JournalText("\n\n", "\n\n")), ...$added];
         self::render($result)->assertEntryLength();
 
         return $result;
@@ -94,13 +103,15 @@ final class JournalDocument
 
     private static function commonEdges(string $old, string $new): array
     {
-        $limit = min(mb_strlen($old), mb_strlen($new));
+        $old = mb_str_split($old);
+        $new = mb_str_split($new);
+        $limit = min(count($old), count($new));
         $prefix = 0;
-        while ($prefix < $limit && mb_substr($old, $prefix, 1) === mb_substr($new, $prefix, 1)) {
+        while ($prefix < $limit && $old[$prefix] === $new[$prefix]) {
             $prefix++;
         }
         $suffix = 0;
-        while ($suffix < $limit - $prefix && mb_substr($old, -1 - $suffix, 1) === mb_substr($new, -1 - $suffix, 1)) {
+        while ($suffix < $limit - $prefix && $old[count($old) - 1 - $suffix] === $new[count($new) - 1 - $suffix]) {
             $suffix++;
         }
 

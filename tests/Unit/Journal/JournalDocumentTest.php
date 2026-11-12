@@ -65,7 +65,7 @@ class JournalDocumentTest extends TestCase
     {
         $blocks = JournalDocument::finishEdit(JournalDocument::editPlan($this->blocks(), 'よかった。'), '');
         $this->assertSame('よかった。', JournalDocument::render($blocks)->text);
-        $blocks = JournalDocument::finishEdit(JournalDocument::editPlan($blocks, 'よかった。'), '');
+        $this->assertSame($blocks, JournalDocument::finishEdit(JournalDocument::editPlan($blocks, 'よかった。'), ''));
         $blocks = JournalDocument::finishEdit(JournalDocument::editPlan($blocks, 'すごくよかった。'), 'すごく');
         $this->assertSame('すごくよかった。', JournalDocument::render($blocks)->text);
     }
@@ -80,6 +80,29 @@ class JournalDocumentTest extends TestCase
                 $this->assertArrayHasKey('text', $exception->errors());
             }
         }
+    }
+
+    public function test_multibyte_edit_spanning_suggestions_removes_their_identities(): void
+    {
+        $plan = JournalDocument::editPlan($this->blocks(), '🍿映画が楽しかった。');
+        $blocks = JournalDocument::finishEdit($plan, '🍿映画[えいが]が楽[たの]しかった。');
+        $this->assertSame('🍿映画が楽しかった。', JournalDocument::render($blocks)->text);
+        $this->assertSame([null], array_column($blocks, 'id'));
+    }
+
+    public function test_appending_the_same_source_twice_is_rejected(): void
+    {
+        $this->expectException(ValidationException::class);
+        JournalDocument::append($this->blocks(), $this->feedback(), 'root');
+    }
+
+    public function test_toggles_cannot_expand_past_the_document_limit(): void
+    {
+        $blocks = $this->blocks();
+        $blocks[1]['replacement'] = str_repeat('あ', 30000);
+        $blocks[1]['replacementReading'] = $blocks[1]['replacement'];
+        $this->expectException(ValidationException::class);
+        JournalDocument::toggle($blocks, 'root:1', true);
     }
 
     private function blocks(): array

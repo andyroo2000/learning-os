@@ -24,6 +24,8 @@ final class JournalFeedbackSchema
                 'suggestionReading' => $nullable,
                 'explanation' => $nullable,
                 'explanationReading' => $nullable,
+                'replacement' => $nullable,
+                'replacementReading' => $nullable,
             ])],
         ]);
     }

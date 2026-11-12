@@ -27,8 +27,7 @@ class ProcessJournalReply
         try {
             $feedback = $this->generator->handle($input['answer'], array_diff_key($input['context'], ['document' => true]));
             $result = JournalReplyContext::append($input['context'], $feedback);
-            $result['previousDocument'] = $input['context']['document'];
-            $result['document'] = JournalDocument::append($result['previousDocument'], $feedback, $attempt->replyId);
+            $result['document'] = JournalDocument::append($input['context']['document'], $feedback, $attempt->replyId);
             $this->finish($attempt, $result);
         } catch (Throwable $exception) {
             $this->fail($attempt);

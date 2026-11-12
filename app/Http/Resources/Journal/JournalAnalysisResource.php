@@ -4,6 +4,7 @@ namespace App\Http\Resources\Journal;
 
 use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalReply;
+use App\Domain\Journal\Support\JournalDocumentState;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,8 +18,9 @@ class JournalAnalysisResource extends JsonResource
             'id' => $this->id,
             'sourceVersion' => $this->source_version,
             'status' => $this->status->value,
-            'result' => $this->status === JournalAnalysisStatus::Ready ? $this->result : null,
+            'result' => $this->status === JournalAnalysisStatus::Ready ? array_diff_key($this->result ?? [], ['document' => true, 'previousDocument' => true]) : null,
             'error' => $this->status === JournalAnalysisStatus::Failed ? $this->error_message : null,
+            'correctedDocument' => $this->status === JournalAnalysisStatus::Ready ? JournalDocumentState::payload($this->resource) : null,
             'replyRevision' => $this->reply_revision,
             'currentReply' => $reply === null ? null : new JournalReplyResource($reply),
             'pendingReplyId' => $this->pending_reply_id,

@@ -7,6 +7,7 @@ use App\Domain\Journal\Exceptions\JournalVersionConflict;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalReply;
+use App\Domain\Journal\Support\JournalDocumentState;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\Validator;
@@ -25,6 +26,9 @@ final class UndoJournalReply
             $analysis = JournalAnalysis::where('entry_id', $entry->id)->lockForUpdate()->findOrFail(CanonicalUlid::normalize($data['analysisId']));
             $this->assertCurrent($analysis, $entry, (int) $data['expectedRevision']);
             $reply = JournalReply::where('analysis_id', $analysis->id)->findOrFail($analysis->current_reply_id);
+            if (isset($analysis->result['document'])) {
+                $analysis->result = [...$analysis->result, 'document' => JournalDocumentState::beforeReply($analysis, $reply)];
+            }
             $analysis->current_reply_id = $reply->parent_id;
             $analysis->reply_revision++;
             $analysis->save();

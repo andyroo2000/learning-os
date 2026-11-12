@@ -8,6 +8,7 @@ use App\Domain\Journal\Exceptions\JournalVersionConflict;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalReply;
+use App\Domain\Journal\Support\JournalDocumentState;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -87,6 +88,9 @@ final class StartJournalReply
     {
         if ($input->replace && $analysis->current_reply_id === null) {
             throw ValidationException::withMessages(['replace' => 'There is no answer to edit yet.']);
+        }
+        if ($input->replace && isset($analysis->result['document'])) {
+            JournalDocumentState::beforeReply($analysis, JournalReply::findOrFail($analysis->current_reply_id));
         }
         $reply = new JournalReply;
         $reply->id = $input->id;

@@ -15,7 +15,7 @@ class JournalReplyResource extends JsonResource
             'parentId' => $this->parent_id,
             'answer' => $this->answer,
             'status' => $this->status->value,
-            'result' => $this->status === JournalAnalysisStatus::Ready ? $this->result : null,
+            'result' => $this->status === JournalAnalysisStatus::Ready ? array_diff_key($this->result ?? [], ['document' => true, 'previousDocument' => true]) : null,
             'error' => $this->status === JournalAnalysisStatus::Failed ? $this->error_message : null,
         ];
     }

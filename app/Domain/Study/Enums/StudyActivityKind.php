@@ -10,6 +10,7 @@ enum StudyActivityKind: string
     case Tv = 'tv';
     case Podcast = 'podcast';
     case Reading = 'reading';
+    case Journal = 'journal';
     case Conversation = 'conversation';
     case WaniKaniReview = 'wanikani_review';
     case Other = 'other';
@@ -34,6 +35,7 @@ enum StudyActivityKind: string
             self::CardReview => StudyActivityCategory::Review,
             self::DailyAudio => StudyActivityCategory::Listen,
             self::CardCreation => StudyActivityCategory::Create,
+            self::Journal => StudyActivityCategory::Writing,
             self::Tv, self::Podcast, self::Reading, self::Other => StudyActivityCategory::Immerse,
             self::Conversation => StudyActivityCategory::Conversation,
             self::WaniKaniReview => StudyActivityCategory::WaniKani,

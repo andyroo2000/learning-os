@@ -11,6 +11,7 @@ class JournalEntryResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'rootEntryId' => $this->root_entry_id,
             'title' => $this->title,
             'body' => $this->body,
             'entryDate' => $this->entry_date->format('Y-m-d'),

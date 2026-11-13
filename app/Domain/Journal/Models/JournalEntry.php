@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 
@@ -51,6 +52,16 @@ class JournalEntry extends Model
             'entry_date' => 'immutable_date:Y-m-d',
             'version' => 'integer',
         ];
+    }
+
+    public function latestAnalysis(): HasOne
+    {
+        return $this->hasOne(JournalAnalysis::class, 'entry_id')->latestOfMany('source_version');
+    }
+
+    public function answeredQuestion(): BelongsTo
+    {
+        return $this->belongsTo(JournalQuestion::class, 'question_id');
     }
 
     /** @return BelongsTo<User, $this> */

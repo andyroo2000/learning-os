@@ -12,6 +12,8 @@ use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class JournalQuestionController extends Controller
 {
@@ -29,6 +31,17 @@ class JournalQuestionController extends Controller
         $question = JournalQuestion::whereHas('analysis', fn ($query) => $query->where('entry_id', $entry->id))->findOrFail(CanonicalUlid::normalize($questionId));
 
         return $this->response($question);
+    }
+
+    public function audio(JournalEntry $entry, string $questionId): StreamedResponse
+    {
+        Gate::authorize('view', $entry);
+        $question = JournalQuestion::whereHas('analysis', fn ($query) => $query->where('entry_id', $entry->id))->findOrFail(CanonicalUlid::normalize($questionId));
+        abort_unless($question->audio_status === 'ready' && Storage::disk('local')->exists($question->audio_path), 409, 'Question audio is not ready.');
+
+        return Storage::disk('local')->response($question->audio_path, null, [
+            'Content-Type' => 'audio/mpeg', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     private function response(JournalQuestion $question): JsonResponse

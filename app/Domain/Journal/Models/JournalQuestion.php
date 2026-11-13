@@ -13,9 +13,11 @@ class JournalQuestion extends Model
 
     protected $guarded = ['*'];
 
+    protected $attributes = ['audio_status' => 'idle'];
+
     protected function casts(): array
     {
-        return ['tutor' => 'array'];
+        return ['tutor' => 'array', 'audio_requested_at' => 'immutable_datetime'];
     }
 
     protected static function booted(): void

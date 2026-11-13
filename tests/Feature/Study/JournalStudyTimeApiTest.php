@@ -26,6 +26,11 @@ class JournalStudyTimeApiTest extends TestCase
             ->assertOk()->assertJsonPath('0.activity', 'journal')->assertJsonPath('0.category', 'writing');
         $this->postJson('/api/study/activity-sessions/batch', $payload)
             ->assertOk()->assertJsonPath('0.activity', 'other')->assertJsonPath('0.category', 'immerse');
+        $legacy = $this->getJson('/api/study/activity-sessions?from=2026-11-13T00:00:00Z&to=2026-11-14T00:00:00Z')
+            ->assertOk()->assertJsonPath('0.activity', 'other')->assertJsonPath('0.category', 'immerse')
+            ->json('0');
+        $this->postJson('/api/study/activity-sessions/batch', ['sessions' => [$legacy]])
+            ->assertOk();
         $this->assertDatabaseCount('study_activity_sessions', 1);
         $this->assertDatabaseHas('study_activity_sessions', [
             'user_id' => $user->id, 'activity' => 'journal', 'category' => 'writing', 'duration_ms' => 120000,

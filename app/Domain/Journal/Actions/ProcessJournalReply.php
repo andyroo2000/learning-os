@@ -9,6 +9,7 @@ use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalReply;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
 use App\Domain\Journal\Support\JournalDocument;
+use App\Domain\Journal\Support\JournalQuestions;
 use App\Domain\Journal\Support\JournalReplyContext;
 use App\Domain\Journal\Support\JournalReplyMutation;
 use RuntimeException;
@@ -102,6 +103,7 @@ class ProcessJournalReply
             $analysis->pending_reply_id = null;
             $analysis->reply_revision++;
             $analysis->save();
+            JournalQuestions::record($analysis, $reply);
         });
     }
 

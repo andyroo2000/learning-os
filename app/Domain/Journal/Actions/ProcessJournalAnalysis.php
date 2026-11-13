@@ -7,6 +7,7 @@ use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
+use App\Domain\Journal\Support\JournalQuestions;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Throwable;
@@ -80,6 +81,7 @@ class ProcessJournalAnalysis
             $analysis->status = JournalAnalysisStatus::Ready;
             $analysis->completed_at = now();
             $analysis->save();
+            JournalQuestions::record($analysis);
             if ($entry->title === null && $entry->body === $analysis->source_body) {
                 $entry->title = $result['title'];
                 $entry->version++;

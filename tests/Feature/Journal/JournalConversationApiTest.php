@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Journal;
 
+use App\Domain\Journal\Actions\CreateJournalConversationEntry;
 use App\Domain\Journal\Actions\ProcessJournalAnalysis;
 use App\Domain\Journal\Actions\StartJournalAnalysis;
 use App\Domain\Journal\Enums\JournalAnalysisStatus;
@@ -9,6 +10,7 @@ use App\Domain\Journal\Enums\JournalTutor;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
+use App\Domain\Journal\Support\JournalConversationContext;
 use App\Domain\Journal\Support\JournalQuestions;
 use App\Jobs\AnalyzeJournalEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -103,6 +105,28 @@ class JournalConversationApiTest extends TestCase
         $this->assertSame($question->text, $question->fresh()->text);
         $this->signIn();
         $this->postJson($url)->assertNotFound();
+    }
+
+    public function test_nested_context_uses_the_original_diary_and_immediate_parent_snapshot(): void
+    {
+        [$root, $firstQuestion] = $this->conversation();
+        $child = app(CreateJournalConversationEntry::class)->handle($root->user_id, $root->id, [
+            'id' => (string) Str::ulid(), 'questionId' => $firstQuestion->id, 'body' => '妻と見た。',
+        ]);
+        $parentAnalysis = JournalAnalysis::factory()->for($child, 'entry')->create([
+            'source_body' => $child->body, 'status' => JournalAnalysisStatus::Ready, 'result' => JournalFeedbackFixture::result(),
+        ]);
+        $nextQuestion = JournalQuestions::record($parentAnalysis);
+        $next = app(CreateJournalConversationEntry::class)->handle($root->user_id, $child->id, [
+            'id' => (string) Str::ulid(), 'questionId' => $nextQuestion->id, 'body' => '妻も好きだった。',
+        ]);
+        $analysis = app(StartJournalAnalysis::class)->handle($root->user_id, $next->id, 1);
+        $root->body = '旅行に行った。';
+        $root->save();
+        $context = JournalConversationContext::forAnalysis($analysis->id);
+        $this->assertSame('映画を見ますた。', $context['diary']);
+        $this->assertSame('妻と見た。', $context['previousAnswer']);
+        $this->assertSame($nextQuestion->text, $context['question']);
     }
 
     private function conversation(): array

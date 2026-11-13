@@ -46,7 +46,7 @@ final class GenerateJournalTimedAudio
         }
         $path = JournalAudioState::path($entry, $voice, $text).'.timed.json';
 
-        return Cache::lock('journal-timed:'.hash('sha256', $path), 120)->block(5, function () use ($entry, $source, $remember, $text, $voice, $path): array {
+        return Cache::lock('journal-timed:'.hash('sha256', $path), 180)->block(5, function () use ($entry, $source, $remember, $text, $voice, $path): array {
             $saved = JournalTimedAudioCache::read($path);
             $cached = $saved !== null;
             $data = $saved ?? $this->generate($entry, $text, $voice);

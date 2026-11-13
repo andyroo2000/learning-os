@@ -37,6 +37,8 @@ final class JournalQuestions
             $question->save();
         }
 
+        JournalQuestionAudioState::schedule($question);
+
         return $question;
     }
 }

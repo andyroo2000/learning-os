@@ -20,6 +20,7 @@ return static function (): void {
         Route::delete('{entryId}', [JournalEntryController::class, 'destroy'])->whereUlid('entryId');
         Route::post('{entryId}/submit', [JournalAnalysisController::class, 'submit'])->whereUlid('entryId')->middleware('throttle:3,1,journal-submit');
         Route::post('{entry}/question', [JournalQuestionController::class, 'prepare'])->whereUlid('entry')->middleware('throttle:30,1,journal-question');
+        Route::get('{entry}/questions/{questionId}/audio', [JournalQuestionController::class, 'audio'])->whereUlid('entry')->whereUlid('questionId');
         Route::get('{entry}/questions/{questionId}', [JournalQuestionController::class, 'show'])->whereUlid('entry')->whereUlid('questionId');
         Route::post('{entry}/audio', [JournalAudioController::class, 'audio'])->whereUlid('entry');
         Route::get('{entry}/audio', [JournalAudioController::class, 'state'])->whereUlid('entry');

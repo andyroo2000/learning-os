@@ -10,6 +10,6 @@ class JournalQuestionResource extends JsonResource
     public function toArray(Request $request): array
     {
         return ['id' => $this->id, 'text' => $this->text, 'reading' => $this->reading,
-            'translation' => $this->translation, 'tutor' => $this->tutor === null ? null : array_diff_key($this->tutor, ['voiceId' => true])];
+            'translation' => $this->translation, 'tutor' => $this->tutor === null ? null : array_intersect_key($this->tutor, array_flip(['id', 'name', 'gender', 'avatar']))];
     }
 }

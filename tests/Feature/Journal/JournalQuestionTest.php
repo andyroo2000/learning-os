@@ -4,6 +4,7 @@ namespace Tests\Feature\Journal;
 
 use App\Domain\Journal\Actions\PrepareJournalQuestion;
 use App\Domain\Journal\Actions\SaveJournalTutor;
+use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Enums\JournalTutor;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
@@ -79,6 +80,29 @@ class JournalQuestionTest extends TestCase
         $question->tutor = JournalTutor::Ren->snapshot();
         $this->expectException(LogicException::class);
         $question->save();
+    }
+
+    public function test_unready_and_incomplete_legacy_feedback_have_actionable_errors(): void
+    {
+        [$entry, $analysis] = $this->ready();
+        $url = "/api/journal/entries/{$entry->id}/question";
+        $analysis->status = JournalAnalysisStatus::Processing;
+        $analysis->save();
+        $this->postJson($url, ['analysisId' => $analysis->id])->assertConflict();
+        $analysis->status = JournalAnalysisStatus::Ready;
+        $analysis->result = ['question' => 'どうでしたか。'];
+        $analysis->save();
+        $this->postJson($url, ['analysisId' => $analysis->id])->assertUnprocessable()->assertJsonValidationErrors('questionReading');
+        $this->assertDatabaseCount('journal_questions', 0);
+    }
+
+    public function test_question_ids_are_scoped_to_the_requested_entry_even_for_the_same_owner(): void
+    {
+        [$entry, $analysis] = $this->ready();
+        $question = app(PrepareJournalQuestion::class)->handle($entry->user_id, $entry->id, ['analysisId' => $analysis->id]);
+        $other = JournalEntry::factory()->create(['user_id' => $entry->user_id]);
+        $this->getJson("/api/journal/entries/{$other->id}/questions/{$question->id}")->assertNotFound();
+        $this->postJson("/api/journal/entries/{$other->id}/question", ['analysisId' => $analysis->id])->assertNotFound();
     }
 
     public function test_direct_calls_validate_ids_before_queries(): void

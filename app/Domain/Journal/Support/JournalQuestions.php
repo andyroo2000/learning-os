@@ -7,6 +7,7 @@ use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalQuestion;
 use App\Domain\Journal\Models\JournalReply;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 final class JournalQuestions
 {
@@ -16,7 +17,10 @@ final class JournalQuestions
         $source = $reply?->id ?? 'entry';
         $question = JournalQuestion::where('analysis_id', $analysis->id)->where('source_key', $source)->first();
         if ($question === null) {
-            $feedback = $reply?->result ?? $analysis->result;
+            $feedback = Validator::make($reply?->result ?? $analysis->result ?? [], [
+                'question' => ['required', 'string'], 'questionReading' => ['required', 'string'],
+                'questionTranslation' => ['required', 'string'],
+            ], ['required' => 'Submit this entry again to prepare its question.'])->validate();
             $question = new JournalQuestion;
             $question->analysis_id = $analysis->id;
             $question->source_key = $source;

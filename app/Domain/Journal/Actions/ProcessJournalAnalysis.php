@@ -7,6 +7,7 @@ use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
+use App\Domain\Journal\Support\JournalConversationContext;
 use App\Domain\Journal\Support\JournalQuestions;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -23,7 +24,8 @@ class ProcessJournalAnalysis
             return;
         }
         try {
-            $result = $this->generator->handle($body);
+            $context = JournalConversationContext::forAnalysis($attempt->analysisId);
+            $result = $context === [] ? $this->generator->handle($body) : $this->generator->handle($body, $context);
             $this->finish($attempt, $result);
         } catch (Throwable $exception) {
             $this->fail($attempt);

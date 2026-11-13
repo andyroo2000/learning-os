@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Journal;
 
 use App\Domain\Journal\Actions\PrepareJournalQuestion;
+use App\Domain\Journal\Actions\RetryJournalQuestionAudio;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalQuestion;
 use App\Http\Controllers\Controller;
@@ -23,6 +24,13 @@ class JournalQuestionController extends Controller
         $question = $prepare->handle(AuthenticatedUser::id($request), $entry->id, $request->all());
 
         return $this->response($question);
+    }
+
+    public function retry(Request $request, JournalEntry $entry, string $questionId, RetryJournalQuestionAudio $retry): JsonResponse
+    {
+        Gate::authorize('view', $entry);
+
+        return $this->response($retry->handle(AuthenticatedUser::id($request), $entry->id, $questionId));
     }
 
     public function show(JournalEntry $entry, string $questionId): JsonResponse

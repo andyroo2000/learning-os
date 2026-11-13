@@ -43,6 +43,18 @@ final class JournalSentenceTimingsTest extends TestCase
         $this->assertSame([], JournalSentenceTimings::build('昨日。今日。', [['text' => '昨日。今日。', 'start' => 0, 'end' => 2]]));
     }
 
+    public function test_punctuation_only_lines_and_leading_newlines_preserve_all_source_text(): void
+    {
+        $text = "\n！！\n映画。\n…\n好き！";
+        $result = JournalSentenceTimings::build($text, [
+            ['text' => '映画。', 'start' => 0, 'end' => 2],
+            ['text' => '好き！', 'start' => 2, 'end' => 4],
+        ]);
+        $this->assertCount(2, $result);
+        $this->assertSame($text, implode('', array_column($result, 'text')));
+        $this->assertSame(2, $result[1]['start']);
+    }
+
     private function event(string $bytes, int $sequence, float $offset, array $segments): string
     {
         return 'data: '.json_encode([

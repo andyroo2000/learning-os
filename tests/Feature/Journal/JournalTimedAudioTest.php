@@ -90,6 +90,44 @@ final class JournalTimedAudioTest extends TestCase
         $this->postJson('/api/journal/entries/'.$other->id.'/questions/'.$question->id.'/audio/timed')->assertNotFound();
     }
 
+    public function test_corrupt_cache_is_replaced_on_retry(): void
+    {
+        [$entry, $input] = $this->readyEntry();
+        Http::fake(['fish.test/*' => Http::response($this->stream())]);
+        $url = '/api/journal/entries/'.$entry->id.'/audio/timed';
+        $this->postJson($url, $input)->assertOk();
+        $path = Storage::disk('local')->allFiles()[0];
+        Storage::disk('local')->put($path, '{incomplete');
+        $this->postJson($url, $input)->assertOk()->assertJsonCount(2, 'data.sentences');
+        Http::assertSentCount(2);
+    }
+
+    public function test_provider_failures_are_retryable_and_generation_is_rate_limited(): void
+    {
+        [$entry, $input] = $this->readyEntry();
+        Http::fake(['fish.test/*' => Http::response('provider details', 500)]);
+        $url = '/api/journal/entries/'.$entry->id.'/audio/timed';
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson($url, $input)->assertStatus(503)->assertJsonPath('message', 'Audio is temporarily unavailable. Please try again.');
+        }
+        $this->postJson($url, $input)->assertStatus(429);
+        Http::assertSentCount(5);
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_missing_alignment_is_not_permanently_cached(): void
+    {
+        [$entry, $input] = $this->readyEntry();
+        Http::fake(['fish.test/*' => Http::sequence()
+            ->push('data: '.json_encode(['audio_base64' => base64_encode('ID3test'), 'alignment' => null]))
+            ->push($this->stream())]);
+        $url = '/api/journal/entries/'.$entry->id.'/audio/timed';
+        $this->postJson($url, $input)->assertOk()->assertJsonCount(0, 'data.sentences');
+        $this->assertSame([], Storage::disk('local')->allFiles());
+        $this->postJson($url, $input)->assertOk()->assertJsonCount(2, 'data.sentences');
+        Http::assertSentCount(2);
+    }
+
     private function readyEntry(): array
     {
         $user = $this->signIn();

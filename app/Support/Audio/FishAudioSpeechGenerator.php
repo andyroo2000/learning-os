@@ -26,6 +26,7 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
             throw AudioSpeechGenerationException::unavailable('Fish Audio');
         }
 
+        // Timestamp text must match the authored text, without synthetic performance tags.
         $text = $timed ? $text : $this->directions->apply($text);
 
         try {

@@ -7,6 +7,7 @@ use App\Domain\Journal\Models\JournalQuestion;
 use App\Domain\Journal\Support\JournalAudioState;
 use App\Domain\Journal\Support\JournalAudioVersion;
 use App\Domain\Journal\Support\JournalSentenceTimings;
+use App\Domain\Journal\Support\JournalTimedAudioCache;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Closure;
@@ -46,9 +47,9 @@ final class GenerateJournalTimedAudio
         $path = JournalAudioState::path($entry, $voice, $text).'.timed.json';
 
         return Cache::lock('journal-timed:'.hash('sha256', $path), 120)->block(5, function () use ($entry, $source, $remember, $text, $voice, $path): array {
-            $disk = Storage::disk('local');
-            $cached = $disk->exists($path);
-            $data = $cached ? json_decode($disk->get($path), true, flags: JSON_THROW_ON_ERROR) : $this->generate($entry, $text, $voice);
+            $saved = JournalTimedAudioCache::read($path);
+            $cached = $saved !== null;
+            $data = $saved ?? $this->generate($entry, $text, $voice);
 
             return JournalWriteTransaction::run($entry->user_id, function () use ($entry, $source, $remember, $text, $voice, $path, $cached, $data): array {
                 abort_unless(JournalEntry::whereKey($entry->id)->exists(), 404);
@@ -76,7 +77,10 @@ final class GenerateJournalTimedAudio
     private function publish(JournalEntry $entry, string $path, array $data, ?array $preference): void
     {
         try {
-            abort_unless(Storage::disk('local')->put($path, json_encode($data, JSON_THROW_ON_ERROR)), 503, 'Audio could not be saved.');
+            // Missing alignment is playable, but never pins a transient provider failure in cache.
+            if ($data['sentences'] !== []) {
+                abort_unless(Storage::disk('local')->put($path, json_encode($data, JSON_THROW_ON_ERROR)), 503, 'Audio could not be saved.');
+            }
             if ($preference !== null) {
                 JournalAudioState::rememberGeneration($entry, ...$preference);
             }

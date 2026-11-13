@@ -21,7 +21,7 @@ final class DeleteJournalEntry
         ])->validate();
         $ids = JournalWriteTransaction::run($userId, function () use ($userId, $id, $expectedVersion): array {
             $entry = JournalEntry::withTrashed()->lockForUpdate()->findOrFail($id);
-            if ($entry->user_id !== $userId) {
+            if ($entry->user_id !== $userId || $entry->root_entry_id !== null) {
                 throw new ModelNotFoundException;
             }
             if (! $entry->trashed() && $entry->version !== $expectedVersion) {
@@ -38,7 +38,9 @@ final class DeleteJournalEntry
     private function deleteConversation(JournalEntry $entry): array
     {
         // Retain tombstones so a retry also retries audio cleanup for every child.
-        $entries = JournalEntry::withTrashed()->where('id', $entry->id)->orWhere('root_entry_id', $entry->id)->lockForUpdate()->get();
+        $entries = JournalEntry::withTrashed()->where('user_id', $entry->user_id)
+            ->where(fn ($query) => $query->where('id', $entry->id)->orWhere('root_entry_id', $entry->id))
+            ->lockForUpdate()->get();
         foreach ($entries as $item) {
             if (! $item->trashed()) {
                 $item->delete();

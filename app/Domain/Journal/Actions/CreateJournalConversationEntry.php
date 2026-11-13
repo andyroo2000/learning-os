@@ -42,7 +42,7 @@ final class CreateJournalConversationEntry
 
     private function assertQuestion(JournalEntry $parent, JournalQuestion $question): void
     {
-        $analysis = JournalAnalysis::where('entry_id', $parent->id)->orderByDesc('source_version')->first();
+        $analysis = JournalAnalysis::where('entry_id', $parent->id)->orderByDesc('source_version')->firstOrFail();
         if ($analysis->id !== $question->analysis_id || $analysis->source_body !== $parent->body) {
             throw new JournalVersionConflict;
         }

@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 use Tests\Unit\Journal\JournalFeedbackFixture;
 
@@ -137,6 +138,34 @@ class JournalConversationEntryTest extends TestCase
             $this->assertSame(2, $next->conversation_position);
             $this->assertSame(str_repeat('あ', 20000), $next->fresh()->body);
         });
+    }
+
+    public function test_child_cannot_be_deleted_independently(): void
+    {
+        Storage::fake('local');
+        [$parent, , $input] = $this->conversation();
+        $child = app(CreateJournalConversationEntry::class)->handle($parent->user_id, $parent->id, $input);
+        $this->expectException(ModelNotFoundException::class);
+        app(DeleteJournalEntry::class)->handle($parent->user_id, $child->id, 1);
+    }
+
+    public function test_foreign_child_id_is_hidden_on_retry(): void
+    {
+        [$parent, , $input] = $this->conversation();
+        $foreign = JournalEntry::factory()->create();
+        $this->expectException(HttpException::class);
+        app(CreateJournalConversationEntry::class)->handle($parent->user_id, $parent->id, [...$input, 'id' => $foreign->id]);
+    }
+
+    public function test_successful_retry_still_works_after_parent_is_edited(): void
+    {
+        [$parent, , $input] = $this->conversation();
+        $action = app(CreateJournalConversationEntry::class);
+        $child = $action->handle($parent->user_id, $parent->id, $input);
+        $parent->body = '書き直した。';
+        $parent->save();
+        $this->assertSame($child->id, $action->handle($parent->user_id, $parent->id, $input)->id);
+        $this->assertDatabaseCount('journal_entries', 2);
     }
 
     private function conversation(): array

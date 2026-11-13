@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Study\Support\StudyCompatibilityTrafficRateLimiter;
+use App\Http\Controllers\Api\Journal\JournalAvatarController;
 use Illuminate\Support\Facades\Route;
 
 /** @var callable(): void $publicMediaAnalyticsRoutes */
@@ -71,5 +72,7 @@ Route::middleware('auth:sanctum')->group(function () use ($authenticatedRouteReg
 
 Route::middleware('auth:sanctum')->group(require __DIR__.'/api/readings.php');
 Route::middleware('auth:sanctum')->group(require __DIR__.'/api/journal.php');
+Route::get('journal/avatars/{avatar}', JournalAvatarController::class)
+    ->where('avatar', '[a-z0-9-]+')->name('journal.avatar');
 
 unset($authenticatedRouteRegistrars, $authRoutes, $deckRoutes, $publicMediaAnalyticsRoutes, $studyRouteRegistrars);

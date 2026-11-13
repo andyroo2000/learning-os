@@ -24,7 +24,7 @@
       "id": "study-activity-analytics.v1",
       "path": "tests/Fixtures/Compatibility/study-activity-analytics-v1.json",
       "checksumPath": "tests/Fixtures/Compatibility/study-activity-analytics-v1.sha256",
-      "sha256": "139ebccb5a1a7d68ab8ed4be2d0f8c7a96bd9d9be35a5ccfdb59f53c61ce8418",
+      "sha256": "3b97295e10ab77a0e616f2ef32634008145fce348d33f5617e44bf229078eec5",
       "producer": "App\\Domain\\Study\\Actions\\BuildStudyActivityAnalyticsAction"
     },
     {
@@ -38,7 +38,7 @@
       "id": "personal-weekly-recap.v1",
       "path": "tests/Fixtures/Compatibility/personal-weekly-recap-v1.json",
       "checksumPath": "tests/Fixtures/Compatibility/personal-weekly-recap-v1.sha256",
-      "sha256": "0c81e9495d703db1ded8e73d4cf46422f8ce21813fd5828635961758e7aa7d2b",
+      "sha256": "b940e1c0b3bced7074ff1fd487b1a11a929739dd3add9c8ed4f7f1dd7c46c9d8",
       "producer": "App\\Domain\\Study\\Actions\\BuildPersonalWeeklyRecapAction"
     },
     {

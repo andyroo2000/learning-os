@@ -19,6 +19,7 @@
                     "categories": {
                         "review": 0,
                         "listen": 0,
+                        "writing": 0,
                         "create": 0,
                         "immerse": 0,
                         "conversation": 0,
@@ -51,6 +52,7 @@
                     "categories": {
                         "review": 3600000,
                         "listen": 0,
+                        "writing": 0,
                         "create": 0,
                         "immerse": 0,
                         "conversation": 1800000,

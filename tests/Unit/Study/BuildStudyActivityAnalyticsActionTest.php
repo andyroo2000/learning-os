@@ -270,6 +270,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
         $this->assertSame([
             'review' => 1_800_000,
             'listen' => 900_001,
+            'writing' => 0,
             'create' => 1_000,
             'immerse' => 600_000,
             'conversation' => 1_200_000,
@@ -309,7 +310,7 @@ class BuildStudyActivityAnalyticsActionTest extends TestCase
         foreach ($result['ranges'] as $range) {
             $this->assertSame(0, $range['totalMs']);
             $this->assertSame(array_fill_keys([
-                'review', 'listen', 'create', 'immerse', 'conversation', 'wanikani',
+                'review', 'listen', 'writing', 'create', 'immerse', 'conversation', 'wanikani',
             ], 0), $range['categories']);
             $this->assertSame(0, array_sum(array_column($range['buckets'], 'totalMs')));
         }

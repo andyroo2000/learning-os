@@ -65,6 +65,7 @@ class PersonalWeeklyRecapApiTest extends TestCase
                         'categories' => [
                             'review' => 0,
                             'listen' => 0,
+                            'writing' => 0,
                             'create' => 0,
                             'immerse' => 0,
                             'conversation' => 0,
@@ -98,8 +99,7 @@ class PersonalWeeklyRecapApiTest extends TestCase
             $this->createActivitySession(
                 $user,
                 'review',
-                '2026-08-03T12:00:00Z',
-                '2026-08-03T13:00:00Z',
+                ['2026-08-03T12:00:00Z', '2026-08-03T13:00:00Z'],
                 3_600_000,
             );
 
@@ -110,16 +110,14 @@ class PersonalWeeklyRecapApiTest extends TestCase
             $this->createActivitySession(
                 $user,
                 'conversation',
-                '2026-08-04T12:00:00Z',
-                '2026-08-04T12:30:00Z',
+                ['2026-08-04T12:00:00Z', '2026-08-04T12:30:00Z'],
                 1_800_000,
             );
 
             $this->createActivitySession(
                 $other,
                 'conversation',
-                '2026-08-05T12:00:00Z',
-                '2026-08-05T12:20:00Z',
+                ['2026-08-05T12:00:00Z', '2026-08-05T12:20:00Z'],
                 1_200_000,
             );
             $this->actingAs($other)
@@ -149,9 +147,9 @@ class PersonalWeeklyRecapApiTest extends TestCase
         $this->travelTo(CarbonImmutable::parse('2026-08-12T16:00:00Z'));
 
         try {
-            $this->createActivitySession($user, 'review', '2026-08-03T12:00:00Z', '2026-08-03T13:00:00Z', 3_600_000);
-            $this->createActivitySession($user, 'conversation', '2026-07-27T12:00:00Z', '2026-07-27T12:30:00Z', 1_800_000);
-            $this->createActivitySession($other, 'review', '2026-08-03T12:00:00Z', '2026-08-03T14:00:00Z', 7_200_000);
+            $this->createActivitySession($user, 'review', ['2026-08-03T12:00:00Z', '2026-08-03T13:00:00Z'], 3_600_000);
+            $this->createActivitySession($user, 'conversation', ['2026-07-27T12:00:00Z', '2026-07-27T12:30:00Z'], 1_800_000);
+            $this->createActivitySession($other, 'review', ['2026-08-03T12:00:00Z', '2026-08-03T14:00:00Z'], 7_200_000);
 
             $activeCard = $this->cardFor($user, ['introduced_at' => '2026-08-03T12:00:00Z']);
             $deletedCard = $this->cardFor($user, ['introduced_at' => '2026-08-04T12:00:00Z']);
@@ -198,10 +196,10 @@ class PersonalWeeklyRecapApiTest extends TestCase
         try {
             date_default_timezone_set('Asia/Tokyo');
             // 23:30 EST Saturday through 03:30 EDT Sunday is three real hours.
-            $this->createActivitySession($user, 'listen', '2026-03-08T04:30:00Z', '2026-03-08T07:30:00Z', 10_800_000);
-            $this->createActivitySession($user, 'review', '2026-03-09T12:00:00Z', '2026-03-09T15:00:00Z', 10_800_000);
-            $this->createActivitySession($user, 'review', '2026-03-10T12:00:00Z', '2026-03-10T15:00:00Z', 10_800_000);
-            $this->createActivitySession($user, 'review', '2026-03-12T03:30:00Z', '2026-03-12T04:30:00Z', 3_600_000);
+            $this->createActivitySession($user, 'listen', ['2026-03-08T04:30:00Z', '2026-03-08T07:30:00Z'], 10_800_000);
+            $this->createActivitySession($user, 'review', ['2026-03-09T12:00:00Z', '2026-03-09T15:00:00Z'], 10_800_000);
+            $this->createActivitySession($user, 'review', ['2026-03-10T12:00:00Z', '2026-03-10T15:00:00Z'], 10_800_000);
+            $this->createActivitySession($user, 'review', ['2026-03-12T03:30:00Z', '2026-03-12T04:30:00Z'], 3_600_000);
 
             $this->getJson('/api/study/weekly-recap?timezone=America%2FNew_York&weekStartsOn=1')
                 ->assertOk()
@@ -227,7 +225,7 @@ class PersonalWeeklyRecapApiTest extends TestCase
         $this->travelTo(CarbonImmutable::parse('2026-08-12T16:00:00Z'));
 
         try {
-            $this->createActivitySession($user, 'review', '2026-08-12T14:00:00Z', '2026-08-12T18:00:00Z', 14_400_000);
+            $this->createActivitySession($user, 'review', ['2026-08-12T14:00:00Z', '2026-08-12T18:00:00Z'], 14_400_000);
             $this->getJson('/api/study/activity-analytics?timezone=UTC&weekStartsOn=1')
                 ->assertOk()
                 ->assertJsonPath('ranges.0.totalMs', 7_200_000)
@@ -286,7 +284,7 @@ class PersonalWeeklyRecapApiTest extends TestCase
         }
     }
 
-    private function createActivitySession(User $user, string $category, string $start, string $end, int $durationMs): void
+    private function createActivitySession(User $user, string $category, array $interval, int $durationMs): void
     {
         StudyActivitySession::query()->forceCreate([
             'user_id' => $user->id,
@@ -294,8 +292,8 @@ class PersonalWeeklyRecapApiTest extends TestCase
             'category' => $category,
             'activity' => $category === 'conversation' ? 'conversation' : 'card_review',
             'source' => 'automatic',
-            'started_at' => $start,
-            'ended_at' => $end,
+            'started_at' => $interval[0],
+            'ended_at' => $interval[1],
             'duration_ms' => $durationMs,
         ]);
     }

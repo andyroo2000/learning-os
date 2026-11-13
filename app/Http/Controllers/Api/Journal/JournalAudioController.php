@@ -6,6 +6,7 @@ use App\Domain\Journal\Actions\GenerateJournalAudio;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalAudioState;
 use App\Domain\Journal\Support\JournalAudioVersion;
+use App\Domain\Journal\Support\JournalAvatars;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Journal\JournalAudioRequest;
 use App\Support\Audio\AudioSpeechGenerationException;
@@ -31,6 +32,7 @@ class JournalAudioController extends Controller
         return response()->json(['data' => collect(config('journal_voices'))
             ->map(fn (array $voice, string $id) => [
                 'id' => $id, 'name' => $voice['name'].' ('.$voice['gender'].')',
+                'avatarUrl' => JournalAvatars::url($voice['avatar']),
             ])->values()]);
     }
 

@@ -10,11 +10,15 @@ class StudyActivitySessionResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        // Older native clients decode activity/category as closed enums.
+        $legacyJournal = $this->activity->value === 'journal'
+            && $request->header('X-Study-Writing') !== '1';
+
         return [
             'id' => $this->id,
             'clientSessionId' => $this->client_session_id,
-            'category' => $this->category->value,
-            'activity' => $this->activity->value,
+            'category' => $legacyJournal ? 'immerse' : $this->category->value,
+            'activity' => $legacyJournal ? 'other' : $this->activity->value,
             'source' => $this->source->value,
             'origin' => $this->origin->value,
             'name' => $this->name,

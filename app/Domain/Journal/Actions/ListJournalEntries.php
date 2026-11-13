@@ -15,7 +15,7 @@ final class ListJournalEntries
             'limit' => ['integer', 'min:1', 'max:50'],
         ])->validate();
         $position = JournalArchiveCursor::decode($cursor);
-        $query = JournalEntry::where('user_id', $userId);
+        $query = JournalEntry::where('user_id', $userId)->whereNull('root_entry_id');
         if ($position !== null) {
             $query->where(function ($query) use ($position): void {
                 $query->where('entry_date', '<', $position['entryDate'])

@@ -19,19 +19,32 @@ final class DeleteJournalEntry
             'id' => ['required', 'ulid'],
             'expectedVersion' => ['integer', 'min:1', 'max:2147483647'],
         ])->validate();
-        JournalWriteTransaction::run($userId, function () use ($userId, $id, $expectedVersion): void {
+        $ids = JournalWriteTransaction::run($userId, function () use ($userId, $id, $expectedVersion): array {
             $entry = JournalEntry::withTrashed()->lockForUpdate()->findOrFail($id);
             if ($entry->user_id !== $userId) {
                 throw new ModelNotFoundException;
             }
-            if ($entry->trashed()) {
-                return;
-            }
-            if ($entry->version !== $expectedVersion) {
+            if (! $entry->trashed() && $entry->version !== $expectedVersion) {
                 throw new JournalVersionConflict;
             }
-            $entry->delete();
+
+            return $this->deleteConversation($entry);
         });
-        abort_unless(Storage::disk('local')->deleteDirectory('journal/'.$id), 503, 'Audio cleanup failed. Please retry deleting this entry.');
+        foreach ($ids as $deletedId) {
+            abort_unless(Storage::disk('local')->deleteDirectory('journal/'.$deletedId), 503, 'Audio cleanup failed. Please retry deleting this entry.');
+        }
+    }
+
+    private function deleteConversation(JournalEntry $entry): array
+    {
+        // Retain tombstones so a retry also retries audio cleanup for every child.
+        $entries = JournalEntry::withTrashed()->where('id', $entry->id)->orWhere('root_entry_id', $entry->id)->lockForUpdate()->get();
+        foreach ($entries as $item) {
+            if (! $item->trashed()) {
+                $item->delete();
+            }
+        }
+
+        return $entries->pluck('id')->all();
     }
 }

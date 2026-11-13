@@ -38,6 +38,9 @@ class JournalEntry extends Model
             if ($entry->isDirty('user_id')) {
                 throw new LogicException('Journal entry owner cannot be changed.');
             }
+            if ($entry->isDirty(['root_entry_id', 'question_id', 'conversation_position'])) {
+                throw new LogicException('A journal reply cannot be moved to another conversation.');
+            }
         });
     }
 

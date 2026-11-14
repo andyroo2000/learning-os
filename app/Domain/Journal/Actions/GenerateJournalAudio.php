@@ -5,6 +5,7 @@ namespace App\Domain\Journal\Actions;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalAudioState;
 use App\Domain\Journal\Support\JournalAudioVersion;
+use App\Domain\Journal\Support\JournalTimedAudioCache;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Illuminate\Support\Facades\Cache;
@@ -29,9 +30,7 @@ class GenerateJournalAudio
 
         return Cache::lock('journal-audio:'.$entry->id.':'.$hash, 120)->block(5, function () use ($entry, $text, $voice, $path, $input): string {
             if (! Storage::disk('local')->exists($path)) {
-                $allowed = RateLimiter::attempt('journal-audio:'.$entry->user_id, 5, fn () => true, 60);
-                abort_unless($allowed, 429, 'Please wait a minute before generating more audio.');
-                $bytes = $this->speech->generate($text, $voice);
+                $bytes = $this->audioBytes($entry, $path, $text, $voice);
                 $this->publish($entry, $input, $path, $bytes);
             }
 
@@ -39,6 +38,18 @@ class GenerateJournalAudio
 
             return $path;
         });
+    }
+
+    private function audioBytes(JournalEntry $entry, string $path, string $text, string $voice): string
+    {
+        $timed = JournalTimedAudioCache::read($path.'.timed.json');
+        if ($timed !== null) {
+            return base64_decode($timed['audioBase64'], true);
+        }
+        $allowed = RateLimiter::attempt('journal-audio:'.$entry->user_id, 5, fn () => true, 60);
+        abort_unless($allowed, 429, 'Please wait a minute before generating more audio.');
+
+        return $this->speech->generate($text, $voice);
     }
 
     private function publish(JournalEntry $entry, array $input, string $path, string $bytes): void

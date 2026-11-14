@@ -90,6 +90,17 @@ final class JournalTimedAudioTest extends TestCase
         $this->postJson('/api/journal/entries/'.$other->id.'/questions/'.$question->id.'/audio/timed')->assertNotFound();
     }
 
+    public function test_legacy_audio_reuses_the_timed_recording_without_another_provider_charge(): void
+    {
+        [$entry, $input] = $this->readyEntry();
+        Http::fake(['fish.test/*' => Http::response($this->stream())]);
+        $url = '/api/journal/entries/'.$entry->id.'/audio';
+        $this->postJson($url.'/timed', $input)->assertOk();
+        $this->getJson($url.'?'.http_build_query($input))->assertJsonPath('data.hasAudio', true);
+        $this->postJson($url, $input)->assertOk()->assertStreamedContent('ID3test');
+        Http::assertSentCount(1);
+    }
+
     public function test_cached_recording_restores_the_explicitly_chosen_voice(): void
     {
         [$entry, $input] = $this->readyEntry();

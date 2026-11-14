@@ -55,6 +55,24 @@ final class JournalSentenceTimingsTest extends TestCase
         $this->assertSame(2, $result[1]['start']);
     }
 
+    public function test_provider_character_width_normalization_preserves_original_sentences(): void
+    {
+        $text = '映画の最後２０パーセントがわからなかった。 ＤＶＤでも見たい！';
+        $this->assertSame([
+            ['text' => '映画の最後２０パーセントがわからなかった。 ', 'start' => 12.64, 'end' => 15.84],
+            ['text' => 'ＤＶＤでも見たい！', 'start' => 16.0, 'end' => 18.0],
+        ], JournalSentenceTimings::build($text, [
+            ['text' => '映画の最後', 'start' => 12.64, 'end' => 13.52],
+            ['text' => '2', 'start' => 13.52, 'end' => 14.4],
+            ['text' => '0', 'start' => 14.4, 'end' => 14.4],
+            ['text' => 'パーセントがわからなかった', 'start' => 14.4, 'end' => 15.84],
+            ['text' => 'DVDでも見たい', 'start' => 16.0, 'end' => 18.0],
+        ]));
+        $this->assertSame([], JournalSentenceTimings::build('２０。', [
+            ['text' => '21', 'start' => 0, 'end' => 1],
+        ]));
+    }
+
     private function event(string $bytes, int $sequence, float $offset, array $segments): string
     {
         return 'data: '.json_encode([

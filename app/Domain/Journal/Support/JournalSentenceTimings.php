@@ -66,6 +66,7 @@ final class JournalSentenceTimings
 
     private static function normalized(string $text): string
     {
-        return preg_replace('/[\p{P}\p{Z}\s]+/u', '', $text);
+        // Fish normalizes full-width Latin characters and digits in its alignment text.
+        return preg_replace('/[\p{P}\p{Z}\s]+/u', '', mb_convert_kana($text, 'as', 'UTF-8'));
     }
 }

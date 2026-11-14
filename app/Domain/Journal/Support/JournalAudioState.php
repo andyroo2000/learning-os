@@ -33,7 +33,9 @@ final class JournalAudioState
             return null;
         }
 
-        return Storage::disk('local')->exists(self::path($entry, $voice, $text)) ? $voice : null;
+        $path = self::path($entry, $voice, $text);
+
+        return (Storage::disk('local')->exists($path) || Storage::disk('local')->exists($path.'.timed.json')) ? $voice : null;
     }
 
     private static function cachedVoice(JournalEntry $entry, string $text, array $voices): ?string

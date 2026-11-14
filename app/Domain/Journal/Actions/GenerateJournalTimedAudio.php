@@ -54,9 +54,7 @@ final class GenerateJournalTimedAudio
             return JournalWriteTransaction::run($entry->user_id, function () use ($entry, $source, $remember, $text, $voice, $path, $cached, $data): array {
                 abort_unless(JournalEntry::whereKey($entry->id)->exists(), 404);
                 abort_unless($source() === [$text, $voice], 409, 'The text changed while audio was being prepared.');
-                if (! $cached) {
-                    $this->publish($entry, $path, $data, $remember ? [$voice, $text] : null);
-                }
+                $this->publish($entry, $path, $cached ? null : $data, $remember ? [$voice, $text] : null);
 
                 return $data;
             });
@@ -74,18 +72,20 @@ final class GenerateJournalTimedAudio
         ];
     }
 
-    private function publish(JournalEntry $entry, string $path, array $data, ?array $preference): void
+    private function publish(JournalEntry $entry, string $path, ?array $data, ?array $preference): void
     {
         try {
             // Missing alignment is playable, but never pins a transient provider failure in cache.
-            if ($data['sentences'] !== []) {
+            if ($data !== null && $data['sentences'] !== []) {
                 abort_unless(Storage::disk('local')->put($path, json_encode($data, JSON_THROW_ON_ERROR)), 503, 'Audio could not be saved.');
             }
             if ($preference !== null) {
                 JournalAudioState::rememberGeneration($entry, ...$preference);
             }
         } catch (Throwable $error) {
-            Storage::disk('local')->delete($path);
+            if ($data !== null) {
+                Storage::disk('local')->delete($path);
+            }
             throw $error;
         }
     }

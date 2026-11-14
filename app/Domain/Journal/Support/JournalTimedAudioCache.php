@@ -35,6 +35,33 @@ final class JournalTimedAudioCache
             return false;
         }
 
-        return base64_decode($data['audioBase64'], true) !== false;
+        foreach ($data['sentences'] as $sentence) {
+            if (! self::validSentence($sentence)) {
+                return false;
+            }
+        }
+
+        return $data['audioBase64'] !== '' && base64_decode($data['audioBase64'], true) !== false;
+    }
+
+    private static function validSentence(mixed $sentence): bool
+    {
+        if (! is_array($sentence) || ! is_string($sentence['text'] ?? null)) {
+            return false;
+        }
+        if (! self::validTime($sentence['start'] ?? null) || ! self::validTime($sentence['end'] ?? null)) {
+            return false;
+        }
+
+        return $sentence['end'] >= $sentence['start'];
+    }
+
+    private static function validTime(mixed $value): bool
+    {
+        if (! is_int($value) && ! is_float($value)) {
+            return false;
+        }
+
+        return is_finite($value) && $value >= 0;
     }
 }

@@ -90,6 +90,20 @@ final class JournalTimedAudioTest extends TestCase
         $this->postJson('/api/journal/entries/'.$other->id.'/questions/'.$question->id.'/audio/timed')->assertNotFound();
     }
 
+    public function test_cached_recording_restores_the_explicitly_chosen_voice(): void
+    {
+        [$entry, $input] = $this->readyEntry();
+        Http::fake(['fish.test/*' => Http::response($this->stream())]);
+        $url = '/api/journal/entries/'.$entry->id.'/audio/timed';
+        $this->postJson($url, $input)->assertOk();
+        $entry->audio_voice_id = null;
+        $entry->audio_text_hash = null;
+        $entry->save();
+        $this->postJson($url, $input)->assertOk();
+        Http::assertSentCount(1);
+        $this->assertSame(self::VOICE, $entry->fresh()->audio_voice_id);
+    }
+
     public function test_corrupt_cache_is_replaced_on_retry(): void
     {
         [$entry, $input] = $this->readyEntry();

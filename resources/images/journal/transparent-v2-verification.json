@@ -1,0 +1,122 @@
+[
+  {
+    "name": "professor-female",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPercent": 79.44,
+    "visibleWhitePixels": 0,
+    "fullWebPBytes": 177642,
+    "previewBytes": 12194
+  },
+  {
+    "name": "professor-male",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPercent": 85.98,
+    "visibleWhitePixels": 0,
+    "fullWebPBytes": 232310,
+    "previewBytes": 14566
+  },
+  {
+    "name": "female-01",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPercent": 78.67,
+    "visibleWhitePixels": 0,
+    "fullWebPBytes": 185650,
+    "previewBytes": 12332
+  },
+  {
+    "name": "female-02",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPercent": 79.57,
+    "visibleWhitePixels": 0,
+    "fullWebPBytes": 150974,
+    "previewBytes": 10128
+  },
+  {
+    "name": "female-03",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPercent": 81.59,
+    "visibleWhitePixels": 0,
+    "fullWebPBytes": 162894,
+    "previewBytes": 11080
+  },
+  {
+    "name": "male-01",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPercent": 83.3,
+    "visibleWhitePixels": 0,
+    "fullWebPBytes": 123132,
+    "previewBytes": 8180
+  },
+  {
+    "name": "male-02",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPercent": 84.91,
+    "visibleWhitePixels": 0,
+    "fullWebPBytes": 136900,
+    "previewBytes": 9530
+  },
+  {
+    "name": "male-03",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPercent": 88.79,
+    "visibleWhitePixels": 0,
+    "fullWebPBytes": 177770,
+    "previewBytes": 11218
+  }
+]

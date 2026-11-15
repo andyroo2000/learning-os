@@ -4,7 +4,24 @@ namespace App\Domain\Journal\Support;
 
 final class JournalAvatars
 {
-    public const NAMES = ['male-01-v1', 'male-02-v1', 'male-03-v1', 'female-01-v1', 'female-02-v1', 'female-03-v1', 'professor-male-v1', 'professor-female-v1'];
+    public const NAMES = [
+        'male-01-v1',
+        'male-02-v1',
+        'male-03-v1',
+        'female-01-v1',
+        'female-02-v1',
+        'female-03-v1',
+        'professor-male-v1',
+        'professor-female-v1',
+        'male-01-v2',
+        'male-02-v2',
+        'male-03-v2',
+        'female-01-v2',
+        'female-02-v2',
+        'female-03-v2',
+        'professor-male-v2',
+        'professor-female-v2',
+    ];
 
     public static function url(string $name): string
     {
@@ -17,8 +34,8 @@ final class JournalAvatars
             return null;
         }
         $name = match ($tutor['avatar'] ?? '') {
-            'hana-v1' => 'professor-female-v1',
-            'ren-v1' => 'professor-male-v1',
+            'hana-v1' => 'professor-female-v2',
+            'ren-v1' => 'professor-male-v2',
             default => null,
         };
 

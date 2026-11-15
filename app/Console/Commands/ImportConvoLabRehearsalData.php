@@ -36,6 +36,7 @@ class ImportConvoLabRehearsalData extends Command
         'card_learning_concepts',
         'card_review_events',
         'sync_feed_entries',
+        'journal_clarifications',
         'journal_entries',
         'journal_analyses',
         'journal_replies',

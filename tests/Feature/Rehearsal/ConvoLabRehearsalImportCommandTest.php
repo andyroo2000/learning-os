@@ -4,6 +4,7 @@ namespace Tests\Feature\Rehearsal;
 
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Journal\Models\JournalAnalysis;
+use App\Domain\Journal\Models\JournalClarification;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalReply;
 use App\Domain\Reviews\Models\CardReviewEvent;
@@ -19,6 +20,7 @@ class ConvoLabRehearsalImportCommandTest extends ConvoLabRehearsalImportTestCase
     {
         $this->seedConvoLabSourceData();
         $draft = JournalEntry::factory()->create();
+        $clarification = JournalClarification::factory()->create(['entry_id' => $draft->id]);
         $analysis = JournalAnalysis::factory()->create(['entry_id' => $draft->id]);
         $reply = JournalReply::factory()->create(['analysis_id' => $analysis->id]);
         DB::table('journal_tutor_preferences')->insert(['user_id' => $draft->user_id, 'tutor_id' => 'hana']);
@@ -26,6 +28,7 @@ class ConvoLabRehearsalImportCommandTest extends ConvoLabRehearsalImportTestCase
         DB::table('journal_questions')->insert(['id' => $reply->id, 'analysis_id' => $analysis->id, 'source_key' => 'entry', 'text' => 'どうでしたか。', 'reading' => 'どうでしたか。', 'translation' => 'How was it?']);
         $this->runImport();
         $this->assertDatabaseMissing('journal_entries', ['id' => $draft->id]);
+        $this->assertDatabaseMissing('journal_clarifications', ['id' => $clarification->id]);
         $this->assertDatabaseMissing('journal_analyses', ['id' => $analysis->id]);
         $this->assertDatabaseMissing('journal_replies', ['id' => $reply->id]);
         $this->assertDatabaseCount('journal_audio_preferences', 0);

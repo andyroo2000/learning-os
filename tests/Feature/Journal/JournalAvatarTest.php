@@ -36,6 +36,7 @@ class JournalAvatarTest extends TestCase
         $urls = array_column([...$voices, ...$tutors], 'avatarUrl');
         $this->assertCount(8, array_unique($urls));
         foreach ($urls as $url) {
+            $this->assertStringEndsWith('-v2', $url);
             $this->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');
         }
     }
@@ -47,7 +48,7 @@ class JournalAvatarTest extends TestCase
         $question->tutor = $snapshot;
         $data = (new JournalQuestionResource($question))->resolve();
         $this->assertSame('hana', $data['tutor']['id']);
-        $this->assertSame(JournalAvatars::url('professor-female-v1'), $data['tutor']['avatarUrl']);
+        $this->assertSame(JournalAvatars::url('professor-female-v2'), $data['tutor']['avatarUrl']);
         $this->assertArrayNotHasKey('voiceId', $data['tutor']);
         $this->assertSame($snapshot, $question->tutor);
         $this->assertNull(JournalAvatars::tutor(null));

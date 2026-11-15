@@ -7,6 +7,7 @@ use App\Domain\Journal\Enums\JournalClarificationStatus as Status;
 use App\Domain\Journal\Models\JournalClarification;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Services\CheckJournalMeaning;
+use App\Domain\Journal\Support\JournalClarificationLease;
 use App\Domain\Journal\Support\JournalClarificationWrite;
 use Illuminate\Support\Str;
 use Throwable;
@@ -68,7 +69,7 @@ class ProcessJournalClarification
             return true;
         }
 
-        return $state->status === Status::Processing && $state->processing_started_at?->lte(now()->subSeconds(120));
+        return $state->status === Status::Processing && JournalClarificationLease::expired($state);
     }
 
     private function finish(JournalClarificationAttempt $attempt, array $result): void

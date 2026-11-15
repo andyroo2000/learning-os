@@ -18,7 +18,7 @@ class JournalAnalysisController extends Controller
 {
     public function submit(SubmitJournalEntryRequest $request, string $entryId, StartJournalAnalysis $start): JsonResponse
     {
-        $analysis = $start->handle(AuthenticatedUser::id($request), $entryId, (int) $request->validated('expectedVersion'));
+        $analysis = $start->handle(AuthenticatedUser::id($request), $entryId, (int) $request->validated('expectedVersion'), $request->validated('clarificationId'));
         AnalyzeJournalEntry::dispatch($analysis->id);
 
         return response()->json(['data' => new JournalAnalysisResource($analysis)], 202);

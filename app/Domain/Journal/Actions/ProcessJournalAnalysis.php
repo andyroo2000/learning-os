@@ -7,6 +7,7 @@ use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
+use App\Domain\Journal\Support\JournalClarificationFeedback;
 use App\Domain\Journal\Support\JournalConversationContext;
 use App\Domain\Journal\Support\JournalQuestions;
 use App\Domain\Journal\Support\JournalWriteTransaction;
@@ -24,7 +25,7 @@ class ProcessJournalAnalysis
             return;
         }
         try {
-            $context = JournalConversationContext::forAnalysis($attempt->analysisId);
+            $context = JournalClarificationFeedback::context($attempt->analysisId, JournalConversationContext::forAnalysis($attempt->analysisId));
             $result = $context === [] ? $this->generator->handle($body) : $this->generator->handle($body, $context);
             $this->finish($attempt, $result);
         } catch (Throwable $exception) {
@@ -77,6 +78,12 @@ class ProcessJournalAnalysis
     {
         $this->mutate($attempt, function (JournalAnalysis $analysis, JournalEntry $entry) use ($attempt, $result): void {
             if (! $this->ownsAttempt($analysis, $attempt)) {
+                return;
+            }
+            if (! JournalClarificationFeedback::isCurrent($analysis)) {
+                $analysis->forceFill(['status' => JournalAnalysisStatus::Failed, 'result' => null,
+                    'error_message' => 'Answer the clarification questions and submit again.'])->save();
+
                 return;
             }
             $analysis->result = $result;

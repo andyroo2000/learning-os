@@ -44,6 +44,20 @@ class JournalClarificationApiTest extends TestCase
         $this->assertDatabaseCount('journal_analyses', 0);
     }
 
+    public function test_expired_processing_is_retryable_at_the_same_deadline_the_worker_uses(): void
+    {
+        Queue::fake();
+        $entry = JournalEntry::factory()->for($this->signIn())->create(['body' => '映画を見た。']);
+        $state = JournalClarification::factory()->create(['entry_id' => $entry->id, 'source_body' => $entry->body,
+            'status' => Status::Processing, 'processing_started_at' => now()->subSeconds(121)]);
+        $url = '/api/journal/entries/'.$entry->id.'/clarification';
+        $this->getJson($url)->assertOk()->assertJsonPath('data.status', 'failed');
+        $this->postJson($url, ['expectedVersion' => 1])->assertAccepted();
+        Queue::assertPushed(ClarifyJournalEntry::class, fn ($job): bool => $job->attempt->id === $state->id);
+        $state->forceFill(['processing_started_at' => now()])->save();
+        $this->getJson($url)->assertOk()->assertJsonPath('data.status', 'processing');
+    }
+
     public function test_authentication_and_ownership_apply_to_all_clarification_endpoints(): void
     {
         Queue::fake();

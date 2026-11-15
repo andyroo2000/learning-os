@@ -4,7 +4,7 @@ namespace App\Http\Requests\Journal;
 
 use App\Support\Identifiers\CanonicalUlid;
 
-class AnswerJournalClarificationRequest extends SubmitJournalEntryRequest
+class AnswerJournalClarificationRequest extends StartJournalClarificationRequest
 {
     protected function prepareForValidation(): void
     {

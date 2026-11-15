@@ -10,7 +10,7 @@ use App\Domain\Journal\Models\JournalClarification;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Journal\AnswerJournalClarificationRequest;
-use App\Http\Requests\Journal\SubmitJournalEntryRequest;
+use App\Http\Requests\Journal\StartJournalClarificationRequest;
 use App\Http\Resources\Journal\JournalClarificationResource;
 use App\Http\Support\AuthenticatedUser;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +20,7 @@ class JournalClarificationController extends Controller
 {
     public function __construct(private readonly DispatchJournalClarification $dispatch) {}
 
-    public function start(SubmitJournalEntryRequest $request, string $entryId, StartJournalClarification $start): JsonResponse
+    public function start(StartJournalClarificationRequest $request, string $entryId, StartJournalClarification $start): JsonResponse
     {
         $state = $start->handle(AuthenticatedUser::id($request), $entryId, (int) $request->validated('expectedVersion'));
 
@@ -38,6 +38,7 @@ class JournalClarificationController extends Controller
     public function show(JournalEntry $entry): JsonResponse
     {
         Gate::authorize('view', $entry);
+        // Deletion can win after route binding; never poll a deleted entry.
         $entry = JournalEntry::findOrFail($entry->id);
         $state = JournalClarification::where('entry_id', $entry->id)->where('source_version', $entry->version)
             ->where('source_body', $entry->body)->first();

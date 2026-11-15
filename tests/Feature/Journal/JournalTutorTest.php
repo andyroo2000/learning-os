@@ -23,7 +23,7 @@ class JournalTutorTest extends TestCase
     {
         $user = $this->signIn();
         $this->getJson('/api/journal/tutor')->assertOk()->assertHeader('Cache-Control', 'no-store, private')
-            ->assertJsonFragment(['selectedId' => null])->assertJsonCount(2, 'data.tutors');
+            ->assertJsonFragment(['selectedId' => 'hana'])->assertJsonCount(2, 'data.tutors');
         $this->putJson('/api/journal/tutor', ['tutorId' => 'hana'])->assertOk()->assertJsonPath('data.selectedId', 'hana');
         $this->putJson('/api/journal/tutor', ['tutorId' => 'ren'])->assertOk()->assertJsonPath('data.selectedId', 'ren');
         $this->getJson('/api/journal/tutor')->assertOk()->assertJsonPath('data.selectedId', 'ren');
@@ -31,7 +31,7 @@ class JournalTutorTest extends TestCase
         $this->assertDatabaseCount('journal_tutor_preferences', 1);
         $this->assertDatabaseCount('journal_audio_preferences', 0);
         $this->signIn();
-        $this->getJson('/api/journal/tutor')->assertOk()->assertJsonFragment(['selectedId' => null]);
+        $this->getJson('/api/journal/tutor')->assertOk()->assertJsonFragment(['selectedId' => 'hana']);
     }
 
     public function test_only_the_selected_tutors_are_accepted_and_account_deletion_removes_the_choice(): void

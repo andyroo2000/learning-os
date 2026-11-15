@@ -20,6 +20,8 @@ class JournalAudioPreferencesTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const KAITO = 'fishaudio:434dd33d4d3c4cf68b98e3d7f25f31ab';
+
     private const HARU = 'fishaudio:21c74cb823fa45ef996ccc91cd6038b6';
 
     private const YUA = 'fishaudio:030fda5bec284b038ad930effd150f94';
@@ -39,7 +41,7 @@ class JournalAudioPreferencesTest extends TestCase
         [$second, $secondAnalysis] = $this->entry($user);
         [$new, $newAnalysis] = $this->entry($user);
         $this->state($first, $firstAnalysis)->assertHeader('Cache-Control', 'no-store, private')
-            ->assertExactJson(['data' => ['voiceId' => self::HARU, 'hasAudio' => false]]);
+            ->assertExactJson(['data' => ['voiceId' => self::KAITO, 'hasAudio' => false]]);
         $version = $first->version;
         $updatedAt = $first->updated_at->toISOString();
         $this->generate($first, $firstAnalysis, self::HARU)->assertOk();
@@ -122,7 +124,7 @@ class JournalAudioPreferencesTest extends TestCase
         $other = $this->signIn();
         $this->state($entry, $analysis)->assertNotFound();
         [$otherEntry, $otherAnalysis] = $this->entry($other);
-        $this->state($otherEntry, $otherAnalysis)->assertJsonPath('data.voiceId', self::HARU);
+        $this->state($otherEntry, $otherAnalysis)->assertJsonPath('data.voiceId', self::KAITO);
         Http::assertSentCount(1);
     }
 

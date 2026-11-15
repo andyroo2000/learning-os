@@ -17,7 +17,7 @@ class JournalTutorController extends Controller
     {
         $selected = DB::table('journal_tutor_preferences')->where('user_id', AuthenticatedUser::id($request))->value('tutor_id');
 
-        return response()->json(['data' => ['selectedId' => $selected,
+        return response()->json(['data' => ['selectedId' => $selected ?? JournalTutor::Hana->value,
             'tutors' => array_map(fn (JournalTutor $tutor) => JournalAvatars::tutor($tutor->presentation()), JournalTutor::cases())]])
             ->header('Cache-Control', 'private, no-store');
     }

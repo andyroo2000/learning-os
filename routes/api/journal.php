@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Journal\JournalAnalysisController;
 use App\Http\Controllers\Api\Journal\JournalAudioController;
+use App\Http\Controllers\Api\Journal\JournalClarificationController;
 use App\Http\Controllers\Api\Journal\JournalConversationController;
 use App\Http\Controllers\Api\Journal\JournalDocumentController;
 use App\Http\Controllers\Api\Journal\JournalEntryController;
@@ -20,6 +21,9 @@ return static function (): void {
         Route::get('{entry}', [JournalEntryController::class, 'show'])->whereUlid('entry');
         Route::put('{entryId}', [JournalEntryController::class, 'save'])->whereUlid('entryId');
         Route::delete('{entryId}', [JournalEntryController::class, 'destroy'])->whereUlid('entryId');
+        Route::post('{entryId}/clarification', [JournalClarificationController::class, 'start'])->whereUlid('entryId')->middleware('throttle:10,1,journal-clarify');
+        Route::get('{entry}/clarification', [JournalClarificationController::class, 'show'])->whereUlid('entry');
+        Route::post('{entryId}/clarification/{clarificationId}/answer', [JournalClarificationController::class, 'answer'])->whereUlid('entryId')->whereUlid('clarificationId')->middleware('throttle:20,1,journal-clarify-answer');
         Route::post('{entryId}/submit', [JournalAnalysisController::class, 'submit'])->whereUlid('entryId')->middleware('throttle:3,1,journal-submit');
         Route::post('{entry}/question', [JournalQuestionController::class, 'prepare'])->whereUlid('entry')->middleware('throttle:30,1,journal-question');
         Route::post('{entry}/questions/{questionId}/retry', [JournalQuestionController::class, 'retry'])->whereUlid('entry')->whereUlid('questionId')->middleware('throttle:5,1,journal-question-retry');

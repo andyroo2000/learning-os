@@ -31,7 +31,7 @@ final class JournalQuestions
         if ($question->tutor === null) {
             $choice = DB::table('journal_tutor_preferences')->where('user_id', $analysis->entry->user_id)->value('tutor_id');
             // Persist the complete versioned identity, including voice, so catalog changes affect only future questions.
-            $question->tutor = JournalTutor::tryFrom($choice ?? '')?->snapshot();
+            $question->tutor = (JournalTutor::tryFrom($choice ?? '') ?? JournalTutor::Hana)->snapshot();
         }
         if (! $question->exists || $question->isDirty()) {
             $question->save();

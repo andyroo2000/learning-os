@@ -23,11 +23,11 @@ class JournalQuestionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_first_choice_assigns_the_waiting_question_and_later_choices_only_affect_new_questions(): void
+    public function test_default_tutor_is_assigned_and_later_choices_only_affect_new_questions(): void
     {
         [$entry, $analysis] = $this->ready();
         $url = "/api/journal/entries/{$entry->id}/question";
-        $first = $this->postJson($url, ['analysisId' => strtoupper($analysis->id)])->assertOk()->assertJsonFragment(['tutor' => null])->json('data.id');
+        $first = $this->postJson($url, ['analysisId' => strtoupper($analysis->id)])->assertOk()->assertJsonPath('data.tutor.id', 'hana')->json('data.id');
         app(SaveJournalTutor::class)->handle($entry->user_id, ['tutorId' => 'hana']);
         $this->postJson($url, ['analysisId' => $analysis->id])->assertOk()->assertJsonPath('data.id', $first)->assertJsonPath('data.tutor.id', 'hana');
         $this->assertSame(JournalTutor::Hana->snapshot(), JournalQuestion::findOrFail($first)->tutor);

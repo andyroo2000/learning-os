@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Storage;
 
 final class JournalAudioState
 {
+    private const DEFAULT_VOICE = 'fishaudio:434dd33d4d3c4cf68b98e3d7f25f31ab'; // Kaito.
+
     public static function path(JournalEntry $entry, string $voice, string $text): string
     {
         return 'journal/'.$entry->id.'/audio/'.hash('sha256', $voice.'|'.$text).'.mp3';
@@ -23,7 +25,7 @@ final class JournalAudioState
         }
         $preferred = DB::table('journal_audio_preferences')->where('user_id', $entry->user_id)->value('voice_id');
 
-        return ['voiceId' => isset($voices[$preferred]) ? $preferred : array_key_first($voices), 'hasAudio' => false];
+        return ['voiceId' => isset($voices[$preferred]) ? $preferred : self::DEFAULT_VOICE, 'hasAudio' => false];
     }
 
     private static function savedVoice(JournalEntry $entry, string $text, array $voices): ?string

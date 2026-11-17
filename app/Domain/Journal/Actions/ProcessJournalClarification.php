@@ -9,6 +9,8 @@ use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Services\CheckJournalMeaning;
 use App\Domain\Journal\Support\JournalClarificationLease;
 use App\Domain\Journal\Support\JournalClarificationWrite;
+use App\Domain\Journal\Support\JournalConversationContext;
+use App\Domain\Journal\Support\JournalPreparedFeedback;
 use App\Domain\Journal\Support\JournalUsage;
 use Illuminate\Support\Str;
 use Throwable;
@@ -24,8 +26,11 @@ class ProcessJournalClarification
             return;
         }
         try {
-            $result = JournalUsage::clarification($attempt->id, fn () => $this->checker->handle($input['body'], $input['answers']));
-            $this->finish($attempt, $result);
+            $context = JournalConversationContext::forEntry(JournalClarification::findOrFail($attempt->id)->entry);
+            $result = JournalUsage::clarification($attempt->id, fn () => $context === []
+                ? $this->checker->handle($input['body'], $input['answers'])
+                : $this->checker->handle($input['body'], $input['answers'], $context));
+            $this->finish($attempt, [...$result, 'contextHash' => JournalPreparedFeedback::contextHash($context)]);
         } catch (Throwable $exception) {
             $this->fail($attempt);
             throw $exception;
@@ -90,6 +95,7 @@ class ProcessJournalClarification
             }
             $state->forceFill(['status' => $result['resolved'] ? Status::Resolved : Status::Waiting,
                 'question' => $question, 'confirmed_meaning' => $result['confirmedMeaning'],
+                'prepared_feedback' => $result['feedback'] ?? null, 'prepared_context_hash' => $result['contextHash'],
                 'resolved_at' => $result['resolved'] ? now() : null, 'error_message' => null])->save();
         });
     }
@@ -107,6 +113,6 @@ class ProcessJournalClarification
     private function markFailed(JournalClarification $state, string $message): void
     {
         $state->forceFill(['status' => Status::Failed, 'question' => null, 'confirmed_meaning' => null,
-            'resolved_at' => null, 'error_message' => $message])->save();
+            'resolved_at' => null, 'prepared_feedback' => null, 'prepared_context_hash' => null, 'error_message' => $message])->save();
     }
 }

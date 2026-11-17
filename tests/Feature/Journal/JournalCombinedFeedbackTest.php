@@ -63,6 +63,21 @@ final class JournalCombinedFeedbackTest extends TestCase
         $this->assertSame('ready', $analysis->fresh()->status->value);
     }
 
+    public function test_edit_after_preparation_prevents_cached_feedback_from_being_published(): void
+    {
+        Http::fake();
+        $entry = JournalEntry::factory()->create(['body' => '映画を見ますた。']);
+        $state = JournalClarification::factory()->create(['entry_id' => $entry->id, 'source_body' => $entry->body,
+            'status' => 'resolved', 'confirmed_meaning' => '', 'prepared_feedback' => JournalFeedbackFixture::result(),
+            'prepared_context_hash' => JournalPreparedFeedback::contextHash([])]);
+        $analysis = app(StartJournalAnalysis::class)->handle($entry->user_id, $entry->id, 1, $state->id);
+        $entry->forceFill(['body' => '違う文章。', 'version' => 2])->save();
+        (new AnalyzeJournalEntry($analysis->id))->handle(app(ProcessJournalAnalysis::class));
+        $this->assertSame('failed', $analysis->fresh()->status->value);
+        $this->assertNull($analysis->fresh()->result);
+        Http::assertNothingSent();
+    }
+
     public function test_edit_during_combined_generation_discards_prepared_feedback(): void
     {
         config(['services.openai.api_key' => 'test']);

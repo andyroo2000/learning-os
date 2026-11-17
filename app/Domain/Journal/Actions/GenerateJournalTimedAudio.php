@@ -12,6 +12,7 @@ use App\Domain\Journal\Support\JournalUsage;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Closure;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
@@ -47,19 +48,23 @@ final class GenerateJournalTimedAudio
         }
         $path = JournalAudioState::path($entry, $voice, $text).'.timed.json';
 
-        return Cache::lock('journal-audio:'.$entry->id.':'.hash('sha256', $voice.'|'.$text), 180)->block(5, function () use ($entry, $source, $remember, $text, $voice, $path): array {
-            $saved = JournalTimedAudioCache::read($path);
-            $cached = $saved !== null;
-            $data = $saved ?? $this->generate($entry, $text, $voice);
+        try {
+            return Cache::lock('journal-audio:'.$entry->id.':'.hash('sha256', $voice.'|'.$text), 180)->block(5, function () use ($entry, $source, $remember, $text, $voice, $path): array {
+                $saved = JournalTimedAudioCache::read($path);
+                $cached = $saved !== null;
+                $data = $saved ?? $this->generate($entry, $text, $voice);
 
-            return JournalWriteTransaction::run($entry->user_id, function () use ($entry, $source, $remember, $text, $voice, $path, $cached, $data): array {
-                abort_unless(JournalEntry::whereKey($entry->id)->exists(), 404);
-                abort_unless($source() === [$text, $voice], 409, 'The text changed while audio was being prepared.');
-                $this->publish($entry, $path, $cached ? null : $data, $remember ? [$voice, $text] : null);
+                return JournalWriteTransaction::run($entry->user_id, function () use ($entry, $source, $remember, $text, $voice, $path, $cached, $data): array {
+                    abort_unless(JournalEntry::whereKey($entry->id)->exists(), 404);
+                    abort_unless($source() === [$text, $voice], 409, 'The text changed while audio was being prepared.');
+                    $this->publish($entry, $path, $cached ? null : $data, $remember ? [$voice, $text] : null);
 
-                return $data;
+                    return $data;
+                });
             });
-        });
+        } catch (LockTimeoutException) {
+            abort(409, 'Audio is still being prepared. Please try again in a moment.');
+        }
     }
 
     private function generate(JournalEntry $entry, string $text, string $voice): array

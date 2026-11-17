@@ -6,7 +6,10 @@ use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalQuestion;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -153,6 +156,17 @@ final class JournalTimedAudioTest extends TestCase
         $this->assertNotEmpty(Storage::disk('local')->allFiles());
         $this->postJson($url, $input)->assertOk()->assertJsonCount(0, 'data.sentences');
         Http::assertSentCount(1);
+    }
+
+    public function test_competing_generation_returns_a_retryable_conflict_without_another_provider_call(): void
+    {
+        [$entry, $input] = $this->readyEntry();
+        $lock = \Mockery::mock(Lock::class);
+        $lock->shouldReceive('block')->once()->andThrow(new LockTimeoutException);
+        Cache::partialMock()->shouldReceive('lock')->once()->andReturn($lock);
+        $this->postJson('/api/journal/entries/'.$entry->id.'/audio/timed', $input)->assertConflict()
+            ->assertJsonPath('message', 'Audio is still being prepared. Please try again in a moment.');
+        Http::assertNothingSent();
     }
 
     private function readyEntry(): array

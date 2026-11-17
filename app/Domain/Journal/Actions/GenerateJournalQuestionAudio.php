@@ -6,14 +6,13 @@ use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalQuestion;
 use App\Domain\Journal\Support\JournalQuestionAudioState;
 use App\Domain\Journal\Support\JournalWriteTransaction;
-use App\Support\Audio\FishAudioSpeechGenerator;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 final class GenerateJournalQuestionAudio
 {
-    public function __construct(private readonly FishAudioSpeechGenerator $speech) {}
+    public function __construct(private readonly GenerateJournalTimedAudio $audio) {}
 
     public function handle(string $id, string $token): void
     {
@@ -31,7 +30,9 @@ final class GenerateJournalQuestionAudio
         }
         $path = 'journal/'.$snapshot->analysis->entry_id.'/questions/'.$id.'/'.$token.'.mp3';
         try {
-            $bytes = $this->speech->generate($snapshot->text, $snapshot->tutor['voiceId']);
+            $recording = $this->audio->question($snapshot->analysis->entry, $snapshot->id);
+            $bytes = base64_decode($recording['audioBase64'], true);
+            abort_if($bytes === false, 503, 'Audio could not be decoded.');
             $this->mutate($id, function (JournalQuestion $question) use ($token, $path, $bytes): void {
                 if ($question->audio_attempt_id !== $token || $question->audio_status !== 'processing') {
                     return;
@@ -44,9 +45,17 @@ final class GenerateJournalQuestionAudio
             });
         } catch (Throwable $error) {
             Storage::disk('local')->delete($path);
-            JournalQuestionAudioState::fail($id, $token);
-            throw $error;
+            $this->failExisting($id, $token, $error);
         }
+    }
+
+    private function failExisting(string $id, string $token, Throwable $error): void
+    {
+        if (JournalQuestion::find($id)?->analysis?->entry === null) {
+            return; // Deletion won while the shared recording was being generated.
+        }
+        JournalQuestionAudioState::fail($id, $token);
+        throw $error;
     }
 
     private function mutate(string $id, callable $change): mixed

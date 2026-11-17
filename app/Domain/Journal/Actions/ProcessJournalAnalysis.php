@@ -10,6 +10,7 @@ use App\Domain\Journal\Services\GenerateJournalFeedback;
 use App\Domain\Journal\Support\JournalClarificationFeedback;
 use App\Domain\Journal\Support\JournalConversationContext;
 use App\Domain\Journal\Support\JournalQuestions;
+use App\Domain\Journal\Support\JournalUsage;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Throwable;
@@ -26,7 +27,7 @@ class ProcessJournalAnalysis
         }
         try {
             $context = JournalClarificationFeedback::context($attempt->analysisId, JournalConversationContext::forAnalysis($attempt->analysisId));
-            $result = $context === [] ? $this->generator->handle($body) : $this->generator->handle($body, $context);
+            $result = JournalUsage::analysis($attempt->analysisId, fn () => $context === [] ? $this->generator->handle($body) : $this->generator->handle($body, $context));
             $this->finish($attempt, $result);
         } catch (Throwable $exception) {
             $this->fail($attempt);

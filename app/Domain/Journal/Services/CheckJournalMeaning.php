@@ -4,6 +4,7 @@ namespace App\Domain\Journal\Services;
 
 use App\Domain\Journal\Support\JournalClarificationResult;
 use App\Domain\Journal\Support\JournalClarificationSchema;
+use App\Support\Usage\ProviderUsage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
@@ -38,9 +39,9 @@ class CheckJournalMeaning
             throw new RuntimeException('Journal clarification is not configured.');
         }
         try {
-            return Http::baseUrl((string) config('services.openai.base_url'))->withToken($key)
+            return ProviderUsage::request('openai', (string) config('journal.model'), [], fn () => Http::baseUrl((string) config('services.openai.base_url'))->withToken($key)
                 ->acceptJson()->asJson()->connectTimeout(5)->timeout(75)
-                ->post('/responses', $this->payload($input));
+                ->post('/responses', $this->payload($input)));
         } catch (ConnectionException $exception) {
             throw new RuntimeException('The meaning check is temporarily unavailable. Please try again.', previous: $exception);
         }

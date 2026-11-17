@@ -8,9 +8,11 @@ use App\Domain\Journal\Support\JournalAudioState;
 use App\Domain\Journal\Support\JournalAudioVersion;
 use App\Domain\Journal\Support\JournalSentenceTimings;
 use App\Domain\Journal\Support\JournalTimedAudioCache;
+use App\Domain\Journal\Support\JournalUsage;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Closure;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
@@ -46,25 +48,29 @@ final class GenerateJournalTimedAudio
         }
         $path = JournalAudioState::path($entry, $voice, $text).'.timed.json';
 
-        return Cache::lock('journal-audio:'.$entry->id.':'.hash('sha256', $voice.'|'.$text), 180)->block(5, function () use ($entry, $source, $remember, $text, $voice, $path): array {
-            $saved = JournalTimedAudioCache::read($path);
-            $cached = $saved !== null;
-            $data = $saved ?? $this->generate($entry, $text, $voice);
+        try {
+            return Cache::lock('journal-audio:'.$entry->id.':'.hash('sha256', $voice.'|'.$text), 180)->block(5, function () use ($entry, $source, $remember, $text, $voice, $path): array {
+                $saved = JournalTimedAudioCache::read($path);
+                $cached = $saved !== null;
+                $data = $saved ?? $this->generate($entry, $text, $voice);
 
-            return JournalWriteTransaction::run($entry->user_id, function () use ($entry, $source, $remember, $text, $voice, $path, $cached, $data): array {
-                abort_unless(JournalEntry::whereKey($entry->id)->exists(), 404);
-                abort_unless($source() === [$text, $voice], 409, 'The text changed while audio was being prepared.');
-                $this->publish($entry, $path, $cached ? null : $data, $remember ? [$voice, $text] : null);
+                return JournalWriteTransaction::run($entry->user_id, function () use ($entry, $source, $remember, $text, $voice, $path, $cached, $data): array {
+                    abort_unless(JournalEntry::whereKey($entry->id)->exists(), 404);
+                    abort_unless($source() === [$text, $voice], 409, 'The text changed while audio was being prepared.');
+                    $this->publish($entry, $path, $cached ? null : $data, $remember ? [$voice, $text] : null);
 
-                return $data;
+                    return $data;
+                });
             });
-        });
+        } catch (LockTimeoutException) {
+            abort(409, 'Audio is still being prepared. Please try again in a moment.');
+        }
     }
 
     private function generate(JournalEntry $entry, string $text, string $voice): array
     {
         abort_unless(RateLimiter::attempt('journal-timed:'.$entry->user_id, 5, fn () => true, 60), 429, 'Please wait a minute before generating more audio.');
-        $recording = $this->speech->generateTimed($text, $voice);
+        $recording = JournalUsage::entry($entry, 'journal.timed_audio', fn () => $this->speech->generateTimed($text, $voice));
 
         return [
             'audioBase64' => base64_encode($recording['audio']),
@@ -75,8 +81,8 @@ final class GenerateJournalTimedAudio
     private function publish(JournalEntry $entry, string $path, ?array $data, ?array $preference): void
     {
         try {
-            // Missing alignment is playable, but never pins a transient provider failure in cache.
-            if ($data !== null && $data['sentences'] !== []) {
+            // Keep paid, playable audio even when highlighting metadata is unavailable.
+            if ($data !== null) {
                 abort_unless(Storage::disk('local')->put($path, json_encode($data, JSON_THROW_ON_ERROR)), 503, 'Audio could not be saved.');
             }
             if ($preference !== null) {

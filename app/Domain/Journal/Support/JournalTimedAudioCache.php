@@ -31,7 +31,7 @@ final class JournalTimedAudioCache
         if (! is_array($data) || ! is_string($data['audioBase64'] ?? null)) {
             return false;
         }
-        if (! is_array($data['sentences'] ?? null) || $data['sentences'] === []) {
+        if (! is_array($data['sentences'] ?? null)) {
             return false;
         }
 

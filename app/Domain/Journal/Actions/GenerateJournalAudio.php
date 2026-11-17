@@ -6,6 +6,7 @@ use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalAudioState;
 use App\Domain\Journal\Support\JournalAudioVersion;
 use App\Domain\Journal\Support\JournalTimedAudioCache;
+use App\Domain\Journal\Support\JournalUsage;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Illuminate\Support\Facades\Cache;
@@ -49,7 +50,7 @@ class GenerateJournalAudio
         $allowed = RateLimiter::attempt('journal-audio:'.$entry->user_id, 5, fn () => true, 60);
         abort_unless($allowed, 429, 'Please wait a minute before generating more audio.');
 
-        return $this->speech->generate($text, $voice);
+        return JournalUsage::entry($entry, 'journal.audio', fn () => $this->speech->generate($text, $voice));
     }
 
     private function publish(JournalEntry $entry, array $input, string $path, string $bytes): void

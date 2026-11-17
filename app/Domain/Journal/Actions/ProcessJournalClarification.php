@@ -9,6 +9,7 @@ use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Services\CheckJournalMeaning;
 use App\Domain\Journal\Support\JournalClarificationLease;
 use App\Domain\Journal\Support\JournalClarificationWrite;
+use App\Domain\Journal\Support\JournalUsage;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -23,7 +24,7 @@ class ProcessJournalClarification
             return;
         }
         try {
-            $result = $this->checker->handle($input['body'], $input['answers']);
+            $result = JournalUsage::clarification($attempt->id, fn () => $this->checker->handle($input['body'], $input['answers']));
             $this->finish($attempt, $result);
         } catch (Throwable $exception) {
             $this->fail($attempt);

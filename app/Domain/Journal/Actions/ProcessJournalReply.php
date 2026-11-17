@@ -12,6 +12,7 @@ use App\Domain\Journal\Support\JournalDocument;
 use App\Domain\Journal\Support\JournalQuestions;
 use App\Domain\Journal\Support\JournalReplyContext;
 use App\Domain\Journal\Support\JournalReplyMutation;
+use App\Domain\Journal\Support\JournalUsage;
 use RuntimeException;
 use Throwable;
 
@@ -26,7 +27,7 @@ class ProcessJournalReply
             return;
         }
         try {
-            $feedback = $this->generator->handle($input['answer'], array_diff_key($input['context'], ['document' => true]));
+            $feedback = JournalUsage::reply($attempt->replyId, fn () => $this->generator->handle($input['answer'], array_diff_key($input['context'], ['document' => true])));
             $result = JournalReplyContext::append($input['context'], $feedback);
             $result['document'] = JournalDocument::append($input['context']['document'], $feedback, $attempt->replyId);
             $this->finish($attempt, $result);

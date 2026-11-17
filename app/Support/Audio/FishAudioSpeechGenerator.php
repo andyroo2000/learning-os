@@ -2,6 +2,7 @@
 
 namespace App\Support\Audio;
 
+use App\Support\Usage\ProviderUsage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -30,23 +31,24 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
         $text = $timed ? $text : $this->directions->apply($text);
 
         try {
-            $response = Http::baseUrl(rtrim((string) config('services.fish_audio.base_url'), '/'))
-                ->accept($timed ? 'text/event-stream' : 'audio/mpeg')
-                ->asJson()
-                ->withToken($apiKey)
-                ->withHeaders(['model' => (string) config('services.fish_audio.backend')])
-                ->timeout(self::TIMEOUT_SECONDS)
-                ->post($timed ? '/v1/tts/stream/with-timestamp' : '/v1/tts', [
-                    'text' => $text,
-                    'reference_id' => $referenceId,
-                    'format' => 'mp3',
-                    'mp3_bitrate' => 128,
-                    'sample_rate' => 44_100,
-                    'prosody' => [
-                        'speed' => floor($speed) === $speed ? (int) $speed : $speed,
-                        'volume' => 0,
-                    ],
-                ]);
+            $response = ProviderUsage::request('fish', (string) config('services.fish_audio.backend'),
+                ['input_bytes' => strlen($text)], fn () => Http::baseUrl(rtrim((string) config('services.fish_audio.base_url'), '/'))
+                    ->accept($timed ? 'text/event-stream' : 'audio/mpeg')
+                    ->asJson()
+                    ->withToken($apiKey)
+                    ->withHeaders(['model' => (string) config('services.fish_audio.backend')])
+                    ->timeout(self::TIMEOUT_SECONDS)
+                    ->post($timed ? '/v1/tts/stream/with-timestamp' : '/v1/tts', [
+                        'text' => $text,
+                        'reference_id' => $referenceId,
+                        'format' => 'mp3',
+                        'mp3_bitrate' => 128,
+                        'sample_rate' => 44_100,
+                        'prosody' => [
+                            'speed' => floor($speed) === $speed ? (int) $speed : $speed,
+                            'volume' => 0,
+                        ],
+                    ]));
         } catch (ConnectionException $exception) {
             throw AudioSpeechGenerationException::failed('Fish Audio', $exception);
         }

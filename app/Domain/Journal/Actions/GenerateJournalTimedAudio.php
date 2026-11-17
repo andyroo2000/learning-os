@@ -8,6 +8,7 @@ use App\Domain\Journal\Support\JournalAudioState;
 use App\Domain\Journal\Support\JournalAudioVersion;
 use App\Domain\Journal\Support\JournalSentenceTimings;
 use App\Domain\Journal\Support\JournalTimedAudioCache;
+use App\Domain\Journal\Support\JournalUsage;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Closure;
@@ -64,7 +65,7 @@ final class GenerateJournalTimedAudio
     private function generate(JournalEntry $entry, string $text, string $voice): array
     {
         abort_unless(RateLimiter::attempt('journal-timed:'.$entry->user_id, 5, fn () => true, 60), 429, 'Please wait a minute before generating more audio.');
-        $recording = $this->speech->generateTimed($text, $voice);
+        $recording = JournalUsage::entry($entry, 'journal.timed_audio', fn () => $this->speech->generateTimed($text, $voice));
 
         return [
             'audioBase64' => base64_encode($recording['audio']),
@@ -75,8 +76,8 @@ final class GenerateJournalTimedAudio
     private function publish(JournalEntry $entry, string $path, ?array $data, ?array $preference): void
     {
         try {
-            // Missing alignment is playable, but never pins a transient provider failure in cache.
-            if ($data !== null && $data['sentences'] !== []) {
+            // Keep paid, playable audio even when highlighting metadata is unavailable.
+            if ($data !== null) {
                 abort_unless(Storage::disk('local')->put($path, json_encode($data, JSON_THROW_ON_ERROR)), 503, 'Audio could not be saved.');
             }
             if ($preference !== null) {

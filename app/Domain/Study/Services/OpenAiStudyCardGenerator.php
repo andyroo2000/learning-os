@@ -2,6 +2,7 @@
 
 namespace App\Domain\Study\Services;
 
+use App\Support\Usage\ProviderUsage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -48,12 +49,12 @@ class OpenAiStudyCardGenerator
     private function request(string $apiKey, array $payload): Response
     {
         try {
-            return Http::baseUrl((string) config('services.openai.base_url'))
+            return ProviderUsage::request('openai', $payload['model'], [], fn () => Http::baseUrl((string) config('services.openai.base_url'))
                 ->acceptJson()
                 ->asJson()
                 ->withToken($apiKey)
                 ->timeout(self::TIMEOUT_SECONDS)
-                ->post('/responses', $payload);
+                ->post('/responses', $payload));
         } catch (ConnectionException $exception) {
             throw new RuntimeException('OpenAI failed to generate study content.', 0, $exception);
         }

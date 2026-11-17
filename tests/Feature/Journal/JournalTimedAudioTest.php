@@ -35,6 +35,8 @@ final class JournalTimedAudioTest extends TestCase
             ->assertJsonPath('data.sentences.0.text', '映画を見た。')->assertJsonPath('data.sentences.1.start', 2);
         $this->postJson($url, $input)->assertOk();
         Http::assertSentCount(1);
+        $this->assertDatabaseCount('ai_usage_events', 1);
+        $this->assertDatabaseHas('ai_usage_events', ['user_id' => $entry->user_id, 'resource_id' => $entry->id, 'input_bytes' => strlen('映画を見た。楽しかった。')]);
         $this->getJson('/api/journal/entries/'.$entry->id.'/audio?'.http_build_query($input))->assertOk()->assertJsonPath('data.hasAudio', true);
         $this->deleteJson('/api/journal/entries/'.$entry->id, ['expectedVersion' => 1])->assertNoContent();
         $this->assertSame([], Storage::disk('local')->allFiles());
@@ -140,7 +142,7 @@ final class JournalTimedAudioTest extends TestCase
         $this->assertSame([], Storage::disk('local')->allFiles());
     }
 
-    public function test_missing_alignment_is_not_permanently_cached(): void
+    public function test_missing_alignment_reuses_playable_audio_without_another_charge(): void
     {
         [$entry, $input] = $this->readyEntry();
         Http::fake(['fish.test/*' => Http::sequence()
@@ -148,9 +150,9 @@ final class JournalTimedAudioTest extends TestCase
             ->push($this->stream())]);
         $url = '/api/journal/entries/'.$entry->id.'/audio/timed';
         $this->postJson($url, $input)->assertOk()->assertJsonCount(0, 'data.sentences');
-        $this->assertSame([], Storage::disk('local')->allFiles());
-        $this->postJson($url, $input)->assertOk()->assertJsonCount(2, 'data.sentences');
-        Http::assertSentCount(2);
+        $this->assertNotEmpty(Storage::disk('local')->allFiles());
+        $this->postJson($url, $input)->assertOk()->assertJsonCount(0, 'data.sentences');
+        Http::assertSentCount(1);
     }
 
     private function readyEntry(): array

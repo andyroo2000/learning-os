@@ -4,6 +4,7 @@ namespace App\Domain\Journal\Services;
 
 use App\Domain\Journal\Support\JournalFeedback;
 use App\Domain\Journal\Support\JournalFeedbackSchema;
+use App\Support\Usage\ProviderUsage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\File;
@@ -33,9 +34,9 @@ class GenerateJournalFeedback
             throw new RuntimeException('Journal feedback is not configured.');
         }
         try {
-            return Http::baseUrl((string) config('services.openai.base_url'))->withToken($key)
+            return ProviderUsage::request('openai', (string) config('journal.model'), [], fn () => Http::baseUrl((string) config('services.openai.base_url'))->withToken($key)
                 ->acceptJson()->asJson()->connectTimeout(5)->timeout(75)
-                ->post('/responses', $this->payload($body, $context));
+                ->post('/responses', $this->payload($body, $context)));
         } catch (ConnectionException $exception) {
             throw new RuntimeException('Journal feedback is temporarily unavailable.', previous: $exception);
         }

@@ -8,6 +8,7 @@ use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalDocument;
 use App\Domain\Journal\Support\JournalDocumentState;
 use App\Domain\Journal\Support\JournalEditableVersion;
+use App\Domain\Journal\Support\JournalUsage;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Domain\Study\Exceptions\StudyCaptureReadingException;
 use App\Domain\Study\Services\StudyCaptureReadingGenerator;
@@ -25,7 +26,8 @@ final class EditCorrectedJournal
             return $analysis;
         }
         $plan = JournalDocument::editPlan($blocks, $input->text);
-        $document = JournalDocument::finishEdit($plan, $this->reading($plan['text']));
+        $reading = JournalUsage::entry($analysis->entry, 'journal.edit_reading', fn () => $this->reading($plan['text']));
+        $document = JournalDocument::finishEdit($plan, $reading);
 
         // Network work is outside the lock; publish only if the same revision is still current.
         return JournalWriteTransaction::run($userId, function () use ($userId, $entryId, $input, $document) {

@@ -38,7 +38,7 @@ class JournalQuestionAudioTest extends TestCase
                 ($this->duringAudio)();
             }
 
-            return Http::response('ID3question', $this->audioResponseStatus);
+            return Http::response('data: '.json_encode(['audio_base64' => base64_encode('ID3question')]), $this->audioResponseStatus);
         }]);
     }
 
@@ -52,6 +52,7 @@ class JournalQuestionAudioTest extends TestCase
         $job->handle(app(GenerateJournalQuestionAudio::class));
         $question->refresh();
         $this->assertSame('ready', $question->audio_status);
+        $this->postJson($this->url($entry, $question).'/timed')->assertOk();
         Http::assertSentCount(1);
         Http::assertSent(fn ($request) => $request['text'] === $question->text && $request['reference_id'] === substr(JournalTutor::Hana->voiceId(), 10));
         $this->getJson($this->url($entry, $question))->assertOk()->assertHeader('Cache-Control', 'no-store, private')->assertStreamedContent('ID3question');
@@ -60,6 +61,16 @@ class JournalQuestionAudioTest extends TestCase
         $this->assertDatabaseCount('journal_audio_preferences', 0);
         $this->signIn();
         $this->getJson($this->url($entry, $question))->assertNotFound();
+    }
+
+    public function test_interactive_playback_before_the_worker_also_generates_only_once(): void
+    {
+        [$entry, , $question] = $this->ready();
+        $this->postJson($this->url($entry, $question).'/timed')->assertOk();
+        app(GenerateJournalQuestionAudio::class)->handle($question->id, $question->audio_attempt_id);
+        $this->getJson($this->url($entry, $question))->assertOk()->assertStreamedContent('ID3question');
+        Http::assertSentCount(1);
+        $this->assertDatabaseCount('ai_usage_events', 1);
     }
 
     public function test_failure_is_retryable_and_an_old_attempt_cannot_fail_or_overwrite_a_new_one(): void

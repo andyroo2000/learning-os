@@ -1,0 +1,9 @@
+# Journal provider usage
+
+`php artisan journal:costs 2026-11` reports UTC-month provider requests grouped by user, operation, provider and model. Add `--user=123` to inspect one account. This is an operator-only command; it is not a public API. Divide `estimated_micro_usd` by 1,000,000 for USD. Unknown costs are counted separately and excluded from sums, never silently assumed free. Input includes cached tokens; output includes reasoning tokens. Neither subset should be added twice.
+
+`ai_usage_events` records actual OpenAI usage and actual UTF-8 bytes sent to Fish, including performance tags on legacy plain synthesis. No prompts, answers, explanations or audio are stored in this ledger. Each outgoing attempt is separate; cache hits do not call the provider. HTTP errors/timeouts remain unknown even though a provider may have done billable work. Successful provider responses can still fail later validation or publication and remain accounted for. Events survive entry deletion and cascade on account deletion. Persistence failures preserve the paid response and log content-free metrics for recovery; investigate the `AI usage persistence failed` warning when reconciling totals.
+
+Estimates snapshot the public rate at request time from `config/ai_usage.php`; the Drama 3 launch promotion ends December 1, 2026 at 08:00 UTC. They are not invoices: negotiated rates, taxes, cache-write premiums, and unreported usage can differ. Unknown models remain unpriced. Check provider invoices and usage before setting subscription allowances.
+
+Background tutor audio and timed playback share one recording and lock. Prewarming remains for existing mobile clients that expect a ready audio URL; it no longer produces a separate plain recording. Missing timing data retains playable audio with empty highlighting metadata, avoiding repeated synthesis solely to obtain alignment. New recordings keep the existing Fish backend and stored tutor voice.

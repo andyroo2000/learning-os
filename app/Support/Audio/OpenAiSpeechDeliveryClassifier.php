@@ -2,6 +2,7 @@
 
 namespace App\Support\Audio;
 
+use App\Support\Usage\ProviderUsage;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -27,13 +28,12 @@ final class OpenAiSpeechDeliveryClassifier
 
     public function classify(string $text, string $model): SpeechDeliveryStyle
     {
-        $response = Http::baseUrl(rtrim((string) config('services.openai.base_url'), '/'))
+        $response = ProviderUsage::request('openai', $model, [], fn () => Http::baseUrl(rtrim((string) config('services.openai.base_url'), '/'))
             ->acceptJson()
             ->withToken((string) config('services.openai.api_key'))
             ->connectTimeout(3)
             ->timeout(8)
-            ->post('/responses', $this->payload($text, $model))
-            ->throw();
+            ->post('/responses', $this->payload($text, $model)))->throw();
 
         if ($response->json('status') !== 'completed') {
             throw new RuntimeException('Speaking style classification did not complete.');

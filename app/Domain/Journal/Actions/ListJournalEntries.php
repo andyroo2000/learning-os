@@ -4,6 +4,7 @@ namespace App\Domain\Journal\Actions;
 
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalArchiveCursor;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Validator;
 
 final class ListJournalEntries
@@ -17,11 +18,7 @@ final class ListJournalEntries
         $position = JournalArchiveCursor::decode($cursor);
         $query = JournalEntry::where('user_id', $userId)->whereNull('root_entry_id');
         if ($unfinished) {
-            // Match the analysis endpoint: a title-only edit keeps feedback, a body edit does not.
-            $query->where('body', '<>', '')->whereDoesntHave('latestAnalysis', function ($analysis): void {
-                $analysis->whereColumn('journal_analyses.source_body', 'journal_entries.body')
-                    ->whereIn('status', ['queued', 'processing', 'ready']);
-            });
+            $this->unfinished($query);
         }
         if ($position !== null) {
             $query->where(function ($query) use ($position): void {
@@ -39,5 +36,20 @@ final class ListJournalEntries
             'entries' => $page,
             'nextCursor' => $hasMore ? JournalArchiveCursor::encode($page->last()) : null,
         ];
+    }
+
+    private function unfinished(Builder $query): void
+    {
+        $spaces = [' ', "\t", "\n", "\r", "\v", "\f", "\u{00a0}", "\u{3000}"];
+        $nonblank = array_reduce($spaces, fn ($sql) => "REPLACE($sql, ?, '')", 'body');
+        $query->whereRaw("$nonblank <> ''", $spaces)->whereDoesntHave('latestAnalysis', function (Builder $analysis): void {
+            // Match strict source-body equality, including case and trailing spaces on MySQL.
+            if ($analysis->getConnection()->getDriverName() === 'mysql') {
+                $analysis->whereRaw('CAST(journal_analyses.source_body AS BINARY) = CAST(journal_entries.body AS BINARY)');
+            } else {
+                $analysis->whereColumn('journal_analyses.source_body', 'journal_entries.body');
+            }
+            $analysis->whereIn('status', ['queued', 'processing', 'ready']);
+        });
     }
 }

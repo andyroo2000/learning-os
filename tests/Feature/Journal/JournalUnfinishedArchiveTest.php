@@ -41,6 +41,33 @@ class JournalUnfinishedArchiveTest extends TestCase
         $this->getJson('/api/journal/entries?unfinished=1')->assertOk()->assertJsonPath('data.0.id', $entry->id);
     }
 
+    #[DataProvider('bodyEdits')]
+    public function test_small_body_edits_are_unfinished(string $source, string $body): void
+    {
+        $user = $this->signIn();
+        $entry = JournalEntry::factory()->for($user)->create(['body' => $body]);
+        JournalAnalysis::factory()->create(['entry_id' => $entry->id, 'source_body' => $source, 'status' => 'ready']);
+        $this->getJson('/api/journal/entries?unfinished=1')->assertOk()->assertJsonPath('data.0.id', $entry->id);
+    }
+
+    public static function bodyEdits(): array
+    {
+        return [['Movie', 'movie'], ['movie', 'movie '], ['映画', "映画\n"]];
+    }
+
+    #[DataProvider('blankBodies')]
+    public function test_whitespace_without_writing_is_not_a_continuable_draft(string $body): void
+    {
+        $user = $this->signIn();
+        JournalEntry::factory()->for($user)->create(['body' => $body]);
+        $this->getJson('/api/journal/entries?unfinished=1')->assertOk()->assertExactJson(['data' => [], 'nextCursor' => null]);
+    }
+
+    public static function blankBodies(): array
+    {
+        return [[''], ['   '], ["\r\n\t"], ["\u{3000}\u{00a0}"]];
+    }
+
     public function test_filtered_cursor_keeps_private_root_entries_in_order(): void
     {
         $user = $this->signIn();

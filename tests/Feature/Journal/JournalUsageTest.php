@@ -21,15 +21,16 @@ final class JournalUsageTest extends TestCase
     {
         $entry = JournalEntry::factory()->create();
         Http::fake(['provider.test/*' => Http::response(['usage' => [
-            'input_tokens' => 2000, 'input_tokens_details' => ['cached_tokens' => 1000],
+            'input_tokens' => 2000, 'input_tokens_details' => ['cached_tokens' => 1000, 'cache_write_tokens' => 500],
             'output_tokens' => 1500, 'output_tokens_details' => ['reasoning_tokens' => 1000],
         ], 'output_text' => 'PRIVATE JOURNAL CONTENT'], 200, ['x-request-id' => 'request-1'])]);
         UsageScope::run($entry->user_id, $entry->id, 'journal.correction',
             fn () => ProviderUsage::request('openai', 'gpt-6.1-sol', [], fn () => Http::post('https://provider.test/responses')));
         $record = DB::table('ai_usage_events')->sole();
-        $this->assertSame(17100, $record->estimated_micro_usd);
+        $this->assertSame(17350, $record->estimated_micro_usd);
         $this->assertSame(1000, $record->reasoning_tokens);
         $this->assertSame(1000, $record->cached_input_tokens);
+        $this->assertSame(500, $record->cache_write_tokens);
         $this->assertSame('request-1', $record->provider_request_id);
         $this->assertSame($entry->user_id, $record->user_id);
         $this->assertStringNotContainsString('PRIVATE', json_encode($record));

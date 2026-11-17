@@ -29,8 +29,10 @@ final class UsagePricing
         }
         $cached = min($units['input_tokens'], $units['cached_input_tokens'] ?? 0);
 
+        $writes = min($units['input_tokens'] - $cached, $units['cache_write_tokens'] ?? 0);
+
         // Output includes reasoning: recording reasoning separately must not bill it twice.
-        return ($units['input_tokens'] - $cached) * $rates['input']
+        return ($units['input_tokens'] - $cached - $writes) * $rates['input'] + $writes * $rates['write']
             + $cached * $rates['cached'] + $units['output_tokens'] * $rates['output'];
     }
 }

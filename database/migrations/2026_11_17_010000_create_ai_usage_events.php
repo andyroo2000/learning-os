@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('provider_request_id')->nullable();
             $table->unsignedSmallInteger('http_status')->nullable();
             $table->unsignedBigInteger('duration_ms');
-            foreach (['input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_tokens', 'input_bytes', 'estimated_micro_usd'] as $column) {
+            foreach (['input_tokens', 'cached_input_tokens', 'cache_write_tokens', 'output_tokens', 'reasoning_tokens', 'input_bytes', 'estimated_micro_usd'] as $column) {
                 $table->unsignedBigInteger($column)->nullable();
             }
             $table->json('rate_snapshot')->nullable();

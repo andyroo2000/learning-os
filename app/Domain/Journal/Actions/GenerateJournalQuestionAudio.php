@@ -32,6 +32,7 @@ final class GenerateJournalQuestionAudio
         try {
             $recording = $this->audio->question($snapshot->analysis->entry, $snapshot->id);
             $bytes = base64_decode($recording['audioBase64'], true);
+            abort_if($bytes === false, 503, 'Audio could not be decoded.');
             $this->mutate($id, function (JournalQuestion $question) use ($token, $path, $bytes): void {
                 if ($question->audio_attempt_id !== $token || $question->audio_status !== 'processing') {
                     return;

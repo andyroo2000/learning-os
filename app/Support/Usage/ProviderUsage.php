@@ -64,6 +64,7 @@ final class ProviderUsage
         }
         $paths = ['input_tokens' => 'usage.input_tokens', 'output_tokens' => 'usage.output_tokens',
             'cached_input_tokens' => 'usage.input_tokens_details.cached_tokens',
+            'cache_write_tokens' => 'usage.input_tokens_details.cache_write_tokens',
             'reasoning_tokens' => 'usage.output_tokens_details.reasoning_tokens'];
         $units = [];
         foreach ($paths as $column => $path) {

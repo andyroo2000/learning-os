@@ -26,11 +26,11 @@ final class JournalCosts extends Command
         }
         $groups = ['user_id', 'operation', 'provider', 'model'];
         $rows = $query->select($groups)->selectRaw('COUNT(*) AS requests, COUNT(*) - COUNT(estimated_micro_usd) AS unknown_cost_requests')
-            ->selectRaw('SUM(estimated_micro_usd) AS estimated_micro_usd, SUM(input_tokens) AS input_tokens, SUM(cached_input_tokens) AS cached_input_tokens')
+            ->selectRaw('SUM(estimated_micro_usd) AS estimated_micro_usd, SUM(input_tokens) AS input_tokens, SUM(cached_input_tokens) AS cached_input_tokens, SUM(cache_write_tokens) AS cache_write_tokens')
             ->selectRaw('SUM(output_tokens) AS output_tokens, SUM(reasoning_tokens) AS reasoning_tokens, SUM(input_bytes) AS input_bytes')
             ->groupBy($groups)->orderBy('user_id')->orderBy('operation')->orderBy('provider')->orderBy('model')->get();
         $this->line(json_encode(['month_utc' => $input['month'], 'currency' => 'USD',
-            'note' => 'Estimates only. Divide micro USD by 1,000,000. Unknown costs are excluded from sums. Cache hits make no provider request.',
+            'note' => 'Estimates only. Divide micro USD by 1,000,000. Failed requests and missing usage are unknown and excluded from sums. Cache hits make no provider request.',
             'groups' => $rows], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 
         return self::SUCCESS;

@@ -11,7 +11,7 @@ final class UsagePricing
             return ['estimated_micro_usd' => null, 'rate_snapshot' => null];
         }
         if ($provider === 'fish') {
-            $rate = now('UTC')->lt('2026-12-01 08:00:00') ? $rates['launch'] : $rates['standard'];
+            $rate = now('UTC')->lt(config('ai_usage.fish_launch_ends_at')) ? $rates['launch'] : $rates['standard'];
             $cost = isset($units['input_bytes']) ? $units['input_bytes'] * $rate : null;
             $rates = ['usd_per_million_bytes' => $rate];
         } else {

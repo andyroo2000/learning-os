@@ -69,6 +69,27 @@ final class JournalUsageTest extends TestCase
         Log::shouldHaveReceived('warning')->once()->withArgs(fn ($message, $record) => $message === 'AI usage persistence failed' && $record['input_bytes'] === 12 && ! str_contains(json_encode($record), 'ID3audio'));
     }
 
+    public function test_malformed_pricing_cannot_mask_a_successful_provider_response(): void
+    {
+        config(['ai_usage.fish.drama-3' => ['launch' => 'invalid', 'standard' => 'invalid']]);
+        Http::fake(['provider.test/*' => Http::response('ID3audio')]);
+        Log::spy();
+        $entry = JournalEntry::factory()->create();
+        $result = UsageScope::run($entry->user_id, $entry->id, 'journal.audio',
+            fn () => ProviderUsage::request('fish', 'drama-3', ['input_bytes' => 12], fn () => Http::post('https://provider.test/tts')));
+        $this->assertSame('ID3audio', $result->body());
+        Log::shouldHaveReceived('warning')->once()->withArgs(fn ($message) => $message === 'AI usage calculation failed');
+    }
+
+    public function test_http_failures_keep_an_unknown_cost_event(): void
+    {
+        Http::fake(['provider.test/*' => Http::response('provider failure', 503)]);
+        $entry = JournalEntry::factory()->create();
+        UsageScope::run($entry->user_id, $entry->id, 'journal.audio',
+            fn () => ProviderUsage::request('fish', 'drama-3', ['input_bytes' => 12], fn () => Http::post('https://provider.test/tts')));
+        $this->assertDatabaseHas('ai_usage_events', ['http_status' => 503, 'estimated_micro_usd' => null, 'input_bytes' => 12]);
+    }
+
     public function test_unscoped_requests_do_not_leak_the_previous_journal_owner(): void
     {
         Http::fake(['provider.test/*' => Http::response('ID3audio')]);

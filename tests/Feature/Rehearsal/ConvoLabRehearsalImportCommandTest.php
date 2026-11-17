@@ -26,7 +26,11 @@ class ConvoLabRehearsalImportCommandTest extends ConvoLabRehearsalImportTestCase
         DB::table('journal_tutor_preferences')->insert(['user_id' => $draft->user_id, 'tutor_id' => 'hana']);
         DB::table('journal_audio_preferences')->insert(['user_id' => $draft->user_id, 'voice_id' => 'test-voice']);
         DB::table('journal_questions')->insert(['id' => $reply->id, 'analysis_id' => $analysis->id, 'source_key' => 'entry', 'text' => 'どうでしたか。', 'reading' => 'どうでしたか。', 'translation' => 'How was it?']);
+        DB::table('ai_usage_events')->insert(['id' => $reply->id, 'user_id' => $draft->user_id,
+            'resource_id' => $draft->id, 'operation' => 'journal.correction', 'provider' => 'openai',
+            'model' => 'test', 'duration_ms' => 1, 'created_at' => now()]);
         $this->runImport();
+        $this->assertDatabaseCount('ai_usage_events', 0);
         $this->assertDatabaseMissing('journal_entries', ['id' => $draft->id]);
         $this->assertDatabaseMissing('journal_clarifications', ['id' => $clarification->id]);
         $this->assertDatabaseMissing('journal_analyses', ['id' => $analysis->id]);

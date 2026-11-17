@@ -11,8 +11,10 @@ use Closure;
 
 final class JournalUsage
 {
-    public static function entry(JournalEntry $entry, string $operation, Closure $work): mixed
+    public static function entry(?JournalEntry $entry, string $operation, Closure $work): mixed
     {
+        abort_if($entry === null, 404);
+
         return UsageScope::run($entry->user_id, $entry->id, $operation, $work);
     }
 

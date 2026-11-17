@@ -19,7 +19,14 @@ final class ProviderUsage
         try {
             return $response = $request();
         } finally {
-            self::record(compact('provider', 'model', 'units'), $response, $started);
+            try {
+                self::record(compact('provider', 'model', 'units'), $response, $started);
+            } catch (Throwable $error) {
+                Log::warning('AI usage calculation failed', [
+                    'provider' => $provider, 'model' => $model, 'units' => $units,
+                    'scope' => Context::getHidden('ai_usage'), 'exception_type' => $error::class,
+                ]);
+            }
         }
     }
 

@@ -4,6 +4,7 @@
 // https://developers.openai.com/api/docs/pricing
 // https://docs.fish.audio/developer-guide/models-pricing/pricing-and-rate-limits
 return [
+    'fish_launch_ends_at' => '2026-12-01 08:00:00',
     'openai' => [
         'gpt-6.1-sol' => ['input' => 2, 'cached' => 0.10, 'output' => 10],
         'gpt-5.5' => ['input' => 5, 'cached' => 0.50, 'output' => 30],

@@ -9,7 +9,11 @@ final class JournalConversationContext
 {
     public static function forAnalysis(string $analysisId): array
     {
-        $entry = JournalAnalysis::findOrFail($analysisId)->entry;
+        return self::forEntry(JournalAnalysis::findOrFail($analysisId)->entry);
+    }
+
+    public static function forEntry(JournalEntry $entry): array
+    {
         if ($entry->root_entry_id === null) {
             return [];
         }

@@ -43,6 +43,7 @@ class JournalClarification extends Model
             'status' => JournalClarificationStatus::class,
             'question' => 'array',
             'answers' => 'array',
+            'prepared_feedback' => 'array',
             'processing_started_at' => 'immutable_datetime',
             'resolved_at' => 'immutable_datetime',
         ];

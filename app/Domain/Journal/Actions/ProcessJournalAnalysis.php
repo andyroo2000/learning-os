@@ -9,6 +9,7 @@ use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Services\GenerateJournalFeedback;
 use App\Domain\Journal\Support\JournalClarificationFeedback;
 use App\Domain\Journal\Support\JournalConversationContext;
+use App\Domain\Journal\Support\JournalPreparedFeedback;
 use App\Domain\Journal\Support\JournalQuestions;
 use App\Domain\Journal\Support\JournalUsage;
 use App\Domain\Journal\Support\JournalWriteTransaction;
@@ -26,13 +27,25 @@ class ProcessJournalAnalysis
             return;
         }
         try {
-            $context = JournalClarificationFeedback::context($attempt->analysisId, JournalConversationContext::forAnalysis($attempt->analysisId));
-            $result = JournalUsage::analysis($attempt->analysisId, fn () => $context === [] ? $this->generator->handle($body) : $this->generator->handle($body, $context));
+            $result = $this->feedback($attempt, $body);
             $this->finish($attempt, $result);
         } catch (Throwable $exception) {
             $this->fail($attempt);
             throw $exception;
         }
+    }
+
+    private function feedback(JournalAnalysisAttempt $attempt, string $body): array
+    {
+        $context = JournalConversationContext::forAnalysis($attempt->analysisId);
+        $prepared = JournalPreparedFeedback::forAnalysis($attempt->analysisId, $context);
+        if ($prepared !== null) {
+            return $prepared;
+        }
+        $context = JournalClarificationFeedback::context($attempt->analysisId, $context);
+
+        return JournalUsage::analysis($attempt->analysisId, fn () => $context === []
+            ? $this->generator->handle($body) : $this->generator->handle($body, $context));
     }
 
     public function fail(JournalAnalysisAttempt $attempt): void

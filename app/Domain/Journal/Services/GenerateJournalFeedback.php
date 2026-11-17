@@ -2,12 +2,12 @@
 
 namespace App\Domain\Journal\Services;
 
-use App\Domain\Journal\Support\JournalFeedback;
-use App\Domain\Journal\Support\JournalFeedbackSchema;
+use App\Domain\Journal\Support\JournalCompactFeedback;
+use App\Domain\Journal\Support\JournalCompactSchema;
+use App\Domain\Journal\Support\JournalGenerationPrompt;
 use App\Support\Usage\ProviderUsage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -21,7 +21,7 @@ class GenerateJournalFeedback
         try {
             Validator::make(['body' => $body], ['body' => ['required', 'string', 'max:20000', 'not_regex:/\x00/']])->validate();
 
-            return JournalFeedback::validated($body, $this->decode($this->request($body, $context)));
+            return JournalCompactFeedback::validated($body, $this->decode($this->request($body, $context)));
         } catch (ValidationException $exception) {
             throw new RuntimeException('Journal feedback did not match the required format.', previous: $exception);
         }
@@ -76,14 +76,15 @@ class GenerateJournalFeedback
             'model' => config('journal.model'),
             'reasoning' => ['effort' => config('journal.reasoning_effort')],
             'store' => false,
+            'prompt_cache_key' => JournalGenerationPrompt::cacheKey('feedback'),
             'max_output_tokens' => 16000,
             'input' => [
-                ['role' => 'system', 'content' => File::get(resource_path('prompts/journal/feedback.txt'))],
+                ['role' => 'system', 'content' => JournalGenerationPrompt::feedback()],
                 ['role' => 'user', 'content' => json_encode(['body' => $body, ...($context === [] ? [] : ['context' => $context])], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)],
             ],
             'text' => ['format' => [
                 'type' => 'json_schema', 'name' => 'journal_feedback', 'strict' => true,
-                'schema' => JournalFeedbackSchema::definition(),
+                'schema' => JournalCompactSchema::definition(),
             ]],
         ];
     }

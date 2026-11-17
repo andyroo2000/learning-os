@@ -2,12 +2,12 @@
 
 namespace App\Domain\Journal\Services;
 
-use App\Domain\Journal\Support\JournalClarificationResult;
-use App\Domain\Journal\Support\JournalClarificationSchema;
+use App\Domain\Journal\Support\JournalCombinedResult;
+use App\Domain\Journal\Support\JournalCompactSchema;
+use App\Domain\Journal\Support\JournalGenerationPrompt;
 use App\Support\Usage\ProviderUsage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +16,7 @@ use RuntimeException;
 
 class CheckJournalMeaning
 {
-    public function handle(string $body, array $answers = []): array
+    public function handle(string $body, array $answers = [], array $context = []): array
     {
         $input = Validator::make(compact('body', 'answers'), [
             'body' => ['required', 'string', 'max:20000', 'not_regex:/\x00/'],
@@ -26,7 +26,7 @@ class CheckJournalMeaning
             'answers.*.answer' => ['required', 'string', 'max:2000', 'not_regex:/\x00/'],
         ])->validate();
         try {
-            return JournalClarificationResult::validated($this->decode($this->request($input)));
+            return JournalCombinedResult::validated($body, $this->decode($this->request([...$input, ...($context === [] ? [] : ['context' => $context])])));
         } catch (ValidationException|JsonException $exception) {
             throw new RuntimeException('The meaning check returned an invalid response. Please try again.', previous: $exception);
         }
@@ -70,14 +70,15 @@ class CheckJournalMeaning
             'model' => config('journal.model'),
             'reasoning' => ['effort' => config('journal.reasoning_effort')],
             'store' => false,
-            'max_output_tokens' => 4000,
+            'prompt_cache_key' => JournalGenerationPrompt::cacheKey('combined'),
+            'max_output_tokens' => 16000,
             'input' => [
-                ['role' => 'system', 'content' => File::get(resource_path('prompts/journal/clarification.txt'))],
+                ['role' => 'system', 'content' => JournalGenerationPrompt::combined()],
                 ['role' => 'user', 'content' => json_encode($input, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)],
             ],
             'text' => ['format' => [
                 'type' => 'json_schema', 'name' => 'journal_clarification', 'strict' => true,
-                'schema' => JournalClarificationSchema::definition(),
+                'schema' => JournalCompactSchema::combined(),
             ]],
         ];
     }

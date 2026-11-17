@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Validator;
 
 final class ListJournalEntries
 {
-    public function handle(int $userId, ?string $cursor = null, int $limit = 30): array
+    public function handle(int $userId, ?string $cursor = null, int $limit = 30, bool $unfinished = false): array
     {
         Validator::make(compact('cursor', 'limit'), [
             'cursor' => ['nullable', 'string', 'max:512'],
@@ -16,6 +16,13 @@ final class ListJournalEntries
         ])->validate();
         $position = JournalArchiveCursor::decode($cursor);
         $query = JournalEntry::where('user_id', $userId)->whereNull('root_entry_id');
+        if ($unfinished) {
+            // Match the analysis endpoint: a title-only edit keeps feedback, a body edit does not.
+            $query->where('body', '<>', '')->whereDoesntHave('latestAnalysis', function ($analysis): void {
+                $analysis->whereColumn('journal_analyses.source_body', 'journal_entries.body')
+                    ->whereIn('status', ['queued', 'processing', 'ready']);
+            });
+        }
         if ($position !== null) {
             $query->where(function ($query) use ($position): void {
                 $query->where('entry_date', '<', $position['entryDate'])

@@ -14,6 +14,7 @@ class ListJournalEntriesRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'unfinished' => ['sometimes', 'required', 'boolean'],
             'cursor' => ['sometimes', 'required', 'string', 'max:512'],
             'limit' => ['sometimes', 'required', 'integer', 'min:1', 'max:50'],
         ];

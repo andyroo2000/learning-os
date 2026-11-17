@@ -20,7 +20,7 @@ class JournalEntryController extends Controller
 {
     public function index(ListJournalEntriesRequest $request, ListJournalEntries $list): JsonResponse
     {
-        $page = $list->handle(AuthenticatedUser::id($request), $request->validated('cursor'), (int) $request->validated('limit', 30));
+        $page = $list->handle(AuthenticatedUser::id($request), $request->validated('cursor'), (int) $request->validated('limit', 30), (bool) $request->validated('unfinished', false));
 
         return response()->json([
             'data' => JournalEntryResource::collection($page['entries'])->resolve(),

@@ -63,6 +63,8 @@ class UpdateFeatureFlagsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'id' => FeatureFlag::DEFAULT_ID,                'flashcardsEnabled' => true,
+                'readingsEnabled' => false,
+                'studyTimeEnabled' => false,
                 'updatedAt' => '2026-07-20T18:15:12.345Z',
             ]);
     }

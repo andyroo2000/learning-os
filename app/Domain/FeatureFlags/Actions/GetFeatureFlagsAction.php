@@ -19,7 +19,9 @@ class GetFeatureFlagsAction
         }
 
         $featureFlags = new FeatureFlag([
-            'flashcardsEnabled' => true,
+            'flashcardsEnabled' => false,
+            'readingsEnabled' => false,
+            'studyTimeEnabled' => false,
         ]);
         $featureFlags->id = FeatureFlag::DEFAULT_ID;
 

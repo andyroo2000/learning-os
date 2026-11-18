@@ -12,12 +12,14 @@ use App\Http\Controllers\Api\Admin\ShowAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\ShowAdminSpeakerAvatarOriginalController;
 use App\Http\Controllers\Api\Admin\ShowAdminStatsController;
 use App\Http\Controllers\Api\Admin\ShowAdminUserController;
+use App\Http\Controllers\Api\Admin\ShowJournalAnalytics;
 use App\Http\Controllers\Api\Admin\UpdateAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\UploadAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
+    Route::get('/convolab/admin/journal-analytics', ShowJournalAnalytics::class);
     Route::get('/convolab/admin/stats', ShowAdminStatsController::class);
     Route::get('/convolab/admin/users', ListAdminUsersController::class);
     Route::delete('/convolab/admin/users/{convoLabUserId}', DeleteAdminUserController::class)

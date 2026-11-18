@@ -37,6 +37,8 @@ class ShowFeatureFlagsApiTest extends TestCase
             ->assertExactJson([
                 'id' => 'existing',
                 'flashcardsEnabled' => true,
+                'readingsEnabled' => false,
+                'studyTimeEnabled' => false,
                 'updatedAt' => '2026-07-20T17:15:12.345Z',
             ]);
     }
@@ -71,7 +73,7 @@ class ShowFeatureFlagsApiTest extends TestCase
             ->assertJsonPath('updatedAt', '2026-07-20T17:15:12.345Z');
     }
 
-    public function test_show_materializes_enabled_defaults_when_the_row_is_missing(): void
+    public function test_show_materializes_journal_only_defaults_when_the_row_is_missing(): void
     {
         $this->signIn();
         Carbon::setTestNow('2026-07-20 17:15:12.345 UTC');
@@ -80,13 +82,15 @@ class ShowFeatureFlagsApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'id' => FeatureFlag::DEFAULT_ID,
-                'flashcardsEnabled' => true,
+                'flashcardsEnabled' => false,
+                'readingsEnabled' => false,
+                'studyTimeEnabled' => false,
                 'updatedAt' => '2026-07-20T17:15:12.345Z',
             ]);
 
         $this->assertDatabaseHas('feature_flags', [
             'id' => FeatureFlag::DEFAULT_ID,
-            'flashcardsEnabled' => true,
+            'flashcardsEnabled' => false,
         ]);
     }
 
@@ -110,6 +114,8 @@ class ShowFeatureFlagsApiTest extends TestCase
                 ->assertExactJson([
                     'id' => FeatureFlag::DEFAULT_ID,
                     'flashcardsEnabled' => true,
+                    'readingsEnabled' => false,
+                    'studyTimeEnabled' => false,
                     'updatedAt' => '2026-07-20T17:15:12.345Z',
                 ]);
         } finally {

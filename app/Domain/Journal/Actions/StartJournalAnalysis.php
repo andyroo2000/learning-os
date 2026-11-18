@@ -7,6 +7,7 @@ use App\Domain\Journal\Exceptions\JournalVersionConflict;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalClarificationFeedback;
+use App\Domain\Journal\Support\JournalSubmission;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\Validator;
@@ -33,7 +34,10 @@ final class StartJournalAnalysis
                 throw ValidationException::withMessages(['body' => 'Write an entry before submitting it.']);
             }
 
-            return $this->reserve($entry, JournalClarificationFeedback::forSubmission($entry, $clarificationId));
+            $analysis = $this->reserve($entry, JournalClarificationFeedback::forSubmission($entry, $clarificationId));
+            JournalSubmission::entry($entry);
+
+            return $analysis;
         });
     }
 

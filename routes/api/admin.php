@@ -19,8 +19,8 @@ use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
-    Route::get('/convolab/admin/journal-analytics', ShowJournalAnalytics::class);
     Route::get('/convolab/admin/stats', ShowAdminStatsController::class);
+    Route::get('/convolab/admin/journal-analytics', ShowJournalAnalytics::class);
     Route::get('/convolab/admin/users', ListAdminUsersController::class);
     Route::delete('/convolab/admin/users/{convoLabUserId}', DeleteAdminUserController::class)
         ->whereUuid('convoLabUserId')

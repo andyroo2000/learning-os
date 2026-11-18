@@ -14,6 +14,7 @@ return new class extends Migration
             $table->boolean('studyTimeEnabled')->default(false);
         });
         // Start the private beta with Journal only. Admins can enable sections afterward.
+        // Rolling back does not restore the previous flashcards choice.
         DB::table('feature_flags')->update(['flashcardsEnabled' => false]);
     }
 

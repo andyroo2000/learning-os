@@ -6,6 +6,7 @@ use App\Domain\Journal\Enums\JournalClarificationStatus as Status;
 use App\Domain\Journal\Exceptions\JournalVersionConflict;
 use App\Domain\Journal\Models\JournalClarification;
 use App\Domain\Journal\Models\JournalEntry;
+use App\Domain\Journal\Support\JournalSubmission;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use App\Support\Identifiers\CanonicalUlid;
 use Illuminate\Support\Facades\Validator;
@@ -35,6 +36,8 @@ final class StartJournalClarification
                 $state->forceFill(['status' => Status::Queued, 'question' => null, 'confirmed_meaning' => null,
                     'error_message' => null, 'attempt_id' => null, 'processing_started_at' => null, 'resolved_at' => null])->save();
             }
+
+            JournalSubmission::entry($entry);
 
             return $state;
         });

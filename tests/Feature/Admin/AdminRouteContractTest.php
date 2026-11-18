@@ -48,6 +48,7 @@ class AdminRouteContractTest extends TestCase
 
         return [
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/stats', 'ShowAdminStatsController'),
+            $this->expectedRoute('GET|HEAD', 'api/convolab/admin/journal-analytics', 'ShowJournalAnalytics'),
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/users', 'ListAdminUsersController'),
             $this->expectedRoute(
                 'DELETE',

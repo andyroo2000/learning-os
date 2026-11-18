@@ -9,6 +9,7 @@ use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalReply;
 use App\Domain\Journal\Support\JournalDocumentState;
+use App\Domain\Journal\Support\JournalSubmission;
 use App\Domain\Journal\Support\JournalWriteTransaction;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -32,7 +33,12 @@ final class StartJournalReply
                     throw new JournalVersionConflict;
                 }
 
-                return $this->reserve($analysis, $input);
+                $reply = $this->reserve($analysis, $input);
+                JournalSubmission::record(['source_key' => 'reply:'.$reply->id, 'user_id' => $userId,
+                    'root_entry_id' => $entry->root_entry_id ?? $entry->id, 'kind' => 'followup',
+                    'characters' => mb_strlen($reply->answer), 'submitted_at' => $reply->created_at]);
+
+                return $reply;
             });
         } catch (UniqueConstraintViolationException) {
             // Different owners can race to claim the same client ID; hide the winner.

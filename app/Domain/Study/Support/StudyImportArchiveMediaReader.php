@@ -142,7 +142,9 @@ final class StudyImportArchiveMediaReader
             return $targetDisk->put($target->targetPath, $boundedStream);
         } finally {
             fclose($stream);
-            fclose($boundedStream);
+            if (is_resource($boundedStream)) {
+                fclose($boundedStream);
+            }
         }
     }
 

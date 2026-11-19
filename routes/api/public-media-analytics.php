@@ -3,11 +3,15 @@
 use App\Domain\Analytics\Support\ToolAnalyticsRateLimiter;
 use App\Domain\Media\Support\ToolAudioSignedUrlRateLimiter;
 use App\Http\Controllers\Api\Analytics\StoreBrowserToolAnalyticsEventController;
+use App\Http\Controllers\Api\Media\PlayToolAudioController;
 use App\Http\Controllers\Api\Media\ResolveToolAudioUrlsController;
 use App\Http\Controllers\Api\Media\ShowAvatarAssetController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
+    Route::get('/tools-audio/play/{audioPath}', PlayToolAudioController::class)
+        ->where('audioPath', '.*')
+        ->middleware('throttle:'.ToolAudioSignedUrlRateLimiter::NAME);
     // Public static learning media stays path-allowlisted and rate-limited where URLs are batched.
     Route::get('/avatars/{avatarPath}', ShowAvatarAssetController::class)
         ->where('avatarPath', '.*');

@@ -7,6 +7,7 @@ use App\Console\Support\ConvoLabDailyAudioSourceMedia;
 use App\Console\Support\ConvoLabDailyAudioTargetValidator;
 use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
+use App\Support\Storage\StoredFileChecksum;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -249,9 +250,7 @@ class ImportConvoLabDailyAudio extends Command
     {
         $bucket = trim((string) $this->option('source-bucket'));
 
-        if ($bucket === ''
-            || strlen($bucket) > 222
-            || preg_match('/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/', $bucket) !== 1) {
+        if (preg_match('/^[a-z0-9][a-z0-9._-]{0,220}[a-z0-9]$/D', $bucket) !== 1) {
             throw new RuntimeException('Source bucket must be a valid GCS bucket name.');
         }
 
@@ -589,10 +588,9 @@ class ImportConvoLabDailyAudio extends Command
      */
     private function assertDestinationFileMatches(array $track): void
     {
-        $absolutePath = Storage::disk((string) config('daily_audio.disk'))
-            ->path($track['destination_path']);
-        $size = filesize($absolutePath);
-        $checksum = hash_file('sha256', $absolutePath);
+        $disk = Storage::disk((string) config('daily_audio.disk'));
+        $size = $disk->size($track['destination_path']);
+        $checksum = StoredFileChecksum::sha256($disk, $track['destination_path']);
 
         if ($size !== $track['size_bytes'] || $checksum !== $track['checksum_sha256']) {
             throw new RuntimeException(

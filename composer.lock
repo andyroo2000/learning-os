@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ba71bc75e3e471f01c4f649fb78e3eb0",
+    "content-hash": "522479d27344e01dd319279d6f49fc67",
     "packages": [
         {
             "name": "brick/math",
@@ -2580,6 +2580,54 @@
                 "source": "https://github.com/thephpleague/flysystem/tree/3.36.0"
             },
             "time": "2026-09-02T08:00:27+00:00"
+        },
+        {
+            "name": "league/flysystem-google-cloud-storage",
+            "version": "3.34.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/thephpleague/flysystem-google-cloud-storage.git",
+                "reference": "7ae8cd9ec58dd4b387ee1f7349e728ed8c455b09"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/thephpleague/flysystem-google-cloud-storage/zipball/7ae8cd9ec58dd4b387ee1f7349e728ed8c455b09",
+                "reference": "7ae8cd9ec58dd4b387ee1f7349e728ed8c455b09",
+                "shasum": ""
+            },
+            "require": {
+                "google/cloud-storage": "^1.23 || ^2.0",
+                "league/flysystem": "^3.10.0",
+                "league/mime-type-detection": "^1.0.0",
+                "php": "^8.0.2"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "League\\Flysystem\\GoogleCloudStorage\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Frank de Jonge",
+                    "email": "info@frankdejonge.nl"
+                }
+            ],
+            "description": "Google Cloud Storage adapter for Flysystem.",
+            "keywords": [
+                "Flysystem",
+                "filesystem",
+                "gcs",
+                "google cloud storage"
+            ],
+            "support": {
+                "source": "https://github.com/thephpleague/flysystem-google-cloud-storage/tree/3.34.0"
+            },
+            "time": "2026-05-12T08:30:57+00:00"
         },
         {
             "name": "league/flysystem-local",

@@ -14,6 +14,7 @@ use App\Domain\Media\Sync\MediaAssetSyncPayload;
 use App\Domain\Study\Actions\RepairLegacyStudyMediaReferencesAction;
 use App\Domain\Sync\Enums\SyncFeedOperation;
 use App\Support\Identifiers\CanonicalUlid;
+use App\Support\Storage\StoredFileChecksum;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Database\ConnectionInterface;
@@ -336,9 +337,9 @@ class ImportConvoLabMedia extends Command
      */
     private function assertDestinationFileMatches(string $path, array $manifest): void
     {
-        $absolutePath = Storage::disk(MediaAsset::DISK_MEDIA)->path($path);
-        $size = filesize($absolutePath);
-        $checksum = hash_file('sha256', $absolutePath);
+        $disk = Storage::disk(MediaAsset::DISK_MEDIA);
+        $size = $disk->size($path);
+        $checksum = StoredFileChecksum::sha256($disk, $path);
 
         if ($size !== $manifest['size_bytes'] || $checksum !== $manifest['checksum_sha256']) {
             throw new RuntimeException("Learning OS media file [{$path}] has different bytes.");

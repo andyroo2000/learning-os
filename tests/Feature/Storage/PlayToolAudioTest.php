@@ -35,6 +35,8 @@ final class PlayToolAudioTest extends TestCase
         $store = Mockery::mock(StaticMediaObjectStore::class);
         $store->shouldNotReceive('exists');
         $this->app->instance(StaticMediaObjectStore::class, $store);
-        $this->get('/api/tools-audio/play/journal/entry/private.json')->assertNotFound();
+        foreach (['journal/entry/private.json', 'folder/../private.mp3', 'folder/%2e%2e/private.mp3', 'track.MP3'] as $path) {
+            $this->get('/api/tools-audio/play/'.$path)->assertNotFound();
+        }
     }
 }

@@ -4,7 +4,9 @@ namespace Tests\Feature\Storage;
 
 use App\Support\Storage\StoredFileChecksum;
 use App\Support\Storage\VerifiedMediaCopy;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -56,6 +58,28 @@ final class VerifiedMediaCopyTest extends TestCase
         }
         $target->assertMissing('track.mp3');
         $source->assertExists('track.mp3');
+    }
+
+    public function test_source_mutation_during_upload_fails_verification(): void
+    {
+        $source = Storage::fake('migration-source');
+        $source->put('track.mp3', 'original');
+        $target = Mockery::mock(FilesystemAdapter::class);
+        $target->shouldReceive('exists')->once()->andReturnFalse();
+        $target->shouldReceive('put')->once()->andReturnUsing(function () use ($source): bool {
+            $source->put('track.mp3', 'modified');
+
+            return true;
+        });
+        $target->shouldReceive('size')->once()->andReturn(8);
+        $target->shouldReceive('checksum')->once()->andReturn(md5('original'));
+        try {
+            (new VerifiedMediaCopy)->copy($source, $target, 'track.mp3', false);
+            $this->fail('Changed source must not pass cleanup verification.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('mismatch', $e->getMessage());
+        }
+        $this->assertSame('modified', $source->get('track.mp3'));
     }
 
     public function test_cleanup_requires_all_writers_to_have_switched_to_cloud(): void

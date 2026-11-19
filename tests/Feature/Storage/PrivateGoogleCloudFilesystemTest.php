@@ -43,6 +43,35 @@ final class PrivateGoogleCloudFilesystemTest extends TestCase
         }
     }
 
+    public function test_migration_uploads_use_a_generation_precondition(): void
+    {
+        $bucket = $this->bucket();
+        $bucket->shouldReceive('upload')->once()->with(Mockery::type('resource'), Mockery::on(function (array $options): bool {
+            $this->assertSame(0, $options['ifGenerationMatch']);
+            $this->assertSame('production/private/track.mp3', $options['name']);
+            $this->assertSame('audio/mpeg', $options['metadata']['contentType']);
+            $this->assertArrayNotHasKey('predefinedAcl', $options);
+
+            return true;
+        }));
+        $stream = fopen('php://temp', 'w+b');
+        fwrite($stream, 'audio');
+        rewind($stream);
+        try {
+            $this->assertTrue(Storage::build($this->configuration())->put('track.mp3', $stream, [
+                'create_only' => true, 'mimetype' => 'audio/mpeg',
+            ]));
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    public function test_cloud_storage_requires_an_explicit_environment_prefix(): void
+    {
+        $this->expectException(RuntimeException::class);
+        (new PrivateGoogleCloudFilesystem)->make(['bucket' => 'private-test-bucket']);
+    }
+
     public function test_missing_bucket_fails_instead_of_falling_back_to_local_storage(): void
     {
         $this->expectException(RuntimeException::class);

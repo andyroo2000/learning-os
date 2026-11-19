@@ -12,6 +12,7 @@ final class MigratePrivateMediaTest extends TestCase
     {
         [$sources, $targets] = $this->libraries();
         $this->artisan('media:migrate-to-gcs')->assertSuccessful();
+        $this->artisan('media:migrate-to-gcs')->assertSuccessful();
         foreach (['local', 'media'] as $name) {
             $this->assertSame('audio-'.$name, $targets[$name]->get('track.mp3'));
             $sources[$name]->assertExists('track.mp3');

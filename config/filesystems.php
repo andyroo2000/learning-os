@@ -1,5 +1,7 @@
 <?php
 
+$mediaPrefix = trim((string) env('APP_MEDIA_PREFIX', ''), '/');
+
 return [
 
     /*
@@ -34,7 +36,7 @@ return [
             // Keep the historical disk name so persisted paths and clients stay compatible.
             'driver' => env('APP_MEDIA_DRIVER', 'local'),
             'bucket' => env('APP_MEDIA_BUCKET'),
-            'gcs_prefix' => env('APP_MEDIA_PREFIX', 'production').'/private',
+            'gcs_prefix' => $mediaPrefix === '' ? null : $mediaPrefix.'/private',
             'root' => storage_path('app/private'),
             'serve' => env('APP_MEDIA_DRIVER', 'local') === 'local',
             'throw' => false,
@@ -53,7 +55,7 @@ return [
         'media' => [
             'driver' => env('APP_MEDIA_DRIVER', 'local'),
             'bucket' => env('APP_MEDIA_BUCKET'),
-            'gcs_prefix' => env('APP_MEDIA_PREFIX', 'production').'/media',
+            'gcs_prefix' => $mediaPrefix === '' ? null : $mediaPrefix.'/media',
             'root' => storage_path('app/media'),
             'throw' => false,
             'report' => false,

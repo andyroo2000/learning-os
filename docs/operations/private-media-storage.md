@@ -42,7 +42,11 @@ switch back to `local` without first stopping all writers and copying every clou
 object back, including recordings generated since cutover. Normal code rollback
 must keep the cloud-capable storage adapter and GCS environment configuration.
 
-The command is restartable. A failed upload does not delete its source. A remote
+The command is restartable. Migration uploads use a generation-zero precondition
+to prevent concurrent overwrites. MD5 uses GCS object metadata without downloading
+the entire library; composite objects without MD5 fail closed and require
+independent verification/re-upload before cutover. Legacy import commands retain
+their SHA-256 manifest contract by streaming remote files. A failed upload does not delete its source. A remote
 checksum conflict requires investigation; do not blindly overwrite it. Preserve
 separate database backups: moving audio does not back up Journal text or accounts.
 

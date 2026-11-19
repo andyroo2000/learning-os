@@ -5,8 +5,6 @@ namespace App\Support\Storage;
 use Google\Cloud\Storage\StorageClient;
 use Illuminate\Filesystem\FilesystemAdapter;
 use League\Flysystem\Filesystem;
-use League\Flysystem\GoogleCloudStorage\GoogleCloudStorageAdapter;
-use League\Flysystem\GoogleCloudStorage\UniformBucketLevelAccessVisibility;
 use RuntimeException;
 
 final class PrivateGoogleCloudFilesystem
@@ -18,11 +16,9 @@ final class PrivateGoogleCloudFilesystem
         if ($bucket === '' || $prefix === '') {
             throw new RuntimeException('Private media requires a bucket and an environment-specific prefix.');
         }
-        $adapter = new GoogleCloudStorageAdapter(
+        $adapter = new PrivateGoogleCloudAdapter(
             app(StorageClient::class)->bucket($bucket),
             $prefix,
-            new UniformBucketLevelAccessVisibility,
-            streamReads: true,
         );
         // The dedicated bucket enforces public access prevention. Playback stays
         // behind the existing authenticated API, including Journal ownership checks.

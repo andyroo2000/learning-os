@@ -22,6 +22,7 @@ final class MigratePrivateMedia extends Command
         $bytes = 0;
         foreach (['local', 'media'] as $name) {
             $config = config("filesystems.disks.{$name}");
+            // The retained local root is the cleanup source even after driver cutover.
             $source = Storage::build(['driver' => 'local', 'root' => $config['root'], 'throw' => true]);
             $target = Storage::build([...$config, 'driver' => 'gcs-private', 'throw' => true]);
             foreach ($source->getDriver()->listContents('', true) as $file) {

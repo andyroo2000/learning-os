@@ -31,7 +31,7 @@ final class VerifiedMediaCopy
             throw new RuntimeException("Cannot read source: {$path}");
         }
         try {
-            if (! $target->put($path, $stream, ['visibility' => 'private'])) {
+            if (! $target->put($path, $stream, ['visibility' => 'private', 'create_only' => true, 'mimetype' => $source->mimeType($path)])) {
                 throw new RuntimeException("Upload failed: {$path}");
             }
         } finally {

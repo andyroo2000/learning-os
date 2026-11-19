@@ -35,7 +35,9 @@ final class VerifiedMediaCopy
                 throw new RuntimeException("Upload failed: {$path}");
             }
         } finally {
-            fclose($stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }
     }
 

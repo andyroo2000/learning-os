@@ -26,6 +26,7 @@ final class ConvoLabVerificationMail extends Mailable
     {
         return new Content(
             view: 'mail.convolab-verification',
+            text: 'mail.convolab-verification-text',
             with: [
                 'name' => $this->name,
                 'verificationUrl' => $this->verificationUrl,

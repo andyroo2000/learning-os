@@ -53,5 +53,11 @@ class PasswordResetMailTest extends TestCase
             $this->assertStringNotContainsString('laravel.com', $body);
         }
         $this->assertStringContainsString($url, $text);
+        $attachments = $message->getAttachments();
+        $this->assertCount(1, $attachments);
+        $this->assertSame('inline', $attachments[0]->getDisposition());
+        $this->assertSame('image', $attachments[0]->getMediaType());
+        $this->assertSame('png', $attachments[0]->getMediaSubtype());
+        $this->assertStringContainsString('cid:'.$attachments[0]->getContentId(), $html);
     }
 }

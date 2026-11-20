@@ -75,6 +75,16 @@ final class JournalDocument
         return $result;
     }
 
+    /** Persist literal text while its optional reading is being prepared separately. */
+    public static function beginEdit(array $plan, ?string $readingId): array
+    {
+        $middle = $plan['text'] === '' ? [] : [[...self::plain(new JournalText($plan['text'], $plan['text'])), 'readingId' => $readingId]];
+        $result = [...$plan['before'], ...$middle, ...$plan['after']];
+        self::render($result)->assertEntryLength();
+
+        return $result;
+    }
+
     public static function append(array $blocks, array $feedback, string $source): array
     {
         $boundary = [...self::plain(new JournalText("\n\n", "\n\n")), 'id' => $source.':boundary'];

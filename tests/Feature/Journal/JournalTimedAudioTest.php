@@ -2,15 +2,19 @@
 
 namespace Tests\Feature\Journal;
 
+use App\Domain\Journal\Actions\ProcessJournalReading;
 use App\Domain\Journal\Enums\JournalAnalysisStatus;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Models\JournalQuestion;
+use App\Domain\Study\Services\StudyCaptureReadingGenerator;
+use App\Jobs\GenerateJournalReading;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -43,6 +47,29 @@ final class JournalTimedAudioTest extends TestCase
         $this->getJson('/api/journal/entries/'.$entry->id.'/audio?'.http_build_query($input))->assertOk()->assertJsonPath('data.hasAudio', true);
         $this->deleteJson('/api/journal/entries/'.$entry->id, ['expectedVersion' => 1])->assertNoContent();
         $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_editing_a_recorded_entry_generates_new_audio_before_furigana_is_ready(): void
+    {
+        Queue::fake();
+        [$entry, $input] = $this->readyEntry();
+        Http::fake(['fish.test/*' => Http::response($this->stream())]);
+        $url = '/api/journal/entries/'.$entry->id;
+        $this->postJson($url.'/audio/timed', $input)->assertOk();
+        $this->putJson($url.'/corrected', ['analysisId' => $input['analysisId'], 'expectedRevision' => 0,
+            'text' => '犬を見た。'])->assertOk()->assertJsonPath('data.correctedDocument.readingStatus', 'pending');
+        $this->postJson($url.'/audio/timed', $input)->assertConflict();
+        $newInput = [...$input, 'expectedReplyRevision' => 1];
+        $this->getJson($url.'/audio?'.http_build_query($newInput))->assertJsonPath('data.hasAudio', false);
+        $this->postJson($url.'/audio/timed', $newInput)->assertOk();
+        Http::assertSentCount(2);
+        Http::assertSent(fn ($request) => $request['text'] === '犬を見た。');
+        $this->assertSame(hash('sha256', '犬を見た。'), $entry->fresh()->audio_text_hash);
+        $this->mock(StudyCaptureReadingGenerator::class)->shouldReceive('generate')->once()->andReturn('犬[いぬ]を見[み]た。');
+        Queue::pushed(GenerateJournalReading::class)->sole()->handle(app(ProcessJournalReading::class));
+        $this->postJson($url.'/audio/timed', $newInput)->assertOk();
+        $this->postJson($url.'/audio', $newInput)->assertOk()->assertStreamedContent('ID3test');
+        Http::assertSentCount(2);
     }
 
     public static function invalidations(): array
@@ -175,7 +202,7 @@ final class JournalTimedAudioTest extends TestCase
         $entry = JournalEntry::factory()->for($user)->create();
         $analysis = JournalAnalysis::factory()->create([
             'entry_id' => $entry->id, 'source_body' => $entry->body,
-            'status' => JournalAnalysisStatus::Ready, 'result' => ['correctedText' => '映画を見た。楽しかった。'],
+            'status' => JournalAnalysisStatus::Ready, 'result' => ['correctedText' => '映画を見た。楽しかった。', 'correctedReading' => '映画[えいが]を見[み]た。楽[たの]しかった。'],
         ]);
 
         return [$entry, ['analysisId' => $analysis->id, 'voiceId' => self::VOICE]];

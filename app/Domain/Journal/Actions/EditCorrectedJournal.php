@@ -6,55 +6,47 @@ use App\Domain\Journal\Data\JournalManualEditInput;
 use App\Domain\Journal\Models\JournalAnalysis;
 use App\Domain\Journal\Models\JournalEntry;
 use App\Domain\Journal\Support\JournalDocument;
+use App\Domain\Journal\Support\JournalDocumentReadings;
 use App\Domain\Journal\Support\JournalDocumentState;
 use App\Domain\Journal\Support\JournalEditableVersion;
-use App\Domain\Journal\Support\JournalUsage;
 use App\Domain\Journal\Support\JournalWriteTransaction;
-use App\Domain\Study\Exceptions\StudyCaptureReadingException;
-use App\Domain\Study\Services\StudyCaptureReadingGenerator;
-use Illuminate\Validation\ValidationException;
+use App\Jobs\GenerateJournalReading;
+use Illuminate\Support\Facades\DB;
 
 final class EditCorrectedJournal
 {
-    public function __construct(private readonly StudyCaptureReadingGenerator $readings) {}
-
     public function handle(int $userId, string $entryId, JournalManualEditInput $input): JournalAnalysis
     {
-        $analysis = JournalWriteTransaction::run($userId, fn () => $this->locked($userId, $entryId, $input));
-        $blocks = JournalDocumentState::current($analysis);
-        if (JournalDocument::render($blocks)->text === $input->text) {
+        $analysis = JournalWriteTransaction::run($userId, function () use ($userId, $entryId, $input) {
+            $entry = JournalEntry::where('user_id', $userId)->lockForUpdate()->findOrFail($entryId);
+            $analysis = JournalAnalysis::where('entry_id', $entry->id)->lockForUpdate()->findOrFail($input->analysisId);
+            JournalEditableVersion::assertCurrent($analysis, $entry, $input->revision);
+            $ids = $this->saveText($analysis, $input->text);
+            if ($analysis->isDirty()) {
+                JournalDocumentReadings::prune($analysis);
+                $analysis->save();
+            }
+            foreach ($ids as $id) {
+                DB::afterCommit(static fn () => GenerateJournalReading::enqueue($analysis->id, $id));
+            }
+
             return $analysis;
-        }
-        $plan = JournalDocument::editPlan($blocks, $input->text);
-        $reading = JournalUsage::entry($analysis->entry, 'journal.edit_reading', fn () => $this->reading($plan['text']));
-        $document = JournalDocument::finishEdit($plan, $reading);
-
-        // Network work is outside the lock; publish only if the same revision is still current.
-        return JournalWriteTransaction::run($userId, function () use ($userId, $entryId, $input, $document) {
-            $current = $this->locked($userId, $entryId, $input);
-            $current->result = [...$current->result, 'document' => $document];
-            $current->reply_revision++;
-            $current->save();
-
-            return $current;
         });
+
+        return $analysis->fresh() ?? $analysis;
     }
 
-    private function locked(int $userId, string $entryId, JournalManualEditInput $input): JournalAnalysis
+    private function saveText(JournalAnalysis $analysis, string $text): array
     {
-        $entry = JournalEntry::where('user_id', $userId)->lockForUpdate()->findOrFail($entryId);
-        $analysis = JournalAnalysis::where('entry_id', $entry->id)->lockForUpdate()->findOrFail($input->analysisId);
-        JournalEditableVersion::assertCurrent($analysis, $entry, $input->revision);
-
-        return $analysis;
-    }
-
-    private function reading(string $text): string
-    {
-        try {
-            return $this->readings->generate($text);
-        } catch (StudyCaptureReadingException) {
-            throw ValidationException::withMessages(['text' => 'Could not add furigana. Your changes have not been saved; please try again.']);
+        $blocks = JournalDocumentState::current($analysis);
+        if (JournalDocument::render($blocks)->text === $text) {
+            return JournalDocumentReadings::retry($analysis, $blocks);
         }
+        $plan = JournalDocument::editPlan($blocks, $text);
+        $id = JournalDocumentReadings::reserve($analysis, $plan['text']);
+        $analysis->result = [...$analysis->result, 'document' => JournalDocument::beginEdit($plan, $id)];
+        $analysis->reply_revision++;
+
+        return $id === null ? [] : [$id];
     }
 }

@@ -23,6 +23,7 @@ use App\Domain\Media\Models\MediaAsset;
 use App\Domain\Media\Services\GoogleCloudStaticMediaObjectStore;
 use App\Domain\Reviews\Models\CardReviewEvent;
 use App\Domain\Study\Services\OpenAiStudyImageGenerator;
+use App\Notifications\ConvoLabResetPassword;
 use App\Policies\CardPolicy;
 use App\Policies\CardReviewEventPolicy;
 use App\Policies\CoursePolicy;
@@ -100,5 +101,9 @@ class AppServiceProvider extends ServiceProvider
                 'email' => $notifiable->getEmailForPasswordReset(),
             ]);
         });
+
+        ResetPassword::toMailUsing(
+            fn (CanResetPasswordContract $notifiable, string $token) => (new ConvoLabResetPassword($token))->toMail($notifiable),
+        );
     }
 }

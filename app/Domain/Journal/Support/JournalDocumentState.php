@@ -11,7 +11,7 @@ final class JournalDocumentState
     public static function current(JournalAnalysis $analysis): array
     {
         if (isset($analysis->result['document'])) {
-            return $analysis->result['document'];
+            return JournalDocumentReadings::resolve($analysis, $analysis->result['document']);
         }
         $reply = JournalReply::where('analysis_id', $analysis->id)->find($analysis->current_reply_id);
 
@@ -25,10 +25,10 @@ final class JournalDocumentState
         }
         $result = $reply->result;
 
-        return $result['document'] ?? JournalDocument::fromFeedback([
+        return JournalDocumentReadings::resolve($analysis, $result['document'] ?? JournalDocument::fromFeedback([
             'correctedText' => $result['entryText'] ?? $result['correctedText'],
             'correctedReading' => $result['entryReading'] ?? $result['correctedReading'],
-        ], $reply->id);
+        ], $reply->id));
     }
 
     public static function beforeReply(JournalAnalysis $analysis, JournalReply $reply): array
@@ -61,6 +61,7 @@ final class JournalDocumentState
             }
         }
 
-        return ['text' => $rendered->text, 'reading' => $rendered->reading, 'suggestions' => $suggestions];
+        return ['text' => $rendered->text, 'reading' => $rendered->reading, 'suggestions' => $suggestions,
+            'readingStatus' => JournalDocumentReadings::status($analysis, $blocks)];
     }
 }

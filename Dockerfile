@@ -1,4 +1,5 @@
-FROM composer:2 AS vendor
+# Pin the last verified PHP 8.5 builder; composer:2 now bundles incompatible PHP 8.6.
+FROM composer:2@sha256:0c8e663f14c94d07b3c45b175c51f5a14718508f21fe4dd7e54f09488dd0ed71 AS vendor
 
 WORKDIR /app
 

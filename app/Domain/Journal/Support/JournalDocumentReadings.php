@@ -17,7 +17,7 @@ final class JournalDocumentReadings
         }
         $id = (string) Str::ulid();
         $readings = $analysis->result['documentReadings'] ?? [];
-        $readings[$id] = ['text' => $text, 'status' => 'pending', 'reading' => null];
+        $readings[$id] = ['text' => $text, 'status' => 'pending', 'reading' => null, 'queuedAt' => now()->toISOString()];
         $analysis->result = [...$analysis->result, 'documentReadings' => $readings];
 
         return $id;
@@ -49,22 +49,28 @@ final class JournalDocumentReadings
     public static function retry(JournalAnalysis $analysis, array $blocks): array
     {
         $ids = [];
-        foreach ($blocks as &$block) {
+        foreach ($blocks as $index => $block) {
             if (self::state($analysis, $block)['status'] === 'failed') {
-                $block['readingId'] = self::reserve($analysis, $block['text']);
-                $ids[] = $block['readingId'];
+                $blocks[$index]['readingId'] = self::reserve($analysis, $block['text']);
+                $ids[] = $blocks[$index]['readingId'];
             }
         }
         if ($ids !== []) {
             $analysis->result = [...$analysis->result, 'document' => $blocks];
         }
 
-        return $ids;
+        return array_values(array_filter($ids));
     }
 
     private static function state(JournalAnalysis $analysis, array $block): array
     {
-        return $analysis->result['documentReadings'][$block['readingId'] ?? ''] ?? ['status' => 'ready'];
+        $state = $analysis->result['documentReadings'][$block['readingId'] ?? ''] ?? ['status' => 'ready'];
+        // A lost worker/message must not leave clients polling forever. Retrying rotates the token.
+        if ($state['status'] === 'pending' && ($state['queuedAt'] ?? '') < now()->subMinutes(10)->toISOString()) {
+            $state['status'] = 'failed';
+        }
+
+        return $state;
     }
 
     /** Keep history needed by reply/undo snapshots, but discard superseded manual edits. */

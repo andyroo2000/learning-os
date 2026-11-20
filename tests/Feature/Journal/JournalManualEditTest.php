@@ -221,6 +221,22 @@ class JournalManualEditTest extends TestCase
             ->assertJsonPath('data.correctedDocument.readingStatus', 'ready');
     }
 
+    public function test_lost_jobs_become_retryable_instead_of_polling_forever(): void
+    {
+        [$entry, , $input] = $this->ready();
+        $this->putJson($this->url($entry), $input)->assertOk();
+        $this->travel(11)->minutes(function () use ($entry, $input) {
+            $this->getJson('/api/journal/entries/'.$entry->id.'/analysis')
+                ->assertJsonPath('data.correctedDocument.readingStatus', 'failed');
+            $this->putJson($this->url($entry), [...$input, 'expectedRevision' => 1])->assertOk()
+                ->assertJsonPath('data.correctedDocument.readingStatus', 'pending')
+                ->assertJsonPath('data.replyRevision', 1);
+        });
+        $this->mock(StudyCaptureReadingGenerator::class)->shouldNotReceive('generate');
+        $this->job()->handle(app(ProcessJournalReading::class));
+        Queue::assertPushed(GenerateJournalReading::class, 2);
+    }
+
     private function ready(): array
     {
         Queue::fake();

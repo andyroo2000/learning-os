@@ -40,7 +40,7 @@ final class GenerateJournalReading implements ShouldQueue
 
     public function middleware(): array
     {
-        return [(new WithoutOverlapping($this->analysisId.':'.$this->readingId))->dontRelease()->expireAfter(90)];
+        return [(new WithoutOverlapping($this->analysisId.':'.$this->readingId))->releaseAfter(10)->expireAfter(90)];
     }
 
     public function backoff(): array

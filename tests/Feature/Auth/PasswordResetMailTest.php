@@ -9,6 +9,20 @@ use Tests\TestCase;
 
 class PasswordResetMailTest extends TestCase
 {
+    public function test_plain_text_preserves_punctuation_in_translated_copy(): void
+    {
+        app('translator')->addLines(['*.Reset your password' => 'Reset & recover your password'], 'en');
+        $text = view('mail.convolab-password-reset-text', [
+            'actionUrl' => 'https://client.example/reset-password?token=test&email=ada%40example.com',
+            'outroLines' => ["If you didn't request this, no action is required."],
+        ])->render();
+
+        $this->assertStringContainsString('Reset & recover your password', $text);
+        $this->assertStringContainsString("If you didn't request this", $text);
+        $this->assertStringNotContainsString('&amp;', $text);
+        $this->assertStringNotContainsString('&#039;', $text);
+    }
+
     public function test_reset_notification_sends_branded_html_and_plain_text_with_the_valid_reset_link(): void
     {
         config([

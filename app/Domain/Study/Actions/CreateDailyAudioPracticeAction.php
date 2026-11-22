@@ -24,15 +24,7 @@ class CreateDailyAudioPracticeAction
         ?callable $afterCommit = null,
     ): DailyAudioPractice {
         $normalizedPracticeDate = $this->normalizePracticeDate($practiceDate);
-        if ($userId < 1) {
-            throw new InvalidArgumentException('Daily Audio Practice requires a valid user ID.');
-        }
-        if (
-            $targetDurationMinutes < DailyAudioPracticeGeneration::MIN_TARGET_DURATION_MINUTES
-            || $targetDurationMinutes > DailyAudioPracticeGeneration::MAX_TARGET_DURATION_MINUTES
-        ) {
-            throw new InvalidArgumentException('Daily Audio Practice duration is out of range.');
-        }
+        $this->validateUserAndDuration($userId, $targetDurationMinutes);
 
         return DB::transaction(function () use (
             $afterCommit,
@@ -69,18 +61,9 @@ class CreateDailyAudioPracticeAction
                     ->sole();
             }
 
-            $staleGeneration = $practice->status === 'generating'
-                && $practice->updated_at !== null
-                && $practice->updated_at->lte(
-                    $now->copy()->subSeconds(DailyAudioPracticeGeneration::STALE_AFTER_SECONDS),
-                );
             $this->ensureTracks($practice);
-
-            if ($practice->status !== 'generating' || $staleGeneration) {
+            if ($this->startsNewRun($practice)) {
                 $this->resetTracks($practice);
-                // Each real generation attempt gets an independent queue identity.
-                // A stale retry can then queue behind older work without allowing
-                // that older run to commit or fail the replacement.
                 $practice->generation_run_id = (string) Str::uuid();
             }
 
@@ -102,6 +85,19 @@ class CreateDailyAudioPracticeAction
         });
     }
 
+    private function validateUserAndDuration(int $userId, int $targetDurationMinutes): void
+    {
+        if ($userId < 1) {
+            throw new InvalidArgumentException('Daily Audio Practice requires a valid user ID.');
+        }
+        if (
+            $targetDurationMinutes < DailyAudioPracticeGeneration::MIN_TARGET_DURATION_MINUTES
+            || $targetDurationMinutes > DailyAudioPracticeGeneration::MAX_TARGET_DURATION_MINUTES
+        ) {
+            throw new InvalidArgumentException('Daily Audio Practice duration is out of range.');
+        }
+    }
+
     private function normalizePracticeDate(string $practiceDate): CarbonImmutable
     {
         $practiceDate = trim($practiceDate);
@@ -117,6 +113,12 @@ class CreateDailyAudioPracticeAction
         }
 
         return $normalized;
+    }
+
+    private function startsNewRun(DailyAudioPractice $practice): bool
+    {
+        return $practice->status !== 'generating'
+            || $practice->updated_at?->lte(now()->subSeconds(DailyAudioPracticeGeneration::STALE_AFTER_SECONDS));
     }
 
     private function ensureTracks(DailyAudioPractice $practice): void
@@ -149,6 +151,7 @@ class CreateDailyAudioPracticeAction
     {
         DailyAudioPracticeTrack::query()
             ->where('practice_id', $practice->id)
+            ->where('mode', 'drill')
             ->update([
                 'status' => 'draft',
                 'script_units_json' => null,

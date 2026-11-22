@@ -20,8 +20,6 @@ final class DailyAudioPracticeGeneration
 
     public const TRACKS = [
         ['mode' => 'drill', 'title' => 'Drills', 'sortOrder' => 0],
-        ['mode' => 'dialogue', 'title' => 'Dialogues', 'sortOrder' => 1],
-        ['mode' => 'story', 'title' => 'Story', 'sortOrder' => 2],
     ];
 
     public static function audioUrl(string $practiceId, string $trackId): string

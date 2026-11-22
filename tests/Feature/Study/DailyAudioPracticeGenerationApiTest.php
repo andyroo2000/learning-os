@@ -57,13 +57,9 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             ->assertJsonPath('targetDurationMinutes', 45)
             ->assertJsonPath('targetLanguage', 'ja')
             ->assertJsonPath('nativeLanguage', 'en')
-            ->assertJsonCount(3, 'tracks')
+            ->assertJsonCount(1, 'tracks')
             ->assertJsonPath('tracks.0.mode', 'drill')
             ->assertJsonPath('tracks.0.status', 'draft')
-            ->assertJsonPath('tracks.1.mode', 'dialogue')
-            ->assertJsonPath('tracks.1.status', 'draft')
-            ->assertJsonPath('tracks.2.mode', 'story')
-            ->assertJsonPath('tracks.2.status', 'draft')
             ->assertJsonMissingPath('generationRunId');
 
         $practice = DailyAudioPractice::query()->sole();
@@ -173,7 +169,11 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             'target_duration_minutes' => 30,
             'error_message' => 'Old error.',
         ]);
-        foreach (DailyAudioPracticeGeneration::TRACKS as $trackConfig) {
+        foreach ([
+            ...DailyAudioPracticeGeneration::TRACKS,
+            ['mode' => 'dialogue', 'title' => 'Dialogues', 'sortOrder' => 1],
+            ['mode' => 'story', 'title' => 'Story', 'sortOrder' => 2],
+        ] as $trackConfig) {
             DailyAudioPracticeTrack::factory()->for($practice, 'practice')->create([
                 'mode' => $trackConfig['mode'],
                 'title' => $trackConfig['title'],
@@ -205,8 +205,8 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             ->assertJsonPath('tracks.0.status', 'draft')
             ->assertJsonPath('tracks.0.scriptUnitsJson', null)
             ->assertJsonPath('tracks.0.audioUrl', null)
-            ->assertJsonPath('tracks.1.status', 'draft')
-            ->assertJsonPath('tracks.2.status', 'draft');
+            ->assertJsonPath('tracks.1.audioUrl', '/old.mp3')
+            ->assertJsonPath('tracks.2.status', 'ready');
 
         $this->assertDatabaseCount('daily_audio_practices', 1);
         $this->assertDatabaseCount('daily_audio_practice_tracks', 3);
@@ -311,8 +311,7 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
                 DailyAudioPracticeGeneration::QUEUE_FAILED_MESSAGE,
             )
             ->assertJsonPath('tracks.0.status', 'error')
-            ->assertJsonPath('tracks.1.status', 'error')
-            ->assertJsonPath('tracks.2.status', 'error');
+            ->assertJsonCount(1, 'tracks');
     }
 
     public function test_ready_audio_can_only_be_streamed_by_its_owner(): void

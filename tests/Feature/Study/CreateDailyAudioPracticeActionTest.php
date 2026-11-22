@@ -44,7 +44,7 @@ class CreateDailyAudioPracticeActionTest extends TestCase
         $this->assertTrue(Str::isUuid($dispatchedRunId));
         $this->assertSame($practice->generation_run_id, $dispatchedRunId);
         $this->assertSame('generating', $practice->status);
-        $this->assertCount(3, $practice->tracks);
+        $this->assertSame(['drill'], $practice->tracks->pluck('mode')->all());
     }
 
     #[DataProvider('invalidInputProvider')]

@@ -27,6 +27,27 @@ class DailyAudioPracticeApiTest extends TestCase
         $this->getJson("/api/daily-audio-practice/{$id}/status")->assertUnauthorized();
     }
 
+    public function test_first_page_includes_an_older_playable_drill_separately_from_its_cursor(): void
+    {
+        $user = $this->signIn();
+        $older = DailyAudioPractice::factory()->for($user)->create(['practice_date' => today()->subWeeks(2)]);
+        DailyAudioPracticeTrack::factory()->for($older, 'practice')->create();
+        $recent = DailyAudioPractice::factory()->for($user)->create(['practice_date' => today()]);
+        DailyAudioPracticeTrack::factory()->for($recent, 'practice')->create(['mode' => 'story']);
+        DailyAudioPracticeTrack::factory()->create();
+
+        $url = '/api/daily-audio-practice?paginated=1&limit=1';
+        $first = $this->getJson($url)->assertOk()
+            ->assertJsonPath('items.0.id', $recent->id)
+            ->assertJsonCount(1, 'items')
+            ->assertJsonPath('latestPlayableDrill.id', $older->id)
+            ->assertJsonPath('total', 2);
+        $this->getJson($url.'&cursor='.rawurlencode($first->json('nextCursor')))->assertOk()
+            ->assertJsonPath('items.0.id', $older->id)->assertJsonPath('latestPlayableDrill', null);
+        DailyAudioPracticeTrack::factory()->for($recent, 'practice')->create(['sort_order' => 1]);
+        $this->getJson($url)->assertOk()->assertJsonPath('latestPlayableDrill', null);
+    }
+
     public function test_index_returns_fourteen_recent_practices_with_sorted_summary_tracks(): void
     {
         $user = $this->signIn();

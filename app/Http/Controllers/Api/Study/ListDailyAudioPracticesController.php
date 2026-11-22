@@ -26,6 +26,9 @@ class ListDailyAudioPracticesController extends Controller
 
             return response()->json([
                 'items' => DailyAudioPracticeSummaryResource::collection($page['items'])->resolve($request),
+                'latestPlayableDrill' => $page['latestPlayableDrill']
+                    ? (new DailyAudioPracticeSummaryResource($page['latestPlayableDrill']))->resolve($request)
+                    : null,
                 'total' => $page['total'],
                 'limit' => $page['limit'],
                 'nextCursor' => $page['nextCursor'],

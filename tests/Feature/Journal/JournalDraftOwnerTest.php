@@ -23,6 +23,14 @@ class JournalDraftOwnerTest extends TestCase
         $this->assertSame(0, JournalEntry::withTrashed()->count());
     }
 
+    public function test_owner_header_does_not_authenticate_an_anonymous_request(): void
+    {
+        $owner = User::factory()->create();
+        $this->withHeader('X-Journal-Owner', (string) $owner->id)
+            ->putJson($this->url(), $this->draft())->assertUnauthorized();
+        $this->assertSame(0, JournalEntry::count());
+    }
+
     public function test_matching_account_and_legacy_clients_keep_the_same_retry_contract(): void
     {
         $owner = User::factory()->create();

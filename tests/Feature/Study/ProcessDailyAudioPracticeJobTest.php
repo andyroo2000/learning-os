@@ -16,6 +16,7 @@ use App\Domain\Study\Results\DailyAudioScriptUnit;
 use App\Domain\Study\Results\DailyAudioTrackAssemblyResult;
 use App\Domain\Study\Services\DailyAudioDrillScriptGenerator;
 use App\Domain\Study\Services\DailyAudioTrackAssembler;
+use App\Domain\Study\Services\OpenAiStudyCardGenerator;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use App\Jobs\ProcessDailyAudioPractice;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -126,9 +127,8 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
 
         $this->mockSelectedAtom($practice, $selection, $atom);
         $this->mockDrillGeneration($generated, $practice);
-        $this->mock(DailyAudioContextTrackGenerator::class, function (MockInterface $mock): void {
-            $mock->shouldNotReceive('generateDialogue');
-            $mock->shouldNotReceive('generateStory');
+        $this->mock(OpenAiStudyCardGenerator::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('generateJson');
         });
         $this->mock(DailyAudioTrackAssembler::class, function (MockInterface $mock) use ($assembled, $practice, $tracks): void {
             $mock->shouldReceive('assemble')

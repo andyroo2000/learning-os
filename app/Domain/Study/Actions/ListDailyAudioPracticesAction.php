@@ -27,6 +27,7 @@ class ListDailyAudioPracticesAction
      *     items: Collection<int, DailyAudioPractice>,
      *     total: int,
      *     limit: int,
+     *     latestPlayableDrill: DailyAudioPractice|null,
      *     nextCursor: string|null
      * }
      */
@@ -45,6 +46,47 @@ class ListDailyAudioPracticesAction
             ->count();
         $query = $this->query($userId);
 
+        $this->applyBoundary($query, $legacyOffset, $boundary);
+
+        $page = $query->limit($limit + 1)->get();
+        $hasMore = $page->count() > $limit;
+        $items = $page->take($limit)->values();
+        $lastItem = $items->last();
+
+        return [
+            'items' => $items,
+            'latestPlayableDrill' => $hasMore && $boundary === null && empty($legacyOffset)
+                ? $this->olderPlayableDrill($userId, $items)
+                : null,
+            'total' => $total,
+            'limit' => $limit,
+            'nextCursor' => $hasMore && $lastItem instanceof DailyAudioPractice
+                ? DailyAudioPracticeCursor::encode($lastItem)
+                : null,
+        ];
+    }
+
+    /** @param Collection<int, DailyAudioPractice> $items */
+    private function olderPlayableDrill(int $userId, Collection $items): ?DailyAudioPractice
+    {
+        $criteria = ['mode' => 'drill', 'status' => 'ready'];
+        foreach ($items as $practice) {
+            $ready = $practice->tracks->where('mode', 'drill')->where('status', 'ready');
+            if ($ready->contains(fn ($track): bool => filled($track->audio_url))) {
+                return null;
+            }
+        }
+
+        return $this->query($userId)->whereHas('tracks',
+            fn (Builder $tracks) => $tracks->where($criteria)->whereNotNull('audio_url')->where('audio_url', '!=', '')
+        )->first();
+    }
+
+    /** @param Builder<DailyAudioPractice> $query
+     * @param  array{practice_date: string, id: string}|null  $boundary
+     */
+    private function applyBoundary(Builder $query, ?int $legacyOffset, ?array $boundary): void
+    {
         if ($legacyOffset !== null) {
             // Numeric offsets were emitted before keyset pagination. Accept one
             // legacy boundary, then return an opaque stable cursor.
@@ -58,20 +100,6 @@ class ListDailyAudioPracticesAction
                     });
             });
         }
-
-        $page = $query->limit($limit + 1)->get();
-        $hasMore = $page->count() > $limit;
-        $items = $page->take($limit)->values();
-        $lastItem = $items->last();
-
-        return [
-            'items' => $items,
-            'total' => $total,
-            'limit' => $limit,
-            'nextCursor' => $hasMore && $lastItem instanceof DailyAudioPractice
-                ? DailyAudioPracticeCursor::encode($lastItem)
-                : null,
-        ];
     }
 
     private function legacyOffset(int|string|null $cursor): ?int

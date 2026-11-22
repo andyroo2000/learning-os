@@ -149,6 +149,7 @@ class CreateDailyAudioPracticeAction
     {
         DailyAudioPracticeTrack::query()
             ->where('practice_id', $practice->id)
+            ->where('mode', 'drill')
             ->update([
                 'status' => 'draft',
                 'script_units_json' => null,

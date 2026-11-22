@@ -57,13 +57,9 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             ->assertJsonPath('targetDurationMinutes', 45)
             ->assertJsonPath('targetLanguage', 'ja')
             ->assertJsonPath('nativeLanguage', 'en')
-            ->assertJsonCount(3, 'tracks')
+            ->assertJsonCount(1, 'tracks')
             ->assertJsonPath('tracks.0.mode', 'drill')
             ->assertJsonPath('tracks.0.status', 'draft')
-            ->assertJsonPath('tracks.1.mode', 'dialogue')
-            ->assertJsonPath('tracks.1.status', 'draft')
-            ->assertJsonPath('tracks.2.mode', 'story')
-            ->assertJsonPath('tracks.2.status', 'draft')
             ->assertJsonMissingPath('generationRunId');
 
         $practice = DailyAudioPractice::query()->sole();
@@ -204,12 +200,10 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
             ->assertJsonPath('targetDurationMinutes', 20)
             ->assertJsonPath('tracks.0.status', 'draft')
             ->assertJsonPath('tracks.0.scriptUnitsJson', null)
-            ->assertJsonPath('tracks.0.audioUrl', null)
-            ->assertJsonPath('tracks.1.status', 'draft')
-            ->assertJsonPath('tracks.2.status', 'draft');
+            ->assertJsonPath('tracks.0.audioUrl', null);
 
         $this->assertDatabaseCount('daily_audio_practices', 1);
-        $this->assertDatabaseCount('daily_audio_practice_tracks', 3);
+        $this->assertDatabaseCount('daily_audio_practice_tracks', 1);
         Queue::assertPushed(ProcessDailyAudioPractice::class, 1);
     }
 
@@ -310,9 +304,7 @@ class DailyAudioPracticeGenerationApiTest extends TestCase
                 'errorMessage',
                 DailyAudioPracticeGeneration::QUEUE_FAILED_MESSAGE,
             )
-            ->assertJsonPath('tracks.0.status', 'error')
-            ->assertJsonPath('tracks.1.status', 'error')
-            ->assertJsonPath('tracks.2.status', 'error');
+            ->assertJsonPath('tracks.0.status', 'error');
     }
 
     public function test_ready_audio_can_only_be_streamed_by_its_owner(): void

@@ -16,9 +16,7 @@ use App\Domain\Study\Results\DailyAudioScriptUnit;
 use App\Domain\Study\Results\DailyAudioTrackAssemblyResult;
 use App\Domain\Study\Services\DailyAudioDrillScriptGenerator;
 use App\Domain\Study\Services\DailyAudioTrackAssembler;
-use App\Domain\Study\Services\OpenAiStudyCardGenerator;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
-use App\Domain\Study\Support\StudyCardGenerationDefaults;
 use App\Jobs\ProcessDailyAudioPractice;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -100,7 +98,7 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         $this->assertSame($replacementRunId, $practice->generation_run_id);
     }
 
-    public function test_it_generates_and_persists_all_three_tracks(): void
+    public function test_it_generates_only_drills_and_preserves_legacy_context_tracks(): void
     {
         config()->set('daily_audio.l2_voice_id', 'fishaudio:general-l2');
         config()->set(
@@ -128,10 +126,13 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
 
         $this->mockSelectedAtom($practice, $selection, $atom);
         $this->mockDrillGeneration($generated, $practice);
-        $this->mockContextScripts();
+        $this->mock(DailyAudioContextTrackGenerator::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('generateDialogue');
+            $mock->shouldNotReceive('generateStory');
+        });
         $this->mock(DailyAudioTrackAssembler::class, function (MockInterface $mock) use ($assembled, $practice, $tracks): void {
             $mock->shouldReceive('assemble')
-                ->times(3)
+                ->once()
                 ->withArgs(fn ($practiceId, $trackId, $units): bool => $practiceId === $practice->id
                     && collect($tracks)->contains(
                         fn (DailyAudioPracticeTrack $track): bool => $track->id === $trackId,
@@ -148,7 +149,7 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
         $this->assertNull($practice->error_message);
         $this->assertSame([$card->clientId()], $practice->source_card_ids_json);
         $this->assertSame($selection->summary, $practice->selection_summary_json);
-        foreach ($tracks as $track) {
+        foreach ([$tracks['drill']] as $track) {
             $track->refresh();
             $this->assertSame('ready', $track->status);
             $this->assertSame(
@@ -163,13 +164,8 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
                 collect($track->script_units_json)->firstWhere('type', 'L2'),
             );
         }
-        $dialogueVoices = collect($tracks['dialogue']->script_units_json)
-            ->where('type', 'L2')
-            ->pluck('voiceId')
-            ->values()
-            ->all();
-        $this->assertCount(2, array_unique($dialogueVoices));
-        $this->assertEmpty(array_diff($dialogueVoices, StudyCardGenerationDefaults::VOICE_IDS));
+        $this->assertSame('draft', $tracks['dialogue']->refresh()->status);
+        $this->assertSame('draft', $tracks['story']->refresh()->status);
         $this->assertEquals($generated->scriptUnits(), $tracks['drill']->script_units_json);
     }
 
@@ -491,18 +487,6 @@ class ProcessDailyAudioPracticeJobTest extends TestCase
             $mock->shouldReceive('handle')->once()->withArgs(
                 fn ($cards): bool => $cards->sole()->is($selection->cards->sole()),
             )->andReturn(collect([$atom]));
-        });
-    }
-
-    private function mockContextScripts(): void
-    {
-        $this->mock(OpenAiStudyCardGenerator::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('generateJson')
-                ->twice()
-                ->andReturn(
-                    '{"scenes":[{"title":"Greeting","lines":[{"speaker":"speaker1","text":"ねこです。","reading":"ねこです。","translation":"It is a cat."},{"speaker":"speaker2","text":"そうですね。","reading":"そうですね。","translation":"That is right."}]}]}',
-                    '{"title":"Cat","lines":[{"text":"ねこです。","reading":"ねこです。","translation":"It is a cat."}]}',
-                );
         });
     }
 }

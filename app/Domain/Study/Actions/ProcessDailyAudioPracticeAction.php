@@ -5,7 +5,6 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Models\DailyAudioPractice;
 use App\Domain\Study\Models\DailyAudioPracticeTrack;
 use App\Domain\Study\Results\DailyAudioCardSelectionResult;
-use App\Domain\Study\Services\DailyAudioContextTrackGenerator;
 use App\Domain\Study\Services\DailyAudioDrillScriptGenerator;
 use App\Domain\Study\Services\DailyAudioTrackAssembler;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
@@ -19,7 +18,6 @@ class ProcessDailyAudioPracticeAction
         private readonly SelectDailyAudioPracticeCardsAction $selectCards,
         private readonly BuildDailyAudioLearningAtomsAction $buildAtoms,
         private readonly DailyAudioDrillScriptGenerator $scriptGenerator,
-        private readonly DailyAudioContextTrackGenerator $contextTrackGenerator,
         private readonly DailyAudioTrackAssembler $trackAssembler,
     ) {}
 
@@ -58,29 +56,12 @@ class ProcessDailyAudioPracticeAction
 
         $l1VoiceId = (string) config('daily_audio.l1_voice_id');
         $l2VoiceId = (string) config('daily_audio.l2_voice_id');
-        $dialogueSpeakerAVoiceId = (string) config(
-            'daily_audio.dialogue_speaker_a_voice_id',
-        );
-        $dialogueSpeakerBVoiceId = (string) config(
-            'daily_audio.dialogue_speaker_b_voice_id',
-        );
         $generated = [
             'drill' => $this->scriptGenerator->generate(
                 $atoms,
                 $l1VoiceId,
                 $l2VoiceId,
                 $practice->target_duration_minutes,
-            ),
-            'dialogue' => $this->contextTrackGenerator->generateDialogue(
-                $atoms,
-                $l1VoiceId,
-                $dialogueSpeakerAVoiceId,
-                $dialogueSpeakerBVoiceId,
-            ),
-            'story' => $this->contextTrackGenerator->generateStory(
-                $atoms,
-                $l1VoiceId,
-                $l2VoiceId,
             ),
         ];
         $assembled = [];
@@ -185,12 +166,12 @@ class ProcessDailyAudioPracticeAction
 
             $tracks = DailyAudioPracticeTrack::query()
                 ->where('practice_id', $lockedPractice->id)
-                ->whereIn('mode', ['drill', 'dialogue', 'story'])
+                ->whereIn('mode', ['drill'])
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('mode');
 
-            foreach (['drill', 'dialogue', 'story'] as $mode) {
+            foreach (['drill'] as $mode) {
                 $track = $tracks->get($mode);
                 if (! $track instanceof DailyAudioPracticeTrack) {
                     throw new InvalidArgumentException(

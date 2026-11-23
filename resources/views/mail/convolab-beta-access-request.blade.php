@@ -1,6 +1,6 @@
 Journal beta access request
 
-Email: {{ $requesterEmail }}
-Platforms: {{ implode(', ', $devices) }}
+Email: {!! $requesterEmail !!}
+Platforms: {!! implode(', ', $devices) !!}
 
-{{ $reason !== '' ? $reason : 'No message provided.' }}
+{!! $reason !== '' ? $reason : 'No message provided.' !!}

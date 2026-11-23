@@ -60,6 +60,7 @@ final class ConvoLabBetaAccessRequestTest extends TestCase
             'scalar platforms' => [['devices' => 'Web'], 'devices'],
             'unknown platform' => [['devices' => ['Other']], 'devices.0'],
             'duplicate platform' => [['devices' => ['Web', 'Web']], 'devices.0'],
+            'comment in email' => [['email' => 'learner(comment)@example.com'], 'email'],
             'message array' => [['message' => ['test']], 'message'],
             'message limit' => [['message' => str_repeat('a', 2001)], 'message'],
         ];
@@ -80,11 +81,18 @@ final class ConvoLabBetaAccessRequestTest extends TestCase
         $this->postJson(self::ENDPOINT, $this->payload())->assertServerError();
     }
 
+    public function test_missing_recipient_fails_without_sending(): void
+    {
+        config(['services.convolab.beta_request_email' => null]);
+        $this->postJson(self::ENDPOINT, $this->payload())->assertStatus(503);
+        Mail::assertNothingSent();
+    }
+
     public function test_mail_template_contains_the_request_details(): void
     {
-        $mail = new ConvoLabBetaAccessRequestMail('learner@example.com', ['Android'], 'A paragraph each day.');
+        $mail = new ConvoLabBetaAccessRequestMail('learner@example.com', ['Android'], "I don't know & I’d like to practice <Japanese>.");
         $mail->assertSeeInText('learner@example.com');
         $mail->assertSeeInText('Android');
-        $mail->assertSeeInText('A paragraph each day.');
+        $mail->assertSeeInText("I don't know & I’d like to practice <Japanese>.");
     }
 }

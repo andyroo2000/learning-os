@@ -9,9 +9,17 @@ class SaveJournalDraftRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // A browser may retain an offline draft after another tab changes the session.
-        return ! $this->headers->has('X-Journal-Owner')
-            || $this->header('X-Journal-Owner') === (string) $this->user()?->getAuthIdentifier();
+        if (! $this->headers->has('X-Journal-Owner')) {
+            return true;
+        }
+
+        // Browser drafts use the public account ID returned by /api/auth/me.
+        $owner = $this->user()?->getAttribute('convolab_id');
+        if (! is_string($owner) || $owner === '') {
+            return false;
+        }
+
+        return $this->header('X-Journal-Owner') === $owner;
     }
 
     protected function prepareForValidation(): void

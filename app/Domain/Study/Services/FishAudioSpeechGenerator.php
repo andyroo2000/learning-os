@@ -21,9 +21,9 @@ class FishAudioSpeechGenerator implements AudioSpeechGenerator
     }
 
     /** @param array<string, array{string, string, float}> $lines */
-    public function generateBatch(array $lines): array
+    public function generateBatch(array $lines, ?\Closure $onThrottle = null): array
     {
-        return $this->withStudyErrors(fn () => $this->speech->generateBatch($lines));
+        return $this->withStudyErrors(fn () => $this->speech->generateBatch($lines, $onThrottle));
     }
 
     private function withStudyErrors(callable $generate): mixed

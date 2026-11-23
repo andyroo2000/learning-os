@@ -16,6 +16,8 @@ final class DailyAudioSpeechBatch implements AudioSpeechGenerator
 
     private int $total;
 
+    private bool $parallel = true;
+
     /** @param iterable<mixed> $units */
     public function __construct(
         private readonly FishAudioSpeechGenerator $speech,
@@ -39,7 +41,7 @@ final class DailyAudioSpeechBatch implements AudioSpeechGenerator
     {
         $key = $this->key($text, $voiceId, $speed);
         if (isset($this->pending[$key])) {
-            $this->fill();
+            $this->fill($key);
         }
         if (! isset($this->audio[$key])) {
             // A rejected, abnormally long clip needs fresh audio on its second attempt.
@@ -51,15 +53,20 @@ final class DailyAudioSpeechBatch implements AudioSpeechGenerator
         return $bytes;
     }
 
-    private function fill(): void
+    private function fill(string $key): void
     {
-        // The assembler asks for each distinct line in script order.
-        $batch = array_slice($this->pending, 0, 2, true);
-        $this->audio = count($batch) === 1
-            ? array_map(fn (array $line) => $this->speech->generate(...$line), $batch)
-            : $this->speech->generateBatch($batch);
-        foreach (array_keys($batch) as $key) {
-            unset($this->pending[$key]);
+        $batch = [$key => $this->pending[$key]];
+        unset($this->pending[$key]);
+        $next = $this->parallel && $this->audio === [] ? array_key_first($this->pending) : null;
+        if ($next !== null) {
+            $batch[$next] = $this->pending[$next];
+            unset($this->pending[$next]);
+            $this->audio += $this->speech->generateBatch($batch, function (): void {
+                // A constrained provider should see only single requests for the rest of this drill.
+                $this->parallel = false;
+            });
+        } else {
+            $this->audio[$key] = $this->speech->generate(...$batch[$key]);
         }
         $this->progress?->report(10 + (int) floor(85 * ($this->total - count($this->pending)) / $this->total));
     }

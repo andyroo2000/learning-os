@@ -52,7 +52,7 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
     }
 
     /** @param array<string, array{string, string, float}> $lines */
-    public function generateBatch(array $lines): array
+    public function generateBatch(array $lines, ?\Closure $onThrottle = null): array
     {
         // Metered callers keep their per-request usage records.
         if (Context::getHidden('ai_usage') !== null) {
@@ -71,9 +71,12 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
             if ($response instanceof \Throwable) {
                 throw AudioSpeechGenerationException::failed('Fish Audio', $response);
             }
-            $audio[$key] = $response->status() === 429
-                ? $this->retryThrottledLine($response, $line)
-                : $this->mp3($this->successful($response)->body());
+            if ($response->status() === 429) {
+                $onThrottle?->__invoke();
+                $audio[$key] = $this->retryThrottledLine($response, $line);
+            } else {
+                $audio[$key] = $this->mp3($this->successful($response)->body());
+            }
         }
 
         return $audio;
@@ -82,7 +85,11 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
     private function retryThrottledLine(Response $response, array $line): string
     {
         $retryAfter = $response->header('Retry-After');
-        $delay = is_numeric($retryAfter) ? (int) ceil((float) $retryAfter) : (int) strtotime($retryAfter) - time();
+        $date = strtotime($retryAfter);
+        $delay = $date === false ? 1 : max(1, $date - time());
+        if (is_numeric($retryAfter)) {
+            $delay = (int) ceil((float) $retryAfter);
+        }
         if ($delay > 30) {
             throw $this->serviceException($response);
         }

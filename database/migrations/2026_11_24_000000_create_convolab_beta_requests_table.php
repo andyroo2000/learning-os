@@ -18,6 +18,8 @@ return new class extends Migration
             $table->uuid('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->timestamp('invitation_sent_at')->nullable();
+            $table->uuid('sending_token')->nullable();
+            $table->timestamp('sending_started_at')->nullable();
             $table->timestamps();
             $table->index(['invitation_sent_at', 'created_at', 'id'], 'beta_requests_inbox_order');
         });

@@ -12,7 +12,13 @@ final class ConvoLabBetaInvitationMail extends Mailable
 
     public function __construct(public readonly string $code)
     {
-        $this->redeemUrl = rtrim(config('services.convolab.client_url'), '/').'/login?'.http_build_query(['inviteCode' => $code]);
+        $base = config('services.convolab.client_url');
+        $base = is_string($base) ? $base : '';
+        $validUrl = filter_var($base, FILTER_VALIDATE_URL);
+        if (! $validUrl || ! in_array(parse_url($base, PHP_URL_SCHEME), ['http', 'https'], true)) {
+            throw new \RuntimeException('The Journal invitation URL is not configured.');
+        }
+        $this->redeemUrl = rtrim($base, '/').'/login?'.http_build_query(['inviteCode' => $code]);
     }
 
     public function envelope(): Envelope

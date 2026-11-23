@@ -20,6 +20,7 @@ final class ConvoLabBetaRequest extends Model
             'devices' => 'array',
             'approved_at' => 'immutable_datetime',
             'invitation_sent_at' => 'immutable_datetime',
+            'sending_started_at' => 'immutable_datetime',
         ];
     }
 

@@ -9,13 +9,14 @@ use Tests\TestCase;
 
 class JournalReplacementsTest extends TestCase
 {
-    public function test_only_corrections_are_applied_and_readings_follow_the_same_spans(): void
+    public function test_corrections_and_optional_suggestions_are_applied_with_matching_readings(): void
     {
         $feedback = $this->feedback();
         $output = JournalFeedback::validated('映画を見ますた。よかった。', $feedback);
-        $this->assertSame('映画を見ました。よかった。', $output['correctedText']);
-        $this->assertSame('映画[えいが]を見[み]ました。よかった。', $output['correctedReading']);
+        $this->assertSame('映画を見ました。楽しかった。', $output['correctedText']);
+        $this->assertSame('映画[えいが]を見[み]ました。楽[たの]しかった。', $output['correctedReading']);
         $this->assertSame(1, $output['editVersion']);
+        $this->assertTrue($output['optionalAppliedByDefault']);
         $this->assertSame('楽しかった。', $output['segments'][1]['replacement']);
     }
 

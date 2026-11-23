@@ -17,7 +17,7 @@ final class JournalReplacements
         $reading = '';
         foreach ($feedback['segments'] as $span) {
             self::validate($span);
-            $applied = $span['kind'] === 'correction';
+            $applied = in_array($span['kind'], ['correction', 'optional'], true);
             $text .= $applied ? $span['replacement'] : $span['text'];
             $reading .= $applied ? $span['replacementReading'] : $span['reading'];
         }
@@ -25,7 +25,7 @@ final class JournalReplacements
             throw new RuntimeException('The corrected journal text is empty or too long.');
         }
 
-        return [...$feedback, 'correctedText' => $text, 'correctedReading' => $reading, 'editVersion' => 1];
+        return [...$feedback, 'correctedText' => $text, 'correctedReading' => $reading, 'editVersion' => 1, 'optionalAppliedByDefault' => true];
     }
 
     private static function validate(array $span): void

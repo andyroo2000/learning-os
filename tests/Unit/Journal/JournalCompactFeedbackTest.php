@@ -24,7 +24,7 @@ final class JournalCompactFeedbackTest extends TestCase
         $this->assertSame('どうでしたか。', $result['question']);
     }
 
-    public function test_optional_wording_stays_unapplied_and_whitespace_emoji_and_deletions_survive(): void
+    public function test_optional_wording_is_applied_and_whitespace_emoji_and_deletions_survive(): void
     {
         $data = CompactFeedbackFixture::result();
         $data['segments'][0]['kind'] = 'optional';
@@ -34,7 +34,7 @@ final class JournalCompactFeedbackTest extends TestCase
             'explanationReading' => 'Remove repeated punctuation.', 'replacementReading' => ''];
         $body = "映画を見ますた。\n\n😊 [note] 。。";
         $result = JournalCompactFeedback::validated($body, $data);
-        $this->assertSame("映画を見ますた。\n\n😊 [note] ", $result['correctedText']);
+        $this->assertSame("映画を見ました。\n\n😊 [note] ", $result['correctedText']);
         $this->assertSame('', $result['segments'][2]['replacement']);
         $this->assertSame($body, implode('', array_column($result['segments'], 'text')));
     }

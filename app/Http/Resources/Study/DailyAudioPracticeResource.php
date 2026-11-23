@@ -23,6 +23,7 @@ class DailyAudioPracticeResource extends JsonResource
             'userId' => $this->convolab_user_id ?? (string) $this->user_id,
             'practiceDate' => $this->practice_date?->format('Y-m-d'),
             'status' => $this->status,
+            ...($this->status === 'generating' ? ['progress' => $this->generation_progress] : []),
             'targetDurationMinutes' => $this->target_duration_minutes,
             'targetLanguage' => $this->target_language,
             'nativeLanguage' => $this->native_language,

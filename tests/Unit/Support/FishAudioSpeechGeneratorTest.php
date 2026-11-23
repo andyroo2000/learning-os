@@ -39,6 +39,27 @@ class FishAudioSpeechGeneratorTest extends TestCase
             && $request['format'] === 'mp3');
     }
 
+    public function test_a_throttled_line_retries_without_repeating_its_successful_neighbor(): void
+    {
+        $sent = [];
+        Http::fake(function (Request $request) use (&$sent) {
+            $line = $request['text'];
+            $sent[] = $line;
+            if ($line === 'second' && count($sent) === 2) {
+                return Http::response('', 429);
+            }
+
+            return Http::response('ID3'.$line);
+        });
+
+        $result = app(FishAudioSpeechGenerator::class)->generateBatch([
+            'a' => ['first', self::VOICE_ID, 1.0], 'b' => ['second', self::VOICE_ID, 0.85],
+        ]);
+
+        $this->assertSame(['a' => 'ID3first', 'b' => 'ID3second'], $result);
+        $this->assertSame(['first', 'second', 'second'], $sent);
+    }
+
     public function test_it_preserves_an_explicit_s1_backend_override(): void
     {
         config()->set('services.fish_audio.backend', 's1');

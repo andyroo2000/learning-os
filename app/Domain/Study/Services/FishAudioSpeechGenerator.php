@@ -17,8 +17,19 @@ class FishAudioSpeechGenerator implements AudioSpeechGenerator
 
     public function generate(string $text, string $voiceId, float $speed = 1.0): string
     {
+        return $this->withStudyErrors(fn () => $this->speech->generate($text, $voiceId, $speed));
+    }
+
+    /** @param array<string, array{string, string, float}> $lines */
+    public function generateBatch(array $lines): array
+    {
+        return $this->withStudyErrors(fn () => $this->speech->generateBatch($lines));
+    }
+
+    private function withStudyErrors(callable $generate): mixed
+    {
         try {
-            return $this->speech->generate($text, $voiceId, $speed);
+            return $generate();
         } catch (AudioSpeechGenerationException $exception) {
             throw match ($exception->reason) {
                 AudioSpeechGenerationException::UNAVAILABLE => StudyPreviewMediaGenerationException::providerUnavailable('Fish Audio', $exception),

@@ -4,6 +4,7 @@ namespace App\Domain\Study\Services;
 
 use App\Domain\Study\Results\DailyAudioScriptUnit;
 use App\Domain\Study\Results\DailyAudioTrackAssemblyResult;
+use App\Domain\Study\Support\DailyAudioGenerationProgress;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use App\Domain\Study\Support\DailyAudioPracticeId;
 use App\Support\Audio\AudioTrackAssembler;
@@ -14,20 +15,17 @@ class DailyAudioTrackAssembler
 {
     public const MAX_SCRIPT_UNITS = AudioTrackAssembler::MAX_SCRIPT_UNITS;
 
-    private readonly AudioTrackAssembler $assembler;
-
     public function __construct(
-        FishAudioSpeechGenerator $speech,
-        DailyAudioAudioProcessor $audio,
-    ) {
-        $this->assembler = new AudioTrackAssembler($speech, $audio);
-    }
+        private readonly FishAudioSpeechGenerator $speech,
+        private readonly DailyAudioAudioProcessor $audio,
+    ) {}
 
     /** @param iterable<int, DailyAudioScriptUnit> $scriptUnits */
     public function assemble(
         string $practiceId,
         string $trackId,
         iterable $scriptUnits,
+        ?DailyAudioGenerationProgress $progress = null,
     ): DailyAudioTrackAssemblyResult {
         $practiceId = strtolower(trim($practiceId));
         $trackId = strtolower(trim($trackId));
@@ -36,8 +34,10 @@ class DailyAudioTrackAssembler
             throw new InvalidArgumentException('Daily Audio assembly requires valid practice and track IDs.');
         }
 
-        $assembled = $this->assembler->assemble(
-            $scriptUnits,
+        $units = collect($scriptUnits);
+        $assembler = new AudioTrackAssembler(new DailyAudioSpeechBatch($this->speech, $units, $progress), $this->audio);
+        $assembled = $assembler->assemble(
+            $units,
             new AudioTrackAssemblyRequest(
                 (string) config('daily_audio.disk'),
                 DailyAudioPracticeGeneration::storagePath($practiceId, $trackId),

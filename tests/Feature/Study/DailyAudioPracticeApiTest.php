@@ -7,6 +7,7 @@ use App\Domain\Study\Actions\ShowDailyAudioPracticeAction;
 use App\Domain\Study\Actions\ShowDailyAudioPracticeStatusAction;
 use App\Domain\Study\Models\DailyAudioPractice;
 use App\Domain\Study\Models\DailyAudioPracticeTrack;
+use App\Domain\Study\Support\DailyAudioGenerationProgress;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -437,6 +438,25 @@ class DailyAudioPracticeApiTest extends TestCase
             $this->assertArrayHasKey($key, $payload['tracks'][0]);
             $this->assertNull($payload['tracks'][0][$key]);
         }
+    }
+
+    public function test_only_the_active_run_can_publish_progress_to_the_player_and_list(): void
+    {
+        $run = (string) str()->uuid();
+        $practice = DailyAudioPractice::factory()->for($this->signIn())->create([
+            'status' => 'generating', 'generation_run_id' => $run, 'generation_progress' => 0,
+        ]);
+        $progress = new DailyAudioGenerationProgress($practice->id, $run);
+        $progress->report(41);
+        (new DailyAudioGenerationProgress($practice->id, (string) str()->uuid()))->report(95);
+        $url = "/api/daily-audio-practice/{$practice->id}/status";
+        $this->getJson($url)->assertOk()->assertJsonPath('progress', 41);
+        $this->getJson('/api/daily-audio-practice?paginated=1')->assertOk()->assertJsonPath('items.0.progress', 41);
+        $practice->status = 'ready';
+        $practice->save();
+        $progress->report(70);
+        $this->assertSame(41, $practice->refresh()->generation_progress);
+        $this->getJson($url)->assertOk()->assertJsonPath('progress', null);
     }
 
     public function test_status_derives_durable_progress_from_completed_tracks(): void

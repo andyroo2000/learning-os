@@ -2,13 +2,17 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Domain\Admin\Models\ConvoLabBetaRequest;
 use App\Mail\ConvoLabBetaAccessRequestMail;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class ConvoLabBetaAccessRequestTest extends TestCase
 {
+    use RefreshDatabase;
+
     private const ENDPOINT = '/api/convolab/browser/auth/beta-requests';
 
     protected function setUp(): void
@@ -72,20 +76,34 @@ final class ConvoLabBetaAccessRequestTest extends TestCase
             $this->postJson(self::ENDPOINT, $this->payload())->assertOk();
         }
         $this->postJson(self::ENDPOINT, $this->payload())->assertTooManyRequests();
-        Mail::assertSentCount(3);
+        Mail::assertSentCount(1);
+        $this->assertDatabaseCount('convolab_beta_requests', 1);
     }
 
-    public function test_mail_failure_does_not_report_success(): void
+    public function test_mail_failure_preserves_the_request_in_the_admin_inbox(): void
     {
         Mail::shouldReceive('to')->once()->andThrow(new \RuntimeException('Mail unavailable'));
-        $this->postJson(self::ENDPOINT, $this->payload())->assertServerError();
+        $this->postJson(self::ENDPOINT, $this->payload())->assertOk();
+        $this->assertDatabaseHas('convolab_beta_requests', ['email' => 'learner@example.com', 'approved_at' => null]);
     }
 
-    public function test_missing_recipient_fails_without_sending(): void
+    public function test_missing_notification_recipient_still_records_the_request(): void
     {
         config(['services.convolab.beta_request_email' => null]);
-        $this->postJson(self::ENDPOINT, $this->payload())->assertStatus(503);
+        $this->postJson(self::ENDPOINT, $this->payload())->assertOk();
+        $this->assertDatabaseCount('convolab_beta_requests', 1);
         Mail::assertNothingSent();
+    }
+
+    public function test_repeat_requests_keep_the_original_details_without_duplicate_notifications(): void
+    {
+        $this->postJson(self::ENDPOINT, $this->payload(['email' => 'Learner@Example.com']))->assertOk();
+        $this->postJson(self::ENDPOINT, $this->payload(['message' => 'replacement']))->assertOk();
+        $record = ConvoLabBetaRequest::query()->sole();
+        $this->assertSame('learner@example.com', $record->email);
+        $this->assertSame('I want to practice Japanese.', $record->message);
+        $this->assertSame(['Web', 'iOS'], $record->devices);
+        Mail::assertSentCount(1);
     }
 
     public function test_mail_template_contains_the_request_details(): void

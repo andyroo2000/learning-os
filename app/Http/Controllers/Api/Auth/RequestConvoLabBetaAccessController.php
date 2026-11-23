@@ -13,6 +13,6 @@ final class RequestConvoLabBetaAccessController
         $data = $request->validated();
         $send->execute($data['email'], $data['devices'], $data['message'] ?? '');
 
-        return response()->json(['message' => 'Your beta access request was sent.']);
+        return response()->json(['message' => 'Your beta access request was received.']);
     }
 }

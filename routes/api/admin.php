@@ -1,12 +1,14 @@
 <?php
 
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
+use App\Http\Controllers\Api\Admin\ApproveBetaRequestController;
 use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
 use App\Http\Controllers\Api\Admin\ListAdminSpeakerAvatarsController;
 use App\Http\Controllers\Api\Admin\ListAdminUsersController;
+use App\Http\Controllers\Api\Admin\ListBetaRequestsController;
 use App\Http\Controllers\Api\Admin\RecropAdminSpeakerAvatarController;
 use App\Http\Controllers\Api\Admin\ShowAdminPronunciationDictionaryController;
 use App\Http\Controllers\Api\Admin\ShowAdminSpeakerAvatarOriginalController;
@@ -19,6 +21,10 @@ use App\Http\Controllers\Api\Admin\UploadAdminUserAvatarController;
 use Illuminate\Support\Facades\Route;
 
 return static function (): void {
+    Route::get('/convolab/admin/beta-requests', ListBetaRequestsController::class);
+    Route::post('/convolab/admin/beta-requests/{betaRequestId}/approve', ApproveBetaRequestController::class)
+        ->whereUuid('betaRequestId')
+        ->middleware('throttle:30,1,convolab-beta-approve');
     Route::get('/convolab/admin/stats', ShowAdminStatsController::class);
     Route::get('/convolab/admin/journal-analytics', ShowJournalAnalytics::class);
     Route::get('/convolab/admin/users', ListAdminUsersController::class);

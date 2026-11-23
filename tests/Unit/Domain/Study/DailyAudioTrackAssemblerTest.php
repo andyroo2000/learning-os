@@ -10,6 +10,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\TestWith;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -219,7 +220,9 @@ class DailyAudioTrackAssemblerTest extends TestCase
         Storage::disk('daily-audio-test')->assertDirectoryEmpty('daily-audio');
     }
 
-    public function test_it_reports_storage_failure_when_the_disk_returns_false(): void
+    #[TestWith([true])]
+    #[TestWith([false])]
+    public function test_it_preserves_the_storage_result_when_the_disk_closes_the_stream(bool $stored): void
     {
         $speech = $this->mock(FishAudioSpeechGenerator::class);
         $speech->shouldReceive('generate')->once()->andReturn('ID3speech');
@@ -242,25 +245,27 @@ class DailyAudioTrackAssemblerTest extends TestCase
                 ->andReturn(1.0);
         });
         $disk = \Mockery::mock(Filesystem::class);
-        $disk->shouldReceive('put')->once()->andReturnFalse();
-        Storage::shouldReceive('disk')
-            ->once()
-            ->with('daily-audio-test')
-            ->andReturn($disk);
+        $expectedPath = "daily-audio/{$this->practiceId}/{$this->trackId}.mp3";
+        $disk->shouldReceive('put')->once()->andReturnUsing(function (string $path, $stream) use ($expectedPath, $stored): bool {
+            $this->assertSame($expectedPath, $path);
+            $this->assertSame('ID3assembled-track', stream_get_contents($stream));
+            fclose($stream);
 
-        try {
-            (new DailyAudioTrackAssembler($speech, $audio))->assemble(
-                $this->practiceId,
-                $this->trackId,
-                [DailyAudioScriptUnit::narration('Welcome.', 'fishaudio:narrator')],
-            );
-            $this->fail('Expected storage failure to be reported.');
-        } catch (RuntimeException $exception) {
-            $this->assertSame(
-                'Daily Audio track could not be persisted.',
-                $exception->getMessage(),
-            );
+            return $stored;
+        });
+        Storage::shouldReceive('disk')->once()->with('daily-audio-test')->andReturn($disk);
+
+        if (! $stored) {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('Daily Audio track could not be persisted.');
         }
+        $result = (new DailyAudioTrackAssembler($speech, $audio))->assemble(
+            $this->practiceId,
+            $this->trackId,
+            [DailyAudioScriptUnit::narration('Welcome.', 'fishaudio:narrator')],
+        );
+
+        $this->assertSame($expectedPath, $result->storagePath);
     }
 
     public function test_it_rejects_invalid_ids_and_untyped_or_oversized_scripts(): void

@@ -19,12 +19,8 @@ class AudioTrackAssembler
     /** @param iterable<int, AudioScriptUnit> $scriptUnits */
     public function assemble(
         iterable $scriptUnits,
-        string $disk,
-        string $storagePath,
-        string $temporaryPrefix,
-        string $label,
+        AudioTrackAssemblyRequest $request,
     ): AudioTrackAssemblyResult {
-        $request = new AudioTrackAssemblyRequest($disk, $storagePath, $temporaryPrefix, $label);
         $units = collect($scriptUnits)->values();
         $this->assertValidUnitCount($units->all(), $request);
         $this->assertTypedUnits($units->all(), $request);
@@ -300,7 +296,9 @@ class AudioTrackAssembler
         try {
             $stored = Storage::disk($workspace['request']->disk)->put($workspace['request']->storagePath, $stream);
         } finally {
-            fclose($stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }
         if (! $stored) {
             throw new RuntimeException("{$workspace['request']->label} track could not be persisted.");

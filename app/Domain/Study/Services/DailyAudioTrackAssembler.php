@@ -7,6 +7,7 @@ use App\Domain\Study\Results\DailyAudioTrackAssemblyResult;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use App\Domain\Study\Support\DailyAudioPracticeId;
 use App\Support\Audio\AudioTrackAssembler;
+use App\Support\Audio\AudioTrackAssemblyRequest;
 use InvalidArgumentException;
 
 class DailyAudioTrackAssembler
@@ -37,10 +38,12 @@ class DailyAudioTrackAssembler
 
         $assembled = $this->assembler->assemble(
             $scriptUnits,
-            (string) config('daily_audio.disk'),
-            DailyAudioPracticeGeneration::storagePath($practiceId, $trackId),
-            'learning-os-daily-audio',
-            'Daily Audio',
+            new AudioTrackAssemblyRequest(
+                (string) config('daily_audio.disk'),
+                DailyAudioPracticeGeneration::storagePath($practiceId, $trackId),
+                'learning-os-daily-audio',
+                'Daily Audio',
+            ),
         );
 
         return new DailyAudioTrackAssemblyResult(

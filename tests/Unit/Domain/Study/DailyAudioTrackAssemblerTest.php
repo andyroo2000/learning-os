@@ -33,14 +33,14 @@ class DailyAudioTrackAssemblerTest extends TestCase
     public function test_it_assembles_typed_units_reuses_speech_and_silence_and_persists_the_track(): void
     {
         $speech = $this->mock(FishAudioSpeechGenerator::class);
-        $speech->shouldReceive('generate')
-            ->once()
-            ->with('Welcome.', 'fishaudio:narrator', 1.0)
-            ->andReturn('ID3narration');
-        $speech->shouldReceive('generate')
-            ->once()
-            ->with('物価が高いです。', 'fishaudio:speaker', 0.85)
-            ->andReturn('ID3japanese');
+        $speech->shouldReceive('generateBatch')->once()->andReturnUsing(function (array $lines): array {
+            $this->assertSame([
+                ['Welcome.', 'fishaudio:narrator', 1.0],
+                ['物価が高いです。', 'fishaudio:speaker', 0.85],
+            ], array_values($lines));
+
+            return array_combine(array_keys($lines), ['ID3narration', 'ID3japanese']);
+        });
         $audio = $this->audioProcessor();
 
         $result = (new DailyAudioTrackAssembler($speech, $audio))->assemble(

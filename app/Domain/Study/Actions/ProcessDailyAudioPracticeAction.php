@@ -5,8 +5,11 @@ namespace App\Domain\Study\Actions;
 use App\Domain\Study\Models\DailyAudioPractice;
 use App\Domain\Study\Models\DailyAudioPracticeTrack;
 use App\Domain\Study\Results\DailyAudioCardSelectionResult;
+use App\Domain\Study\Results\DailyAudioDrillGenerationResult;
+use App\Domain\Study\Results\DailyAudioTrackAssemblyResult;
 use App\Domain\Study\Services\DailyAudioDrillScriptGenerator;
 use App\Domain\Study\Services\DailyAudioTrackAssembler;
+use App\Domain\Study\Support\DailyAudioGenerationProgress;
 use App\Domain\Study\Support\DailyAudioPracticeGeneration;
 use App\Domain\Study\Support\DailyAudioPracticeId;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +41,9 @@ class ProcessDailyAudioPracticeAction
         }
 
         $practice = $claimed['practice'];
-        $tracks = $claimed['tracks'];
+        $track = $claimed['tracks']['drill'];
+        $progress = new DailyAudioGenerationProgress($practice->id, $practice->generation_run_id);
+        $progress->report(1);
         $selected = $this->selectCards->handle($practice->user_id);
         $atoms = $this->buildAtoms->handle($selected->cards);
         if ($atoms->isEmpty()) {
@@ -56,32 +61,14 @@ class ProcessDailyAudioPracticeAction
 
         $l1VoiceId = (string) config('daily_audio.l1_voice_id');
         $l2VoiceId = (string) config('daily_audio.l2_voice_id');
-        $generated = [
-            'drill' => $this->scriptGenerator->generate(
-                $atoms,
-                $l1VoiceId,
-                $l2VoiceId,
-                $practice->target_duration_minutes,
-            ),
-        ];
-        $assembled = [];
-        foreach ($generated as $mode => $trackGeneration) {
-            $track = $tracks[$mode];
-            $assembled[$mode] = $this->trackAssembler->assemble(
-                $practice->id,
-                $track->id,
-                $trackGeneration->units,
-            );
-        }
+        $generated = $this->scriptGenerator->generate(
+            $atoms, $l1VoiceId, $l2VoiceId, $practice->target_duration_minutes,
+        );
+        $progress->report(10);
+        $assembled = $this->trackAssembler->assemble($practice->id, $track->id, $generated->units, $progress);
 
         DB::transaction(function () use (
-            $assembled,
-            $atoms,
-            $generated,
-            $generationRunId,
-            $practice,
-            $requireMatchingRun,
-            $tracks,
+            $assembled, $atoms, $generated, $generationRunId, $practice, $requireMatchingRun, $track,
         ): void {
             $lockedPractice = DailyAudioPractice::query()
                 ->whereKey($practice->id)
@@ -95,32 +82,36 @@ class ProcessDailyAudioPracticeAction
                 return;
             }
 
-            foreach ($generated as $mode => $trackGeneration) {
-                $track = $tracks[$mode];
-                $trackAssembly = $assembled[$mode];
-                DailyAudioPracticeTrack::query()
-                    ->whereKey($track->id)
-                    ->where('practice_id', $practice->id)
-                    ->where('mode', $mode)
-                    ->update([
-                        'status' => 'ready',
-                        'script_units_json' => $trackGeneration->scriptUnits(),
-                        'audio_url' => DailyAudioPracticeGeneration::audioUrl($practice->id, $track->id),
-                        'timing_data' => $trackAssembly->timingData,
-                        'approx_duration_seconds' => $trackAssembly->durationSeconds,
-                        'generation_metadata_json' => [
-                            'sourceCardCount' => $atoms->count(),
-                            ...$trackGeneration->metadata,
-                            ...$trackAssembly->metadata,
-                        ],
-                        'error_message' => null,
-                    ]);
-            }
+            DailyAudioPracticeTrack::query()
+                ->whereKey($track->id)
+                ->where('practice_id', $practice->id)
+                ->where('mode', 'drill')
+                ->update([
+                    ...$this->playbackFields($generated, $assembled, $atoms->count()),
+                    'audio_url' => DailyAudioPracticeGeneration::audioUrl($practice->id, $track->id),
+                ]);
 
             $lockedPractice->status = 'ready';
             $lockedPractice->error_message = null;
             $lockedPractice->save();
         });
+    }
+
+    private function playbackFields(
+        DailyAudioDrillGenerationResult $generated,
+        DailyAudioTrackAssemblyResult $assembled,
+        int $sourceCardCount,
+    ): array {
+        return [
+            'status' => 'ready',
+            'script_units_json' => $generated->scriptUnits(),
+            'timing_data' => $assembled->timingData,
+            'approx_duration_seconds' => $assembled->durationSeconds,
+            'generation_metadata_json' => [
+                'sourceCardCount' => $sourceCardCount, ...$generated->metadata, ...$assembled->metadata,
+            ],
+            'error_message' => null,
+        ];
     }
 
     private function hasValidGenerationIds(string $practiceId, ?string $generationRunId): bool

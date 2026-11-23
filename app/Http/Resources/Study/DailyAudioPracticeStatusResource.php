@@ -12,15 +12,11 @@ class DailyAudioPracticeStatusResource extends JsonResource
     public function toArray(Request $request): array
     {
         $tracks = $this->resource->tracks;
-        $completed = $tracks->whereIn('status', ['ready', 'skipped'])->count();
 
         return [
             'id' => $this->id,
             'status' => $this->status,
-            'progress' => $this->status === 'generating' && $tracks->isNotEmpty()
-                // Match Convo Lab's durable fallback when live queue progress is unavailable.
-                ? (int) floor(($completed / self::EXPECTED_TRACK_COUNT) * 100)
-                : null,
+            'progress' => $this->status === 'generating' ? $this->progress() : null,
             'tracks' => $tracks->map(fn ($track): array => [
                 'id' => $track->id,
                 'mode' => $track->mode,
@@ -29,5 +25,17 @@ class DailyAudioPracticeStatusResource extends JsonResource
                 'approxDurationSeconds' => $track->approx_duration_seconds,
             ])->values(),
         ];
+    }
+
+    private function progress(): ?int
+    {
+        if ($this->generation_progress !== null) {
+            return (int) $this->generation_progress;
+        }
+        // Older generations recorded only completed tracks.
+        $tracks = $this->resource->tracks;
+        $completed = $tracks->whereIn('status', ['ready', 'skipped'])->count();
+
+        return $tracks->isEmpty() ? null : (int) floor(100 * $completed / self::EXPECTED_TRACK_COUNT);
     }
 }

@@ -15,7 +15,7 @@ class ShowDailyAudioPracticeStatusAction
         }
 
         return DailyAudioPractice::query()
-            ->select(['id', 'user_id', 'status'])
+            ->select(['id', 'user_id', 'status', 'generation_progress'])
             ->whereKey($practiceId)
             ->where('user_id', $userId)
             ->with(['tracks' => fn ($query) => $query

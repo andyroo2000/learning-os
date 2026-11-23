@@ -4,9 +4,12 @@ namespace App\Support\Audio;
 
 use App\Support\Usage\ProviderUsage;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Http;
-use InvalidArgumentException;
+use Illuminate\Support\Sleep;
 
 final class FishAudioSpeechGenerator implements AudioSpeechGenerator
 {
@@ -16,43 +19,31 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
 
     public function __construct(private readonly AutomaticSpeechDirections $directions) {}
 
-    private function request(string $text, string $voiceId, float $speed, bool $timed): Response
+    private function client(PendingRequest $request, bool $timed): PendingRequest
     {
-        $apiKey = $this->apiKey();
-        $text = $this->validatedText($text);
-        $this->validateSpeed($speed);
+        return $request->baseUrl(rtrim((string) config('services.fish_audio.base_url'), '/'))
+            ->accept($timed ? 'text/event-stream' : 'audio/mpeg')->asJson()->withToken($this->apiKey())
+            ->withHeaders(['model' => (string) config('services.fish_audio.backend')])
+            ->timeout(self::TIMEOUT_SECONDS);
+    }
 
-        $referenceId = preg_replace('/^fishaudio:/i', '', trim($voiceId));
-        if (! is_string($referenceId) || preg_match('/^[a-f0-9]{32}$/i', $referenceId) !== 1) {
-            throw AudioSpeechGenerationException::unavailable('Fish Audio');
-        }
-
-        // Timestamp text must match the authored text, without synthetic performance tags.
-        $text = $timed ? $text : $this->directions->apply($text);
-
+    private function request(FishAudioLine $line, bool $timed): Response
+    {
+        $client = $this->client(Http::createPendingRequest(), $timed);
+        $payload = $line->payload($this->directions, $timed);
         try {
             $response = ProviderUsage::request('fish', (string) config('services.fish_audio.backend'),
-                ['input_bytes' => strlen($text)], fn () => Http::baseUrl(rtrim((string) config('services.fish_audio.base_url'), '/'))
-                    ->accept($timed ? 'text/event-stream' : 'audio/mpeg')
-                    ->asJson()
-                    ->withToken($apiKey)
-                    ->withHeaders(['model' => (string) config('services.fish_audio.backend')])
-                    ->timeout(self::TIMEOUT_SECONDS)
-                    ->post($timed ? '/v1/tts/stream/with-timestamp' : '/v1/tts', [
-                        'text' => $text,
-                        'reference_id' => $referenceId,
-                        'format' => 'mp3',
-                        'mp3_bitrate' => 128,
-                        'sample_rate' => 44_100,
-                        'prosody' => [
-                            'speed' => floor($speed) === $speed ? (int) $speed : $speed,
-                            'volume' => 0,
-                        ],
-                    ]));
+                ['input_bytes' => strlen($payload['text'])],
+                fn () => $client->post($timed ? '/v1/tts/stream/with-timestamp' : '/v1/tts', $payload));
         } catch (ConnectionException $exception) {
             throw AudioSpeechGenerationException::failed('Fish Audio', $exception);
         }
 
+        return $this->successful($response);
+    }
+
+    private function successful(Response $response): Response
+    {
         if (! $response->successful()) {
             throw $this->serviceException($response);
         }
@@ -60,9 +51,60 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
         return $response;
     }
 
+    /** @param array<string, array{string, string, float}> $lines */
+    public function generateBatch(array $lines, ?\Closure $onThrottle = null): array
+    {
+        // Metered callers keep their per-request usage records.
+        if (Context::getHidden('ai_usage') !== null) {
+            return array_map(fn (array $line) => $this->generate(...$line), $lines);
+        }
+
+        $responses = Http::pool(function (Pool $pool) use ($lines): void {
+            foreach ($lines as $key => [$text, $voice, $speed]) {
+                $this->client($pool->as($key), false)->post('/v1/tts', (new FishAudioLine($text, $voice, $speed))->payload($this->directions, false));
+            }
+        }, concurrency: 2);
+
+        $audio = [];
+        foreach ($lines as $key => $line) {
+            $response = $responses[$key];
+            if ($response instanceof \Throwable) {
+                throw AudioSpeechGenerationException::failed('Fish Audio', $response);
+            }
+            if ($response->status() === 429) {
+                $onThrottle?->__invoke();
+                $audio[$key] = $this->retryThrottledLine($response, $line);
+            } else {
+                $audio[$key] = $this->mp3($this->successful($response)->body());
+            }
+        }
+
+        return $audio;
+    }
+
+    private function retryThrottledLine(Response $response, array $line): string
+    {
+        $retryAfter = $response->header('Retry-After');
+        $date = strtotime($retryAfter);
+        $delay = $date === false ? 1 : max(1, $date - time());
+        if (is_numeric($retryAfter)) {
+            $delay = (int) ceil((float) $retryAfter);
+        }
+        if ($delay > 30) {
+            throw $this->serviceException($response);
+        }
+        Sleep::sleep(max(1, $delay));
+
+        return $this->generate(...$line);
+    }
+
     public function generate(string $text, string $voiceId, float $speed = 1.0): string
     {
-        $bytes = $this->request($text, $voiceId, $speed, false)->body();
+        return $this->mp3($this->request(new FishAudioLine($text, $voiceId, $speed), false)->body());
+    }
+
+    private function mp3(string $bytes): string
+    {
         if (! $this->isMp3($bytes)) {
             throw AudioSpeechGenerationException::invalidOutput('Fish Audio');
         }
@@ -72,7 +114,7 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
 
     public function generateTimed(string $text, string $voiceId): array
     {
-        $result = FishAudioTimestampStream::decode($this->request($text, $voiceId, 1.0, true)->body());
+        $result = FishAudioTimestampStream::decode($this->request(new FishAudioLine($text, $voiceId), true)->body());
         if (! $this->isMp3($result['audio'])) {
             throw AudioSpeechGenerationException::invalidOutput('Fish Audio');
         }
@@ -88,26 +130,6 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
         }
 
         return $apiKey;
-    }
-
-    private function validatedText(string $text): string
-    {
-        $text = trim($text);
-        if ($text === '' || mb_strlen($text, 'UTF-8') > self::MAX_TEXT_LENGTH) {
-            throw AudioSpeechGenerationException::invalidOutput('Fish Audio');
-        }
-
-        return $text;
-    }
-
-    private function validateSpeed(float $speed): void
-    {
-        if (! is_finite($speed)) {
-            throw new InvalidArgumentException('Fish Audio speech speed is invalid.');
-        }
-        if ($speed < 0.5 || $speed > 2) {
-            throw new InvalidArgumentException('Fish Audio speech speed is invalid.');
-        }
     }
 
     private function isMp3(string $bytes): bool

@@ -7,6 +7,7 @@ use App\Support\Audio\AudioSpeechGenerator;
 use App\Support\Audio\FishAudioSpeechGenerator;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Tests\TestCase;
 
 class FishAudioSpeechGeneratorTest extends TestCase
@@ -41,12 +42,13 @@ class FishAudioSpeechGeneratorTest extends TestCase
 
     public function test_a_throttled_line_retries_without_repeating_its_successful_neighbor(): void
     {
+        Sleep::fake();
         $sent = [];
         Http::fake(function (Request $request) use (&$sent) {
             $line = $request['text'];
             $sent[] = $line;
             if ($line === 'second' && count($sent) === 2) {
-                return Http::response('', 429);
+                return Http::response('', 429, ['Retry-After' => '2']);
             }
 
             return Http::response('ID3'.$line);
@@ -58,6 +60,7 @@ class FishAudioSpeechGeneratorTest extends TestCase
 
         $this->assertSame(['a' => 'ID3first', 'b' => 'ID3second'], $result);
         $this->assertSame(['first', 'second', 'second'], $sent);
+        Sleep::assertSlept(fn ($duration) => $duration->totalSeconds == 2);
     }
 
     public function test_it_preserves_an_explicit_s1_backend_override(): void

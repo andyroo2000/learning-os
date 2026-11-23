@@ -11,10 +11,12 @@ final class DailyAudioSpeechBatch implements AudioSpeechGenerator
     /** @var array<string, array{string, string, float}> */
     private array $pending = [];
 
+    /** @var array<string, string> */
     private array $audio = [];
 
     private int $total;
 
+    /** @param iterable<mixed> $units */
     public function __construct(
         private readonly FishAudioSpeechGenerator $speech,
         iterable $units,
@@ -51,6 +53,7 @@ final class DailyAudioSpeechBatch implements AudioSpeechGenerator
 
     private function fill(): void
     {
+        // The assembler asks for each distinct line in script order.
         $batch = array_slice($this->pending, 0, 2, true);
         $this->audio = count($batch) === 1
             ? array_map(fn (array $line) => $this->speech->generate(...$line), $batch)

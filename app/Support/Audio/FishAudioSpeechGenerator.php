@@ -9,6 +9,7 @@ use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 
 final class FishAudioSpeechGenerator implements AudioSpeechGenerator
 {
@@ -71,11 +72,23 @@ final class FishAudioSpeechGenerator implements AudioSpeechGenerator
                 throw AudioSpeechGenerationException::failed('Fish Audio', $response);
             }
             $audio[$key] = $response->status() === 429
-                ? $this->generate(...$line)
+                ? $this->retryThrottledLine($response, $line)
                 : $this->mp3($this->successful($response)->body());
         }
 
         return $audio;
+    }
+
+    private function retryThrottledLine(Response $response, array $line): string
+    {
+        $retryAfter = $response->header('Retry-After');
+        $delay = is_numeric($retryAfter) ? (int) ceil((float) $retryAfter) : (int) strtotime($retryAfter) - time();
+        if ($delay > 30) {
+            throw $this->serviceException($response);
+        }
+        Sleep::sleep(max(1, $delay));
+
+        return $this->generate(...$line);
     }
 
     public function generate(string $text, string $voiceId, float $speed = 1.0): string

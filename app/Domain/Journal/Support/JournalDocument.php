@@ -18,7 +18,8 @@ final class JournalDocument
             'id' => $source.':'.$index,
             'text' => $span['text'], 'reading' => $span['reading'],
             'replacement' => $span['replacement'], 'replacementReading' => $span['replacementReading'],
-            'applied' => $span['kind'] === 'correction',
+            'applied' => $span['kind'] === 'correction'
+                || ($span['kind'] === 'optional' && ($feedback['optionalAppliedByDefault'] ?? false)),
         ], $feedback['segments'], array_keys($feedback['segments']));
     }
 

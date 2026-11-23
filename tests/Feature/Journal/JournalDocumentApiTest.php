@@ -38,6 +38,29 @@ class JournalDocumentApiTest extends TestCase
             ->assertJsonPath('data.correctedDocument.text', '映画を見ました。')->assertJsonPath('data.replyRevision', 2);
     }
 
+    public function test_optional_suggestions_start_applied_but_an_explicit_rejection_survives_reload(): void
+    {
+        [$entry, $analysis, $input] = $this->ready();
+        $result = $analysis->result;
+        $result['segments'][0]['kind'] = 'optional';
+        $result['optionalAppliedByDefault'] = true;
+        $analysis->result = $result;
+        $analysis->save();
+        $url = '/api/journal/entries/'.$entry->id;
+        $this->getJson($url.'/analysis')->assertOk()
+            ->assertJsonPath('data.correctedDocument.text', '映画を見ました。')
+            ->assertJsonPath('data.correctedDocument.suggestions.0.applied', true);
+        $this->assertSame('映画を見ました。', JournalAudioVersion::text($entry, ['analysisId' => $analysis->id, 'expectedReplyRevision' => 0]));
+        $this->putJson($url.'/suggestion', $input)->assertOk()
+            ->assertJsonPath('data.correctedDocument.suggestions.0.applied', false);
+        $this->getJson($url.'/analysis')->assertOk()
+            ->assertJsonPath('data.correctedDocument.text', '映画を見ますた。')
+            ->assertJsonPath('data.correctedDocument.reading', '映画[えいが]を見[み]ますた。')
+            ->assertJsonPath('data.correctedDocument.suggestions.0.applied', false);
+        $this->assertSame('映画を見ますた。', JournalAudioVersion::text($entry, ['analysisId' => $analysis->id, 'expectedReplyRevision' => 1]));
+        $this->assertSame($entry->body, $entry->fresh()->body);
+    }
+
     public function test_changes_are_private_and_reject_stale_pending_or_unknown_suggestions(): void
     {
         [$entry, $analysis, $input] = $this->ready();

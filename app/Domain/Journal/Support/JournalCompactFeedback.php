@@ -29,7 +29,7 @@ final class JournalCompactFeedback
         $data['correctedReading'] = implode('', array_column($data['segments'], 'reading'));
 
         // The existing validator proves exact source reconstruction and annotation completeness,
-        // then builds the final document from correction spans, leaving optional wording untouched.
+        // then builds the polished document with both corrections and naturalness suggestions.
         return JournalFeedback::validated($body, $data);
     }
 

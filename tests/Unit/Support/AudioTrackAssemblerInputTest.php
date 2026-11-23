@@ -7,6 +7,7 @@ use App\Support\Audio\AudioProcessor;
 use App\Support\Audio\AudioScriptUnit;
 use App\Support\Audio\AudioSpeechGenerator;
 use App\Support\Audio\AudioTrackAssembler;
+use App\Support\Audio\AudioTrackAssemblyRequest;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -61,10 +62,7 @@ class AudioTrackAssemblerInputTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         (new AudioTrackAssembler($speech, $audio))->assemble(
             [$unit],
-            'media',
-            'audio/track.mp3',
-            'audio-test',
-            'Test audio',
+            new AudioTrackAssemblyRequest('media', 'audio/track.mp3', 'audio-test', 'Test audio'),
         );
     }
 
@@ -89,10 +87,7 @@ class AudioTrackAssemblerInputTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         (new AudioTrackAssembler($speech, $audio))->assemble(
             [DailyAudioScriptUnit::pause(1)],
-            'media',
-            '../private.mp3',
-            'audio-test',
-            'Test audio',
+            new AudioTrackAssemblyRequest('media', '../private.mp3', 'audio-test', 'Test audio'),
         );
     }
 }

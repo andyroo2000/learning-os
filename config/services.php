@@ -63,6 +63,7 @@ return [
     ],
 
     'convolab' => [
+        'beta_request_email' => env('CONVOLAB_BETA_REQUEST_EMAIL', 'andrewlandry@gmail.com'),
         'client_url' => env('CONVOLAB_CLIENT_URL', 'http://localhost:5173'),
         'admin_emails' => array_values(array_filter(array_map(
             'trim',

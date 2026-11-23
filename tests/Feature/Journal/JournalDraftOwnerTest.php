@@ -15,27 +15,31 @@ class JournalDraftOwnerTest extends TestCase
 
     public function test_stale_browser_account_cannot_upload_private_offline_writing(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->create(['convolab_id' => (string) Str::uuid()]);
         $other = User::factory()->create();
         $this->asConvoLabBrowser($other)
-            ->withHeader('X-Journal-Owner', (string) $owner->id)
+            ->withHeader('X-Journal-Owner', $owner->convolab_id)
             ->putJson($this->url(), $this->draft())->assertForbidden();
         $this->assertSame(0, JournalEntry::withTrashed()->count());
     }
 
     public function test_owner_header_does_not_authenticate_an_anonymous_request(): void
     {
-        $owner = User::factory()->create();
-        $this->withHeader('X-Journal-Owner', (string) $owner->id)
+        $owner = User::factory()->create(['convolab_id' => (string) Str::uuid()]);
+        $this->withHeader('X-Journal-Owner', $owner->convolab_id)
             ->putJson($this->url(), $this->draft())->assertUnauthorized();
         $this->assertSame(0, JournalEntry::count());
     }
 
     public function test_matching_account_and_legacy_clients_keep_the_same_retry_contract(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->create(['convolab_id' => (string) Str::uuid()]);
         $url = $this->url();
-        $this->asConvoLabBrowser($owner)->withHeader('X-Journal-Owner', (string) $owner->id)
+        $this->asConvoLabBrowser($owner);
+        $publicId = $this->getJson('/api/convolab/browser/auth/me')->assertOk()->json('id');
+        $this->assertSame($owner->convolab_id, $publicId);
+        $this->assertNotSame((string) $owner->id, $publicId);
+        $this->withHeader('X-Journal-Owner', $publicId)
             ->putJson($url, $this->draft())->assertCreated()->assertJsonPath('data.version', 1);
         $this->flushHeaders();
         $this->putJson($url, $this->draft())->assertOk()->assertJsonPath('data.version', 1);
@@ -53,7 +57,7 @@ class JournalDraftOwnerTest extends TestCase
 
     public static function invalidOwners(): array
     {
-        return [[''], ['0123'], ['123x'], ['+123'], ['123,123']];
+        return [[''], ['123'], ['0123'], ['123x'], ['+123'], ['123,123']];
     }
 
     private function url(): string

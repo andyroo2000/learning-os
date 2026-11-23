@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Auth\ListAccessTokensController;
 use App\Http\Controllers\Api\Auth\RegisterConvoLabBrowserUserController;
 use App\Http\Controllers\Api\Auth\RegisterConvoLabMobileUserController;
 use App\Http\Controllers\Api\Auth\RegisterMobileUserController;
+use App\Http\Controllers\Api\Auth\RequestConvoLabBetaAccessController;
 use App\Http\Controllers\Api\Auth\ResetUserPasswordController;
 use App\Http\Controllers\Api\Auth\SendConvoLabBrowserVerificationController;
 use App\Http\Controllers\Api\Auth\SendConvoLabVerificationController;
@@ -48,6 +49,8 @@ return [
             ->middleware('throttle:'.AuthEmailRateLimiter::MOBILE_TOKENS);
 
         Route::prefix('/convolab/browser/auth')->group(function (): void {
+            Route::post('/beta-requests', RequestConvoLabBetaAccessController::class)
+                ->middleware('throttle:3,60,convolab-beta-access');
             Route::post('/login', AuthenticateConvoLabBrowserUserController::class)
                 ->middleware('throttle:'.AuthEmailRateLimiter::CONVOLAB_LOGINS);
             Route::post('/signup', RegisterConvoLabBrowserUserController::class)

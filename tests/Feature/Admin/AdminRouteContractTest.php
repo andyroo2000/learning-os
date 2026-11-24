@@ -48,6 +48,7 @@ class AdminRouteContractTest extends TestCase
 
         return [
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/beta-requests', 'ListBetaRequestsController'),
+            $this->expectedRoute('POST', 'api/convolab/admin/beta-requests', 'CreateBetaInvitationController', ['throttle' => '30,1,convolab-beta-invite']),
             $this->expectedRoute('POST', 'api/convolab/admin/beta-requests/{betaRequestId}/approve', 'ApproveBetaRequestController', ['throttle' => '30,1,convolab-beta-approve', 'wheres' => ['betaRequestId' => $uuid]]),
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/stats', 'ShowAdminStatsController'),
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/journal-analytics', 'ShowJournalAnalytics'),

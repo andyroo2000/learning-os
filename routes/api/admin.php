@@ -3,6 +3,7 @@
 use App\Domain\Admin\Support\AdminMutationRateLimiter;
 use App\Http\Controllers\Api\Admin\ApproveBetaRequestController;
 use App\Http\Controllers\Api\Admin\CreateAdminInviteCodeController;
+use App\Http\Controllers\Api\Admin\CreateBetaInvitationController;
 use App\Http\Controllers\Api\Admin\DeleteAdminInviteCodeController;
 use App\Http\Controllers\Api\Admin\DeleteAdminUserController;
 use App\Http\Controllers\Api\Admin\ListAdminInviteCodesController;
@@ -22,6 +23,8 @@ use Illuminate\Support\Facades\Route;
 
 return static function (): void {
     Route::get('/convolab/admin/beta-requests', ListBetaRequestsController::class);
+    Route::post('/convolab/admin/beta-requests', CreateBetaInvitationController::class)
+        ->middleware('throttle:30,1,convolab-beta-invite');
     Route::post('/convolab/admin/beta-requests/{betaRequestId}/approve', ApproveBetaRequestController::class)
         ->whereUuid('betaRequestId')
         ->middleware('throttle:30,1,convolab-beta-approve');

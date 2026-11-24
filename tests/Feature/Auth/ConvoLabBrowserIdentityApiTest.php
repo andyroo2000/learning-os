@@ -81,7 +81,7 @@ class ConvoLabBrowserIdentityApiTest extends TestCase
         $this->google->profile = $this->profile(email: 'ADA@example.com');
 
         $response = $this->get('/api/convolab/browser/auth/google/callback')
-            ->assertRedirect(self::FRONTEND_ORIGIN.'/app/library')
+            ->assertRedirect(self::FRONTEND_ORIGIN.'/app/journal')
             ->assertSessionMissing(
                 ConvoLabBrowserOAuthSession::PENDING_GOOGLE_ACCOUNT,
             );

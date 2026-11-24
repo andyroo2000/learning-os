@@ -7,6 +7,7 @@ use App\Domain\Auth\Actions\StartConvoLabBrowserSessionAction;
 use App\Domain\Auth\Contracts\ConvoLabGoogleOAuthClient;
 use App\Domain\Auth\Exceptions\ConvoLabOAuthException;
 use App\Domain\Auth\Support\ConvoLabBrowserOAuthSession;
+use App\Domain\Auth\Support\ConvoLabBrowserReturnUrl;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -20,6 +21,7 @@ final class CompleteConvoLabGoogleOAuthController extends Controller
         ResolveConvoLabGoogleIdentityAction $resolveIdentity,
         StartConvoLabBrowserSessionAction $startSession,
     ): RedirectResponse {
+        $returnUrl = ConvoLabBrowserReturnUrl::consume($request);
         try {
             $profile = $google->user();
             $result = $resolveIdentity->handle(
@@ -33,13 +35,13 @@ final class CompleteConvoLabGoogleOAuthController extends Controller
             ConvoLabBrowserOAuthSession::forget($request);
 
             return redirect()->away($this->clientUrl(
-                '/login?'.http_build_query(['error' => $exception->reason()]),
+                ConvoLabBrowserReturnUrl::continueAt('/login?'.http_build_query(['error' => $exception->reason()]), $returnUrl),
             ));
         } catch (Throwable $exception) {
             ConvoLabBrowserOAuthSession::forget($request);
             report($exception);
 
-            return redirect()->away($this->clientUrl('/login?error=oauth_failed'));
+            return redirect()->away($this->clientUrl(ConvoLabBrowserReturnUrl::continueAt('/login?error=oauth_failed', $returnUrl)));
         }
 
         if ($result->requiresInvite) {
@@ -51,13 +53,13 @@ final class CompleteConvoLabGoogleOAuthController extends Controller
                 (string) $result->account->convolab_id,
             );
 
-            return redirect()->away($this->clientUrl('/claim-invite'));
+            return redirect()->away($this->clientUrl(ConvoLabBrowserReturnUrl::continueAt('/claim-invite', $returnUrl)));
         }
 
         ConvoLabBrowserOAuthSession::forget($request);
         $startSession->handle($request, $result->account);
 
-        return redirect()->away($this->clientUrl('/app/library'));
+        return redirect()->away($this->clientUrl($returnUrl));
     }
 
     private function clientUrl(string $path): string

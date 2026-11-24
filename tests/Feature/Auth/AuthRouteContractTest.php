@@ -159,7 +159,7 @@ class AuthRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'POST api/convolab/auth/verification/send',
-            'GET|HEAD api/convolab/admin/stats',
+            'GET|HEAD api/convolab/admin/beta-requests',
         );
         $this->assertImmediatelyBefore(
             $routeOrder,

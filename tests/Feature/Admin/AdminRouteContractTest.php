@@ -47,6 +47,8 @@ class AdminRouteContractTest extends TestCase
         $uuid = self::UUID_PATTERN;
 
         return [
+            $this->expectedRoute('GET|HEAD', 'api/convolab/admin/beta-requests', 'ListBetaRequestsController'),
+            $this->expectedRoute('POST', 'api/convolab/admin/beta-requests/{betaRequestId}/approve', 'ApproveBetaRequestController', ['throttle' => '30,1,convolab-beta-approve', 'wheres' => ['betaRequestId' => $uuid]]),
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/stats', 'ShowAdminStatsController'),
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/journal-analytics', 'ShowJournalAnalytics'),
             $this->expectedRoute('GET|HEAD', 'api/convolab/admin/users', 'ListAdminUsersController'),
@@ -135,7 +137,7 @@ class AdminRouteContractTest extends TestCase
         $this->assertImmediatelyBefore(
             $routeOrder,
             'POST api/convolab/auth/verification/send',
-            'GET|HEAD api/convolab/admin/stats',
+            'GET|HEAD api/convolab/admin/beta-requests',
         );
         $this->assertImmediatelyBefore(
             $routeOrder,

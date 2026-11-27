@@ -14,9 +14,10 @@ final class SaveFeatureAudienceAction
     public function handle(string $feature, array $input): array
     {
         abort_unless(in_array($feature, AudienceInput::FEATURES, true), 404);
-        $data = AudienceInput::validated($input, false);
 
-        return DB::transaction(function () use ($feature, $data): array {
+        return DB::transaction(function () use ($feature, $input): array {
+            $data = AudienceInput::validated($input, false);
+            $this->memberships->lockReferences($data);
             $row = DB::table('feature_audiences')->where('feature', $feature)->lockForUpdate()->first();
             abort_if($row === null, 404);
             abort_unless((int) $row->version === (int) $data['version'], 409, 'Audience changed. Reload before saving.');

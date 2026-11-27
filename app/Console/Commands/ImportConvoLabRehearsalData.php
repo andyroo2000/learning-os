@@ -30,6 +30,10 @@ class ImportConvoLabRehearsalData extends Command
      * @var list<string>
      */
     private const TARGET_TABLES = [
+        'feature_audience_groups',
+        'feature_audience_users',
+        'feature_group_members',
+        'feature_access_groups',
         'admin_course_line_renderings',
         ...ConvoLabContentTables::RESET_IN_DELETE_ORDER,
         'card_media',

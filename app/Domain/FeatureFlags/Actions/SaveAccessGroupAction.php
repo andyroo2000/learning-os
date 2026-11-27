@@ -16,13 +16,12 @@ final class SaveAccessGroupAction
 
     public function handle(?string $id, array $input): array
     {
-        $data = AudienceInput::validated($input, true);
         if ($id !== null) {
             abort_unless(Str::isUuid($id), 404);
             $id = strtolower($id);
         }
         try {
-            return DB::transaction(fn () => $this->save($id, $data));
+            return DB::transaction(fn () => $this->save($id, AudienceInput::validated($input, true)));
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages(['name' => 'A group with this name already exists.']);
         }
@@ -30,6 +29,7 @@ final class SaveAccessGroupAction
 
     private function save(?string $id, array $data): array
     {
+        $this->memberships->lockReferences($data);
         $values = ['name' => $data['name'], 'name_key' => mb_strtolower($data['name']), 'updated_at' => now()];
         if ($id === null) {
             abort_unless((int) $data['version'] === 0, 409, 'New groups must start at version zero.');

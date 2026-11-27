@@ -12,7 +12,7 @@ final class EnsureLearnEnabled
     public function handle(Request $request, Closure $next): Response
     {
         $userId = $request->user()?->id;
-        abort_unless($userId && app(GetEffectiveFeatureFlagsAction::class)->handle($userId)['learnEnabled'], 404);
+        abort_unless($userId && app(GetEffectiveFeatureFlagsAction::class)->enabled($userId, 'learnEnabled'), 404);
 
         return $next($request);
     }

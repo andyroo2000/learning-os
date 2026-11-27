@@ -10,9 +10,9 @@ The first-party admin browser session is required for `/api/convolab/admin/featu
 - `GET /groups`, `POST /groups`, `PUT /groups/{uuid}`: list, create, or replace a group's name and membership.
 - `GET /audiences/{feature}`, `PUT /audiences/{feature}`: retrieve or replace direct user grants and selected groups.
 
-Feature keys are `learnEnabled`, `studyEnabled`, `readingsEnabled`, and `studyTimeEnabled`. User IDs are canonical database user IDs serialized as decimal strings; group IDs are UUIDs. Never use ConvoLab projection IDs as canonical user IDs.
+Feature keys are `learnEnabled`, `flashcardsEnabled`, `readingsEnabled`, and `studyTimeEnabled`. User IDs are canonical database user IDs serialized as decimal strings; group IDs are UUIDs. Never use ConvoLab projection IDs as canonical user IDs.
 
-Writes include `version`, `userIds`, and either `name` for groups or `groupIds` for audiences. New groups use version zero. Arrays are limited to 1,000 members/groups per write. Validation rejects unknown IDs, malformed lists, and duplicates. Locks and optimistic versions prevent lost updates; a stale version returns 409 without applying the draft. Group creation is a separate saved operation; it does not enable a feature until the audience is saved.
+Writes include `version`, `userIds`, and either `name` for groups or `groupIds` for audiences. New groups use version zero. Arrays are limited to 1,000 members/groups per write. Validation rejects unknown IDs, malformed lists, and duplicates. Reference-row locks protect against concurrent deletion. Owner locks and optimistic versions prevent lost updates; a stale version returns 409 without applying the draft. Group creation is a separate saved operation; it does not enable a feature until the audience is saved.
 
 `GET /api/convolab/feature-availability` returns uncached effective flags for the authenticated user. Learn middleware uses the same resolver. `/api/feature-flags` continues to represent global settings for compatibility.
 

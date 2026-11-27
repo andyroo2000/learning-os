@@ -6,9 +6,12 @@ use App\Domain\Admin\Models\AdminUserProjection;
 use App\Domain\FeatureFlags\Actions\GetEffectiveFeatureFlagsAction;
 use App\Domain\FeatureFlags\Actions\SaveFeatureAudienceAction;
 use App\Domain\FeatureFlags\Models\FeatureFlag;
+use App\Domain\FeatureFlags\Support\AudienceInput;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class FeatureAudienceApiTest extends TestCase
@@ -148,5 +151,52 @@ class FeatureAudienceApiTest extends TestCase
         $first = $this->getJson(self::ROOT.'/users?search=Identical&page=1')->assertOk()->assertJsonPath('total', 27)->assertJsonCount(25, 'users')->json('users');
         $second = $this->getJson(self::ROOT.'/users?search=Identical&page=2')->assertOk()->assertJsonCount(2, 'users')->json('users');
         $this->assertEmpty(array_intersect(array_column($first, 'id'), array_column($second, 'id')));
+    }
+
+    public function test_deleted_reference_after_validation_rejects_and_rolls_back_the_save(): void
+    {
+        $user = $this->learner();
+        $deleted = false;
+        DB::listen(function ($query) use ($user, &$deleted): void {
+            $validating = str_contains($query->sql, 'count(*)') && str_contains($query->sql, 'admin_user_projections');
+            if (! $deleted && $validating) {
+                $deleted = true;
+                DB::table('users')->where('id', $user->id)->delete();
+            }
+        });
+        try {
+            app(SaveFeatureAudienceAction::class)->handle('readingsEnabled', [
+                'version' => 0, 'userIds' => [$user->id], 'groupIds' => [],
+            ]);
+            $this->fail('The missing reference must reject the save.');
+        } catch (ValidationException $error) {
+            $this->assertArrayHasKey('userIds', $error->errors());
+        }
+        $this->assertTrue($deleted);
+        $this->assertDatabaseCount('feature_audience_users', 0);
+        $this->assertDatabaseHas('feature_audiences', ['feature' => 'readingsEnabled', 'version' => 0]);
+    }
+
+    public function test_global_and_admin_access_do_not_query_audience_memberships(): void
+    {
+        $user = $this->learner();
+        $resolver = app(GetEffectiveFeatureFlagsAction::class);
+        $resolver->handle($user->id);
+        FeatureFlag::query()->update(['learnEnabled' => true]);
+        DB::enableQueryLog();
+        $this->assertTrue($resolver->enabled($user->id, 'learnEnabled'));
+        $this->assertCount(1, DB::getQueryLog());
+        DB::disableQueryLog();
+        AdminUserProjection::where('user_id', $user->id)->update(['role' => 'admin']);
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->assertSame(array_fill_keys(AudienceInput::FEATURES, true), $resolver->handle($user->id));
+        $this->assertCount(2, DB::getQueryLog());
+        DB::disableQueryLog();
+    }
+
+    public function test_audience_seeds_match_every_supported_feature(): void
+    {
+        $this->assertEqualsCanonicalizing(AudienceInput::FEATURES, DB::table('feature_audiences')->pluck('feature')->all());
     }
 }

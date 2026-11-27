@@ -115,6 +115,8 @@ class FeatureAudienceApiTest extends TestCase
         $this->putJson(self::ROOT.'/audiences/journalEnabled', ['version' => 0, 'userIds' => [], 'groupIds' => []])->assertNotFound();
         $this->putJson(self::ROOT.'/audiences/readingsEnabled', ['version' => 0, 'userIds' => ['invalid'], 'groupIds' => []])->assertUnprocessable();
         $this->putJson(self::ROOT.'/audiences/readingsEnabled', ['version' => 0, 'userIds' => [$user->id, (string) $user->id], 'groupIds' => []])->assertUnprocessable();
+        $this->putJson(self::ROOT.'/audiences/readingsEnabled', ['version' => 0, 'userIds' => [[$user->id]], 'groupIds' => []])->assertUnprocessable();
+        $this->putJson(self::ROOT.'/audiences/readingsEnabled', ['version' => 0, 'userIds' => [], 'groupIds' => [['invalid']]])->assertUnprocessable();
         $this->assertDatabaseCount('feature_access_groups', 1);
         $this->assertDatabaseCount('feature_audience_users', 0);
     }
@@ -158,7 +160,7 @@ class FeatureAudienceApiTest extends TestCase
         $user = $this->learner();
         $deleted = false;
         DB::listen(function ($query) use ($user, &$deleted): void {
-            $validating = str_contains($query->sql, 'count(*)') && str_contains($query->sql, 'admin_user_projections');
+            $validating = str_contains($query->sql, 'aggregate') && str_contains($query->sql, 'admin_user_projections');
             if (! $deleted && $validating) {
                 $deleted = true;
                 DB::table('users')->where('id', $user->id)->delete();
@@ -198,5 +200,20 @@ class FeatureAudienceApiTest extends TestCase
     public function test_audience_seeds_match_every_supported_feature(): void
     {
         $this->assertEqualsCanonicalizing(AudienceInput::FEATURES, DB::table('feature_audiences')->pluck('feature')->all());
+    }
+
+    public function test_member_validation_is_batched_for_a_large_selection(): void
+    {
+        $ids = [];
+        for ($index = 0; $index < 30; $index++) {
+            $ids[] = $this->learner()->id;
+        }
+        $this->asConvoLabAdminBrowser(User::factory()->create());
+        DB::enableQueryLog();
+        $this->postJson(self::ROOT.'/groups', ['name' => 'Thirty members', 'version' => 0, 'userIds' => $ids])
+            ->assertCreated()->assertJsonCount(30, 'users');
+        $queries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+        $this->assertLessThan(25, $queries, 'Membership validation must not issue a query per selected user.');
     }
 }

@@ -40,7 +40,7 @@ final class AudienceInput
         $rules = [
             'version' => ['required', 'integer', 'min:0', 'max:2147483646'],
             'userIds' => ['present', 'array', 'list', 'max:1000'],
-            'userIds.*' => ['required', 'string', 'regex:/^[1-9][0-9]{0,18}$/', 'distinct', Rule::exists('admin_user_projections', 'user_id')],
+            'userIds.*' => ['required', 'string', 'regex:/^[1-9][0-9]{0,18}$/', 'distinct'],
         ];
         if ($group) {
             return [...$rules, 'name' => ['required', 'string', 'max:80']];
@@ -48,12 +48,20 @@ final class AudienceInput
 
         return [...$rules,
             'groupIds' => ['present', 'array', 'list', 'max:1000'],
-            'groupIds.*' => ['required', 'string', 'uuid', 'distinct', Rule::exists('feature_access_groups', 'id')],
+            'groupIds.*' => ['required', 'string', 'uuid', 'distinct'],
         ];
     }
 
     public static function validated(array $input, bool $group): array
     {
-        return Validator::make(self::normalize($input), self::rules($group))->validate();
+        $data = Validator::make(self::normalize($input), self::rules($group))->validate();
+        // Validate shapes before passing entire arrays to batched database presence checks.
+        $references = ['userIds' => Rule::exists('admin_user_projections', 'user_id')];
+        if (! $group) {
+            $references['groupIds'] = Rule::exists('feature_access_groups', 'id');
+        }
+        Validator::make($data, $references)->validate();
+
+        return $data;
     }
 }

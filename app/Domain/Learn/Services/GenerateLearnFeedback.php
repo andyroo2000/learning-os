@@ -61,7 +61,7 @@ class GenerateLearnFeedback
     {
         $context = ['lesson' => $lesson['title'], 'reference' => $lesson['reference'],
             'teachingNotes' => $lesson['teachingNotes'], 'phase' => $state['phase'],
-            'prompt' => (new LearnCatalog)->prompt($lesson, $state), 'tutor' => $tutor,
+            'prompt' => app(LearnCatalog::class)->prompt($lesson, $state), 'tutor' => $tutor,
             'conversation' => array_slice($state['turns'], -12), 'action' => $input['action'], 'text' => $input['text']];
 
         return ['model' => config('journal.model'), 'reasoning' => ['effort' => config('journal.reasoning_effort')],

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Learn\Actions;
 
+use App\Domain\Journal\Actions\GetJournalTutor;
 use App\Domain\Learn\Models\LearnSession;
 use App\Domain\Learn\Services\GenerateLearnFeedback;
 use App\Domain\Learn\Support\LearnCatalog;
@@ -13,13 +14,14 @@ final class RespondToLearnSession
 {
     public function __construct(private LearnSessionWrites $writes, private GenerateLearnFeedback $tutor, private LearnCatalog $catalog) {}
 
-    public function handle(LearnSession $session, array $input, string $tutor): LearnSession
+    public function handle(LearnSession $session, array $input): LearnSession
     {
         if ($session->last_request_id === $input['requestId']) {
             return $session;
         }
         $this->writes->claim($session, $input);
         try {
+            $tutor = app(GetJournalTutor::class)->handle($session->user_id);
             $state = $this->transition($session, $input, $tutor);
 
             return $this->writes->complete($session, $input, $state);

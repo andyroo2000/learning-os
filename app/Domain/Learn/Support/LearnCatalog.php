@@ -2,13 +2,17 @@
 
 namespace App\Domain\Learn\Support;
 
+use Illuminate\Container\Attributes\Scoped;
 use Illuminate\Support\Facades\File;
 
+#[Scoped]
 final class LearnCatalog
 {
+    private ?array $lessons = null;
+
     public function all(): array
     {
-        return File::json(resource_path('learn/quartet-one.json'));
+        return $this->lessons ??= File::json(resource_path('learn/quartet-one.json'));
     }
 
     public function find(string $id): array

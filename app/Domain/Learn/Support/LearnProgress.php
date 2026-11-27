@@ -72,7 +72,7 @@ final class LearnProgress
 
         return ['phase' => $next['phase'], 'index' => $next['index'], 'answered' => $next['answered'],
             'reviewing' => $next['reviewing'] ?? false, 'completed' => $next['completed'],
-            'prompt' => (new LearnCatalog)->prompt($lesson, $next)];
+            'prompt' => app(LearnCatalog::class)->prompt($lesson, $next)];
     }
 
     public static function reply(array $state, array $input, array $feedback): array

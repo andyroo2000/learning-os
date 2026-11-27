@@ -44,8 +44,7 @@ class LearnController extends Controller
     public function respond(LearnTurnRequest $request, LearnSession $session, RespondToLearnSession $respond): LearnSessionResource
     {
         abort_unless($session->user_id === $request->user()->id, 404);
-        $tutor = DB::table('journal_tutor_preferences')->where('user_id', $request->user()->id)->value('tutor_id') ?? 'hana';
-        $session = $respond->handle($session, $request->turn(), $tutor);
+        $session = $respond->handle($session, $request->turn());
 
         return new LearnSessionResource($session);
     }

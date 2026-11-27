@@ -38,7 +38,7 @@ class ShowFeatureFlagsApiTest extends TestCase
                 'id' => 'existing',
                 'flashcardsEnabled' => true,
                 'readingsEnabled' => false,
-                'studyTimeEnabled' => false,
+                'studyTimeEnabled' => false, 'learnEnabled' => false,
                 'updatedAt' => '2026-07-20T17:15:12.345Z',
             ]);
     }
@@ -84,7 +84,7 @@ class ShowFeatureFlagsApiTest extends TestCase
                 'id' => FeatureFlag::DEFAULT_ID,
                 'flashcardsEnabled' => false,
                 'readingsEnabled' => false,
-                'studyTimeEnabled' => false,
+                'studyTimeEnabled' => false, 'learnEnabled' => false,
                 'updatedAt' => '2026-07-20T17:15:12.345Z',
             ]);
 
@@ -115,7 +115,7 @@ class ShowFeatureFlagsApiTest extends TestCase
                     'id' => FeatureFlag::DEFAULT_ID,
                     'flashcardsEnabled' => true,
                     'readingsEnabled' => false,
-                    'studyTimeEnabled' => false,
+                    'studyTimeEnabled' => false, 'learnEnabled' => false,
                     'updatedAt' => '2026-07-20T17:15:12.345Z',
                 ]);
         } finally {

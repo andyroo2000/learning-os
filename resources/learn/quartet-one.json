@@ -1,0 +1,1127 @@
+[
+  {
+    "id": "quartet-1-toieba",
+    "title": "Nといえば",
+    "subtitle": "Speaking of that…",
+    "source": "Quartet 1 · Chapter 1 · Textbook p. 8 · §1",
+    "reference": "Noun + といえば: something brings an association to mind, or introduces a related topic.",
+    "teachingNotes": "Distinguish a personal association from an objective definition. A noun phrase can precede といえば. This point has no dedicated workbook A exercise set; do not invent one. Teach only the current step; accept acknowledgements or questions without inventing quizzes. In workbook prompts, accept a missing fragment or a full sentence, and evaluate it in the supplied context. Do not reveal a completion before an attempt. Preserve learner voice. Mixed review is deferred.",
+    "checks": [
+      {
+        "id": "sapporo",
+        "teaching": {
+          "title": "Something brings another idea to mind.",
+          "explanation": "といえば means “speaking of…” or “when you mention…”. A says they’re going to Sapporo, and B picks up that place name and says what it brings to mind: beer. Connect といえば directly to the noun.",
+          "example": {
+            "japanese": "A：夏休[なつやす]みに札幌[さっぽろ]に行[い]くんだ。\nB：へえ。札幌[さっぽろ]といえば、やっぱりビールだよね！",
+            "english": "A: I’m going to Sapporo during summer break.\nB: Oh, speaking of Sapporo, beer is what comes to mind!"
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 8 · §1 opening dialogue"
+      },
+      {
+        "id": "sushi",
+        "teaching": {
+          "title": "It can express a familiar association.",
+          "explanation": "The noun phrase before といえば can be longer than a single word. Here, “Japanese food that is popular worldwide” brings sushi to mind. The speaker is offering the example they think of first, rather than defining all Japanese food.",
+          "example": {
+            "japanese": "世界[せかい]で人気[にんき]がある日本料理[にほんりょうり]といえば、すしだろう。",
+            "english": "When it comes to Japanese food that is popular worldwide, sushi is probably what comes to mind."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 8 · §1 example 1"
+      },
+      {
+        "id": "languages",
+        "teaching": {
+          "title": "Different people can think of different examples.",
+          "explanation": "The teacher asks which language comes to mind as difficult. The students give different answers. といえば introduces the association; it doesn’t require everyone to share the same opinion.",
+          "example": {
+            "japanese": "先生[せんせい]：みなさん。難[むずか]しい外国語[がいこくご]といえば、何語[なにご]だと思[おも]いますか。\n学生[がくせい]A：中国語[ちゅうごくご]だと思[おも]います。\n学生[がくせい]B：私[わたし]はギリシア語[ご]だと思[おも]います。",
+            "english": "Teacher: Which language comes to mind when you think of difficult foreign languages?\nStudent A: Chinese, I think.\nStudent B: I think of Greek."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 8 · §1 example 2"
+      },
+      {
+        "id": "winter",
+        "teaching": {
+          "title": "You can pick up a related topic.",
+          "explanation": "B takes the idea of winter from A’s winter-break plans and connects it with hot springs. This is a natural way to continue a conversation: pick up a noun or idea, then add an association.",
+          "example": {
+            "japanese": "A：冬休[ふゆやす]みに温泉[おんせん]に行[い]くんです。\nB：いいですね。日本[にほん]の冬[ふゆ]といえば、温泉[おんせん]ですよね。",
+            "english": "A: I’m going to a hot spring during winter break.\nB: That sounds nice. Winter in Japan makes you think of hot springs, doesn’t it?"
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 8 · §1 example 3"
+      }
+    ],
+    "exercises": []
+  },
+  {
+    "id": "quartet-1-nara",
+    "title": "〜なら",
+    "subtitle": "If that’s the case. As for that.",
+    "source": "Quartet 1 · Chapter 1 · Textbook pp. 8–9 · §2 · Workbook p. 13",
+    "reference": "Plain form + なら; drop present だ after nouns and な-adjectives. Use it to respond to a situation, pick up a topic, or contrast an available alternative.",
+    "teachingNotes": "Teach all three uses: conditional advice/request, quoted topic, and contrast. Do not treat every なら as a future temporal condition. The library request may be made before the trip. Noun/な-adjective present forms omit だ. Teach only the current step; accept acknowledgements or questions without inventing quizzes. In workbook prompts, accept a missing fragment or a full sentence, and evaluate it in the supplied context. Do not reveal a completion before an attempt. Preserve learner voice. Mixed review is deferred.",
+    "checks": [
+      {
+        "id": "library",
+        "teaching": {
+          "title": "“If that’s what you’re doing…”",
+          "explanation": "なら lets you respond to a situation someone has mentioned. A plans to go to the library, so B makes a request based on that plan. The request happens now; なら doesn’t mean that B must wait until the trip is over.",
+          "example": {
+            "japanese": "A：ちょっと図書館[としょかん]に行[い]ってくるね。\nB：図書館[としょかん]に行[い]くなら、この本[ほん]を返[かえ]してきてくれない？",
+            "english": "A: I’m going to the library. I’ll be back soon.\nB: If you’re going to the library, could you return this book for me?"
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 8 · §2.1 opening dialogue"
+      },
+      {
+        "id": "work",
+        "teaching": {
+          "title": "You can give advice based on a goal.",
+          "explanation": "The goal “I want to work in Japan” becomes the basis for advice. Keep the plain form 働[はたら]きたい and add なら. The advice is relevant if that goal is the case.",
+          "example": {
+            "japanese": "パク：将来[しょうらい]、日本[にほん]で働[はたら]きたいんです。\n青山[あおやま]：日本[にほん]で働[はたら]きたいなら、敬語[けいご]を勉強[べんきょう]しておいたほうがいいよ。",
+            "english": "Park: I want to work in Japan in the future.\nAoyama: If you want to work in Japan, you should study honorific language beforehand."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 8 · §2.1 example 1"
+      },
+      {
+        "id": "busy",
+        "teaching": {
+          "title": "The situation can be implied.",
+          "explanation": "B doesn’t literally say “I’m busy,” but the report and homework make that clear. A responds to the implied situation with 忙[いそが]しいなら: “if you’re busy.” An い-adjective connects directly to なら.",
+          "example": {
+            "japanese": "A：今晩[こんばん]カラオケに行[い]かない？\nB：行[い]きたいけど、明日[あした]までにレポートを書[か]かなきゃいけないし、宿題[しゅくだい]もあるし……。\nA：忙[いそが]しいなら、しかたがないね。また今度[こんど]。",
+            "english": "A: Want to go to karaoke tonight?\nB: I’d like to, but I have a report due tomorrow, and homework too…\nA: If you’re busy, that can’t be helped. Another time."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 8 · §2.1 example 2"
+      },
+      {
+        "id": "grammar",
+        "teaching": {
+          "title": "With a な-adjective, leave out だ.",
+          "explanation": "苦手[にがて] describes something you aren’t good at. Before なら, use 苦手[にがて]なら, not 苦手[にがて]だなら. The suggestion responds to the difficulty A has described.",
+          "example": {
+            "japanese": "A：文法[ぶんぽう]の試験[しけん]でいい成績[せいせき]が取[と]れないんです。\nB：文法[ぶんぽう]が苦手[にがて]なら、この本[ほん]を使[つか]ってみたらどうですか。",
+            "english": "A: I can’t get good grades on grammar tests.\nB: If grammar is difficult for you, why not try using this book?"
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 8 · §2.1 example 3"
+      },
+      {
+        "id": "cold",
+        "teaching": {
+          "title": "Nouns connect directly, too.",
+          "explanation": "風邪[かぜ] is a noun, so the form is 風邪[かぜ]なら. B is responding to the possible situation “if it’s a cold.” The example illustrates conditional advice; なら itself doesn’t confirm whether A actually has a cold.",
+          "example": {
+            "japanese": "A：（ゴホ、ゴホ）のどが痛[いた]いなあ。\nB：風邪[かぜ]なら、この薬[くすり]を飲[の]んでみて。すぐよくなるよ。",
+            "english": "A: (Cough, cough.) My throat hurts.\nB: If it’s a cold, try taking this medicine. You’ll feel better soon."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 9 · §2.1 example 4"
+      },
+      {
+        "id": "hospital",
+        "teaching": {
+          "title": "なら can also mean “as for…”.",
+          "explanation": "Here, B repeats the hospital name A asked about and gives information about it. This use of noun + なら picks up an existing topic. You don’t need to translate it as a hypothetical “if”.",
+          "example": {
+            "japanese": "A：さくら病院[びょういん]はどこですか。\nB：さくら病院[びょういん]なら、あのビルのとなりですよ。",
+            "english": "A: Where is Sakura Hospital?\nB: As for Sakura Hospital, it’s next to that building."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 9 · §2.2 opening dialogue"
+      },
+      {
+        "id": "professor",
+        "teaching": {
+          "title": "You can pick up a person’s name.",
+          "explanation": "The staff member repeats Professor Kawamura’s name with なら, then answers the student’s question. The honorific wording means the professor has already gone home; the grammar point here is how なら picks up the topic.",
+          "example": {
+            "japanese": "学生[がくせい]：すみません、川村[かわむら]先生[せんせい]はいらっしゃいますか。\n事務員[じむいん]：川村[かわむら]先生[せんせい]なら、もうお帰[かえ]りになりましたよ。",
+            "english": "Student: Excuse me, is Professor Kawamura here?\nStaff member: Professor Kawamura has already gone home."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 9 · §2.2 example 5"
+      },
+      {
+        "id": "pen",
+        "teaching": {
+          "title": "It can offer an alternative.",
+          "explanation": "B doesn’t have the requested pencil, but does have a pen. ペンなら contrasts the available pen with the unavailable pencil. In this use, the comment often says what is possible or available.",
+          "example": {
+            "japanese": "A：えんぴつ、貸[か]してくれない？\nB：ごめん、持[も]ってないんだ。ペンならあるんだけど。",
+            "english": "A: Could you lend me a pencil?\nB: Sorry, I don’t have one. I do have a pen, though."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 9 · §2.3 opening dialogue"
+      },
+      {
+        "id": "afternoon",
+        "teaching": {
+          "title": "You can contrast times as well.",
+          "explanation": "The morning doesn’t work, but the afternoon does. 午後[ごご]なら makes that contrast clear: “the afternoon would be fine.” This is the same alternative-offering use as the pen example.",
+          "example": {
+            "japanese": "A：明日[あした]、時間[じかん]がありますか。\nB：えーと、午前[ごぜん]は忙[いそが]しいんですが、午後[ごご]なら大丈夫[だいじょうぶ]です。",
+            "english": "A: Do you have time tomorrow?\nB: Well, I’m busy in the morning, but the afternoon would be fine."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 9 · §2.3 example 6"
+      }
+    ],
+    "exercises": [
+      {
+        "id": "nara-1",
+        "prompt": "留学生[りゅうがくせい]：ちょっと郵便局[ゆうびんきょく]に行[い]ってきます。\nホストマザー：＿＿＿＿なら、切手[きって]を買[か]ってきて。",
+        "instruction": "Complete the conversation using 〜なら.",
+        "source": "Workbook p. 13 · §2 (1)"
+      },
+      {
+        "id": "nara-2",
+        "prompt": "A：ああ、頭[あたま]が痛[いた]い……。\nB：＿＿＿＿、＿＿＿＿ほうがいいですよ。",
+        "instruction": "Complete the conversation using 〜なら.",
+        "source": "Workbook p. 13 · §2 (2)"
+      },
+      {
+        "id": "nara-3",
+        "prompt": "A：あれ？私[わたし]のめがねがない！\nB：＿＿＿＿なら、テレビの上[うえ]にあったよ。",
+        "instruction": "Complete the conversation using 〜なら.",
+        "source": "Workbook p. 13 · §2 (3)"
+      },
+      {
+        "id": "nara-4",
+        "prompt": "A：だれを探[さが]してるの？\nB：グエンさん。一緒[いっしょ]にお昼[ひる]ご飯[はん]を食[た]べようって言[い]ってたんだけど。\nA：＿＿＿＿、＿＿＿＿よ。",
+        "instruction": "Complete the conversation using 〜なら.",
+        "source": "Workbook p. 13 · §2 (4)"
+      },
+      {
+        "id": "nara-5",
+        "prompt": "A：この近[ちか]くに、スーパーはありませんか？\nB：スーパーはないですねえ。でも、＿＿＿＿なら、＿＿＿＿。",
+        "instruction": "Complete the conversation using 〜なら.",
+        "source": "Workbook p. 13 · §2 (5)"
+      },
+      {
+        "id": "nara-6",
+        "prompt": "A：土曜日[どようび]に映画[えいが]見[み]に行[い]かない？\nB：土曜日[どようび]はバイトなんだ。＿＿＿＿、＿＿＿＿んだけど…。",
+        "instruction": "Complete the conversation using 〜なら.",
+        "source": "Workbook p. 13 · §2 (6)"
+      },
+      {
+        "id": "nara-7",
+        "prompt": "A：おいしいケーキが食[た]べたいなあ。\nB：＿＿＿＿、＿＿＿＿。",
+        "instruction": "Complete the conversation using 〜なら.",
+        "source": "Workbook p. 13 · §2 (7)"
+      }
+    ]
+  },
+  {
+    "id": "quartet-1-toori",
+    "title": "とおり／どおり",
+    "subtitle": "Just as someone said. Exactly as planned.",
+    "source": "Quartet 1 · Chapter 1 · Textbook p. 10 · Workbook pp. 13–14",
+    "reference": "Verb (dictionary/past form) + とおり. Noun + どおり. に can be included or omitted for manner of action; omit it for a matching description.",
+    "teachingNotes": "Accept optional に for manner. Nのとおり is also valid Japanese, not an error. Preserve learner voice and accept appropriate が/は choices. Explain that とおり/どおり contrast is conditioned by the connection, not politeness. Accept full answers or just the missing fragment and interpret in the provided exercise scaffold. Teach the five textbook examples one at a time: curry instructions, the soccer result, interview preparation, Professor Nakamura matching a rumor, and work according to plan. Explain dictionary/past verb connections and optional に for manner versus no に for a matching description. Keep explanations conversational, with acknowledgements rather than invented practice questions. Save mixed workbook exercises until their other grammar has been covered.",
+    "checks": [
+      {
+        "id": "connection",
+        "teaching": {
+          "title": "Let’s start with following instructions.",
+          "explanation": "とおり means that something matches an instruction, description or expectation. In this example, you make curry by following the speaker’s directions. The dictionary form 言[い]う connects to とおり: “the way I tell you.” With a verb, use とおり; with a noun directly before it, use どおり.",
+          "example": {
+            "japanese": "私[わたし]が言[い]うとおりに作[つく]ったら、おいしいカレーができますよ。",
+            "english": "If you make it the way I tell you, you’ll end up with delicious curry."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §3 example 1"
+      },
+      {
+        "id": "matching",
+        "teaching": {
+          "title": "It can mean “just as we expected”.",
+          "explanation": "Here, the result of a match agrees with what the speakers expected. 思[おも]ったとおり means “just as we thought.” The verb is in the past form because the expectation came first. This describes a matching result, so there is no に after とおり.",
+          "example": {
+            "japanese": "A：昨日[きのう]のサッカーの試合[しあい]、思[おも]ったとおりブラジルが勝[か]ったね。\nB：うん。やっぱりブラジルは強[つよ]いね。",
+            "english": "A: Brazil won yesterday’s soccer match, just as we expected.\nB: Yes. Brazil really is strong."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §3 opening dialogue"
+      },
+      {
+        "id": "manner",
+        "teaching": {
+          "title": "Now let’s follow advice someone already gave.",
+          "explanation": "教[おし]えてくれたとおり means “as someone taught or advised me.” The advice has already been given, so the verb uses the past form. とおりに describes how to prepare for the interview. For this “how to do it” use, に is optional: とおりに準備[じゅんび]する and とおり準備[じゅんび]する both work.",
+          "example": {
+            "japanese": "A：来週[らいしゅう]、仕事[しごと]の面接[めんせつ]があるんだ。初[はじ]めてだから心配[しんぱい]で……。\nB：先輩[せんぱい]が教[おし]えてくれたとおりに準備[じゅんび]すれば、大丈夫[だいじょうぶ]だよ。",
+            "english": "A: I have a job interview next week. It’s my first one, so I’m worried…\nB: You’ll be fine if you prepare the way your senior advised you."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §3 example 2"
+      },
+      {
+        "id": "heard",
+        "teaching": {
+          "title": "What if something matches what you heard?",
+          "explanation": "Sara heard that Professor Nakamura was kind, then met the professor and found that it was true. 聞[き]いていたとおり means “just as I had heard.” This compares information with what Sara found; it doesn’t describe how she performed an action. Leave に out here.",
+          "example": {
+            "japanese": "ジョージ：中村[なかむら]先生[せんせい]って、どんな先生[せんせい]か知[し]ってる？\nサラ：うん。昨日[きのう]初[はじ]めてお話[はな]ししたんだけど、うわさで聞[き]いていたとおり、優[やさ]しい先生[せんせい]だったよ。",
+            "english": "George: Do you know what Professor Nakamura is like?\nSara: Yes. I spoke with the professor for the first time yesterday, and they were kind, just as I’d heard."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §3 example 3"
+      },
+      {
+        "id": "noun-plan",
+        "teaching": {
+          "title": "After a noun, use どおり.",
+          "explanation": "計画[けいかく] is a noun, so it connects directly to どおり: “according to the plan.” Here it describes how you do your work, so に can be included or omitted. A sentence can also say that following the plan is difficult—the grammar describes the intended match, even if it is hard to achieve.",
+          "example": {
+            "japanese": "計画[けいかく]どおりに仕事[しごと]をするのは難[むずか]しい。",
+            "english": "It’s difficult to do your work exactly according to plan."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §3 example 4"
+      }
+    ],
+    "exercises": [
+      {
+        "id": "fuji",
+        "prompt": "＿＿＿＿【とおり・どおり】、富士山[ふじさん]はきれいだった。",
+        "instruction": "Complete the sentence and choose とおり or どおり.",
+        "source": "Workbook p. 13 · §3 (1)"
+      },
+      {
+        "id": "plan",
+        "prompt": "雨[あめ]が降[ふ]らなかったら、予定[よてい]どおり＿＿＿＿。",
+        "instruction": "Complete the sentence using ～とおり（に）／Nどおり（に）.",
+        "source": "Workbook p. 13 · §3 (2)"
+      },
+      {
+        "id": "teacher",
+        "prompt": "先生[せんせい]が＿＿＿＿。",
+        "instruction": "Complete the sentence using ～とおり（に）／Nどおり（に）.",
+        "source": "Workbook p. 14 · §3 (3)"
+      },
+      {
+        "id": "party",
+        "prompt": "A: 昨日[きのう]のパーティー、どうだった？\nB: 思[おも]ったとおり、＿＿＿＿よ。",
+        "instruction": "Complete B’s reply.",
+        "source": "Workbook p. 14 · §3 (4)"
+      },
+      {
+        "id": "cooking",
+        "prompt": "A: 日本料理[にほんりょうり]、作[つく]ってみたんだって？どうだった？\nB: うーん、＿＿＿＿作[つく]ったんだけど、あまりおいしくなかったんだ。",
+        "instruction": "Complete B’s reply using ～とおり（に）／Nどおり（に）.",
+        "source": "Workbook p. 14 · §3 (5)"
+      },
+      {
+        "id": "test",
+        "prompt": "A: 今日[きょう]のテスト、難[むずか]しかった？\nB: ＿＿＿＿よ。",
+        "instruction": "Complete B’s reply using ～とおり（に）／Nどおり（に）.",
+        "source": "Workbook p. 14 · §3 (6)"
+      }
+    ]
+  },
+  {
+    "id": "quartet-1-rashii",
+    "title": "〜らしい",
+    "subtitle": "What you’ve heard. What feels typical.",
+    "source": "Quartet 1 · Chapter 1 · Textbook pp. 10–11 · Workbook p. 14",
+    "reference": "Indirect information: plain form + らしい (drop present だ after nouns and な-adjectives). Hearsay そうだ reports what a source said; らしい can also convey an inference from what you heard. Typical quality: noun + らしい. Negative: らしくない.",
+    "teachingNotes": "Accept hearsay/inference distinctions without claiming certainty. Teach the textbook comparison with hearsay そうだ: both can report information, but らしい also conveys inferences from indirect or implied statements and is often preferred for uncertain rumors. Do not present this as a fixed confidence scale or claim らしい always means unreliable. This is hearsay そうだ, not appearance そうだ (as in おいしそう). Explain source phrases only as needed here; save mixed によると practice for its own lesson. Distinguish characteristic from reporting by context. Never require んだ. For gendered workbook examples, explain the expression’s linguistic meaning (for example, clothing conventionally considered feminine). Do not append cultural disclaimers or commentary about what people should wear. Accept any completion consistent with the grammar and intended meaning.",
+    "checks": [
+      {
+        "id": "meaning",
+        "teaching": {
+          "title": "Let’s start with “apparently”.",
+          "explanation": "You can use らしい to pass along information you learned from someone else. In the textbook’s museum conversation, B hasn’t been there personally: a friend is the source of the information.",
+          "example": {
+            "japanese": "A：ジブリ美術館[びじゅつかん]に行[い]ったことある？\nB：ううん。でも、友達[ともだち]が言[い]ってたんだけど、すごく楽[たの]しいらしいよ。",
+            "english": "A: Have you ever been to the Ghibli Museum?\nB: No, but a friend told me about it. Apparently, it’s really fun."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §4.1 opening dialogue"
+      },
+      {
+        "id": "contrast",
+        "teaching": {
+          "title": "There’s another use of らしい.",
+          "explanation": "らしい can also describe a quality that feels typical of something. With a season, for example, it can mean that the weather feels just right for that time of year. This use describes a characteristic; it isn’t reporting a rumor.",
+          "example": {
+            "japanese": "A：今日[きょう]は暖[あたた]かくて、春[はる]らしいね。\nB：もうすぐ4月[がつ]だからね。",
+            "english": "A: It’s warm today—just how spring should be.\nB: Well, it’s almost April."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 11 · §4.2 opening dialogue"
+      },
+      {
+        "id": "forms",
+        "teaching": {
+          "title": "Let’s put the “apparently” use together.",
+          "explanation": "For the “apparently” meaning, add らしい to a verb or い-adjective in plain form. With a present-tense noun or な-adjective, leave out だ. In this textbook exchange, the noun phrase “a third-year literature student” connects directly to らしい. The source is a rumor, so the speaker is passing along something they haven’t confirmed.",
+          "example": {
+            "japanese": "ジョージ：寮[りょう]に引[ひ]っ越[こ]してくる日本人[にほんじん]のこと、聞[き]いた？\nジフン：うん。うわさによると、文学部[ぶんがくぶ]の3年生[ねんせい]らしいよ。",
+            "english": "George: Have you heard about the Japanese person who’s moving into the dorm?\nJi-hun: Yes. According to the rumor, they’re a third-year literature student."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §4.1 example 2"
+      },
+      {
+        "id": "negative",
+        "teaching": {
+          "title": "What if it doesn’t feel like the season?",
+          "explanation": "For the “typical of” meaning, change らしい to らしくない to say something lacks the usual qualities. The textbook’s example is the rainy season: you expect rainy days, but it hasn’t been raining. This is about what the season is like, rather than the other meaning of らしい—reporting indirect information.",
+          "example": {
+            "japanese": "A：最近[さいきん]、雨[あめ]が降[ふ]らないね。\nB：本当[ほんとう]に全然[ぜんぜん]梅雨[つゆ]らしくないよね。毎年[まいとし]、この季節[きせつ]は雨[あめ]の日[ひ]が続[つづ]くのに。",
+            "english": "A: It hasn’t been raining lately.\nB: It really doesn’t feel like the rainy season. We usually have rainy day after rainy day at this time of year."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 11 · §4.2 example 5"
+      },
+      {
+        "id": "named-source",
+        "teaching": {
+          "title": "Let’s return to information from someone else.",
+          "explanation": "The textbook also gives a short example with a named source: Ken. The speaker passes along what Ken said about George. Here, らしい attaches to the verb いる. Knowing who supplied the information does not prevent you from using らしい.",
+          "example": {
+            "japanese": "研[けん]の話[はなし]では、ジョージは日本人[にほんじん]の彼女[かのじょ]がいるらしい。",
+            "english": "According to Ken, George apparently has a Japanese girlfriend."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §4.1 example 1"
+      },
+      {
+        "id": "hearsay-souda",
+        "teaching": {
+          "title": "How is that different from そうだ?",
+          "explanation": "Both sentences can pass along Ken’s information. Hearsay そうだ presents what a source said; らしい can do that too, and can also express your inference from what you heard. The textbook notes that らしい is often preferred for an uncertain rumor. It doesn’t always mean the source is unreliable. We’re comparing hearsay そうだ here, not the “looks…” meaning in おいしそう.",
+          "example": {
+            "japanese": "研[けん]の話[はなし]では、ジョージは日本人[にほんじん]の彼女[かのじょ]がいるらしい。\n研[けん]の話[はなし]では、ジョージは日本人[にほんじん]の彼女[かのじょ]がいるそうだ。",
+            "english": "らしい: According to Ken, George apparently has a Japanese girlfriend.\nそうだ: According to Ken, George has a Japanese girlfriend."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 11 · §4.1 comparison with hearsay そうだ"
+      },
+      {
+        "id": "overheard",
+        "teaching": {
+          "title": "What if you overhear the information?",
+          "explanation": "A and B are discussing a café. C overhears them and draws a conclusion about its cake. C wasn’t being directly told about the cake; らしい lets C express what they gathered from the conversation.",
+          "example": {
+            "japanese": "A：「マウント」っていう喫茶店[きっさてん]、行[い]ったことある？\nB：うん。あそこのケーキ、おいしいよね。\nC（心[こころ]の中[なか]で）：「マウント」っていう喫茶店[きっさてん]のケーキはおいしいらしい。",
+            "english": "A: Have you been to the café called Mount?\nB: Yes. Their cake is delicious, isn’t it?\nC, thinking: Apparently, the cake at Mount is good."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 10 · §4.1 example 3"
+      },
+      {
+        "id": "implied",
+        "teaching": {
+          "title": "Sometimes the meaning is only implied.",
+          "explanation": "B never explicitly says “I dislike horror movies.” The hesitant reply suggests that B doesn’t want to go, and C infers the reason. This is where らしい goes beyond simply reporting a statement: it expresses the listener’s interpretation of what they heard. The inference could be wrong.",
+          "example": {
+            "japanese": "A：ホラー映画[えいが]を見[み]に行[い]きませんか。\nB：私[わたし]、ホラーはちょっと……。\nC（心[こころ]の中[なか]で）：Bさんはホラー映画[えいが]が嫌[きら]いらしい。",
+            "english": "A: Would you like to go see a horror movie?\nB: Horror movies aren’t really…\nC, thinking: Apparently, B dislikes horror movies."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 11 · §4.1 example 4"
+      },
+      {
+        "id": "typical-person",
+        "teaching": {
+          "title": "“Typical of” also works with people.",
+          "explanation": "In this pair, the textbook associates being a child with lively play. The first sentence says Sho fits that image; the second says Ai doesn’t fit it very well. あまり with らしくない softens the negative to “not very typical.” These describe qualities, rather than the other meaning of らしい—reporting what someone heard.",
+          "example": {
+            "japanese": "将[しょう]くんはいつも元気[げんき]に遊[あそ]んでいて、子[こ]どもらしい。\n愛[あい]ちゃんはいつも一人[ひとり]で難[むずか]しい本[ほん]を読[よ]んでいて、あまり子[こ]どもらしくない。",
+            "english": "Sho is always playing energetically—very much like a child.\nAi is always reading difficult books on her own; she isn’t very typical of a child."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 11 · §4.2 example 6 (a–b)"
+      }
+    ],
+    "exercises": [
+      {
+        "id": "rumor",
+        "prompt": "うわさでは、＿＿＿＿らしい。",
+        "instruction": "Complete the sentence using 〜らしい.",
+        "source": "Workbook p. 14 · §4.1 (1)"
+      },
+      {
+        "id": "george",
+        "prompt": "A: ジョージ、今日[きょう]学校[がっこう]に来[き]てなかったね。どうしたのかな……。\nB: ＿＿＿＿らしいよ。メイリンがそう言[い]ってた。",
+        "instruction": "Complete B’s reply using 〜らしい.",
+        "source": "Workbook p. 14 · §4.1 (2)"
+      },
+      {
+        "id": "morita",
+        "prompt": "A: 森田[もりた]さん、最近[さいきん]とてもうれしそうだけど、何[なに]かあったのかな。\nB: ＿＿＿＿よ。",
+        "instruction": "Complete B’s reply using 〜らしい.",
+        "source": "Workbook p. 14 · §4.1 (3)"
+      },
+      {
+        "id": "historical",
+        "prompt": "昔[むかし]は「力[ちから]が強[つよ]く、人[ひと]に弱[よわ]いところを見[み]せない人[ひと]が＿＿＿＿らしい人[ひと]だ」と考[かんが]えられていた。",
+        "instruction": "Complete the sentence using Nらしい.",
+        "source": "Workbook p. 14 · §4.2 (1)"
+      },
+      {
+        "id": "clothes",
+        "prompt": "私[わたし]はスカートやワンピースみたいな＿＿＿＿らしい服[ふく]より、ジーンズのほうが好[す]きだ。",
+        "instruction": "Complete the sentence using Nらしい.",
+        "source": "Workbook p. 14 · §4.2 (2)"
+      },
+      {
+        "id": "autumn",
+        "prompt": "もう10月[がつ]だが、まだ毎日[まいにち]暑[あつ]くて、全然[ぜんぜん]秋[あき]＿＿＿＿。",
+        "instruction": "Complete the sentence using 〜らしい.",
+        "source": "Workbook p. 14 · §4.2 (3)"
+      }
+    ]
+  },
+  {
+    "id": "quartet-1-tameni",
+    "title": "〜ために／〜ためのN",
+    "subtitle": "The purpose behind an action or object.",
+    "source": "Quartet 1 · Chapter 1 · Textbook p. 12 · §5 · Workbook p. 15",
+    "reference": "Dictionary-form verb + ために + action: do something in order to achieve a purpose. Dictionary-form verb + ための + noun: a thing for that purpose.",
+    "teachingNotes": "In the textbook purpose construction, the purpose and main action have the same subject and are intentional. Do not use bare potential or stative forms as the purpose verb; distinguish later potential + ようになる + ために, where becoming able is the goal. ためには emphasizes what is needed for a goal. Distinguish purpose from the causal use of ため, which is outside this lesson. Teach only the current step; accept acknowledgements or questions without inventing quizzes. In workbook prompts, accept a missing fragment or a full sentence, and evaluate it in the supplied context. Do not reveal a completion before an attempt. Preserve learner voice. Mixed review is deferred.",
+    "checks": [
+      {
+        "id": "japan",
+        "teaching": {
+          "title": "Let’s explain why you do something.",
+          "explanation": "ために connects a goal with the action you take to achieve it. Put a dictionary-form verb before ために. Here, studying Japanese language and culture is the goal, and coming to Japan is the action taken for it.",
+          "example": {
+            "japanese": "A：どうして日本[にほん]に来[き]たんですか。\nB：日本語[にほんご]と日本文化[にほんぶんか]を勉強[べんきょう]するために来[き]ました。",
+            "english": "A: Why did you come to Japan?\nB: I came to study Japanese language and culture."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.1 opening dialogue"
+      },
+      {
+        "id": "travel",
+        "teaching": {
+          "title": "The same person has the goal and takes the action.",
+          "explanation": "He works part-time in order to go travelling. The person doing the part-time work is also the person who intends to travel. That shared subject is an important feature of this purpose construction.",
+          "example": {
+            "japanese": "彼[かれ]は旅行[りょこう]に行[い]くために、アルバイトをしています。",
+            "english": "He works part-time in order to go travelling."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.1 example 1"
+      },
+      {
+        "id": "records",
+        "teaching": {
+          "title": "The purpose verb stays in dictionary form.",
+          "explanation": "The purchase happened in the past, but the purpose is still 聞[き]くために. Put the tense on the main action—here, 買[か]った. The record player was bought in order to listen to old records.",
+          "example": {
+            "japanese": "A：昔[むかし]のレコードを聞[き]くためにレコードプレーヤーを買[か]ったんだ。\nB：いいね。今度[こんど]聞[き]かせて。",
+            "english": "A: I bought a record player so I could listen to old records.\nB: Nice. Let me listen sometime."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.1 example 2"
+      },
+      {
+        "id": "memorize",
+        "teaching": {
+          "title": "ためには puts the goal in focus.",
+          "explanation": "Adding は makes the goal the topic: “when it comes to memorizing kanji…” The speaker then explains what works best for that goal. It is still the purpose use of ため.",
+          "example": {
+            "japanese": "A：いつも漢字[かんじ]の勉強[べんきょう]をしていますね。\nB：ええ、漢字[かんじ]を覚[おぼ]えるためには、毎日[まいにち]少[すこ]しずつ勉強[べんきょう]するのが一番[いちばん]なんです。",
+            "english": "A: You’re always studying kanji.\nB: Yes. To memorize kanji, studying a little every day works best."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.1 example 3"
+      },
+      {
+        "id": "intentional",
+        "teaching": {
+          "title": "Describe an intended action, rather than an ability.",
+          "explanation": "For this use of ために, the goal is an action you intend to carry out. The textbook uses 覚[おぼ]える (“memorize”), rather than the potential 覚[おぼ]えられる (“can memorize”). Both the goal and the practice are actions the same person chooses to do.",
+          "example": {
+            "japanese": "漢字[かんじ]を覚[おぼ]えるために、毎日[まいにち]100回[かい]練習[れんしゅう]している。",
+            "english": "I practise kanji a hundred times every day in order to memorize them."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.1 grammar note, example 1"
+      },
+      {
+        "id": "blackboard",
+        "teaching": {
+          "title": "The same distinction applies to seeing.",
+          "explanation": "見[み]る describes the action “look at”; 見[み]える describes something being visible. This example uses 見[み]るために because sitting at the front is an action taken for an intended purpose.",
+          "example": {
+            "japanese": "黒板[こくばん]の字[じ]を見[み]るために、前[まえ]に座[すわ]った。",
+            "english": "I sat at the front in order to see the writing on the blackboard."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.1 grammar note, example 2"
+      },
+      {
+        "id": "app",
+        "teaching": {
+          "title": "Use ための before a noun.",
+          "explanation": "When you describe what an object is for, connect the purpose to the noun with の. This is an app “for listening to music”: 聞[き]くためのアプリ. Use ために before the action taken, and ための before the thing you’re describing.",
+          "example": {
+            "japanese": "A：それ、何[なん]のアプリ？\nB：音楽[おんがく]を聞[き]くためのアプリだよ。",
+            "english": "A: What kind of app is that?\nB: It’s an app for listening to music."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.2 opening dialogue"
+      },
+      {
+        "id": "school",
+        "teaching": {
+          "title": "A purpose can describe a school.",
+          "explanation": "The school is described by the goal it helps someone pursue: becoming a designer. なる stays in dictionary form, and ための connects it to 学校[がっこう].",
+          "example": {
+            "japanese": "A：高校[こうこう]を卒業[そつぎょう]した後[あと]、どうするつもりですか。\nB：デザイナーになるための学校[がっこう]に行[い]くつもりです。",
+            "english": "A: What do you plan to do after graduating from high school?\nB: I plan to go to a school where I can train to become a designer."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.2 example 4"
+      },
+      {
+        "id": "library",
+        "teaching": {
+          "title": "You can describe a place by its purpose.",
+          "explanation": "The library is a place for studying, reading books, and similar activities. The list ends in する, then connects to ための場所[ばしょ]. The purpose phrase tells us what kind of place it is.",
+          "example": {
+            "japanese": "図書館[としょかん]は勉強[べんきょう]したり、本[ほん]を読[よ]んだりするための場所[ばしょ]だ。",
+            "english": "A library is a place for studying, reading books, and similar activities."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.2 example 5"
+      },
+      {
+        "id": "party",
+        "teaching": {
+          "title": "It can describe an event, too.",
+          "explanation": "The party is for people who want to marry to look for a partner. The whole purpose phrase comes before the noun パーティー. This is another use of ための to describe what something is for.",
+          "example": {
+            "japanese": "お見合[みあ]いパーティーは、結婚[けっこん]したい人[ひと]がパートナーを探[さが]すためのパーティーだ。",
+            "english": "A matchmaking party is a party where people who want to marry can look for a partner."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 12 · §5.2 example 6"
+      }
+    ],
+    "exercises": [
+      {
+        "id": "purpose-1",
+        "prompt": "＿＿＿＿ために車[くるま]を買[か]いたい。",
+        "instruction": "Complete the sentence or reply using 〜ために.",
+        "source": "Workbook p. 15 · §5.1 (1)"
+      },
+      {
+        "id": "purpose-2",
+        "prompt": "A：何[なん]のために日本語[にほんご]を勉強[べんきょう]しているんですか。\nB：＿＿＿＿しています。",
+        "instruction": "Complete the sentence or reply using 〜ために.",
+        "source": "Workbook p. 15 · §5.1 (2)"
+      },
+      {
+        "id": "purpose-3",
+        "prompt": "A：何[なに]をしに東京[とうきょう]に行[い]くの？\nB：＿＿＿＿んだ。",
+        "instruction": "Complete the sentence or reply using 〜ために.",
+        "source": "Workbook p. 15 · §5.1 (3)"
+      },
+      {
+        "id": "purpose-noun-1",
+        "prompt": "キッチンは＿＿＿＿ためのところだ。",
+        "instruction": "Complete the sentence or reply using 〜ためのN.",
+        "source": "Workbook p. 15 · §5.2 (1)"
+      },
+      {
+        "id": "purpose-noun-2",
+        "prompt": "A：どうしてそんなにたくさんアルバイトをしてるの？\nB：＿＿＿＿お金[かね]が必要[ひつよう]なんだ。",
+        "instruction": "Complete the sentence or reply using 〜ためのN.",
+        "source": "Workbook p. 15 · §5.2 (2)"
+      },
+      {
+        "id": "purpose-noun-3",
+        "prompt": "子[こ]：お母[かあ]さん、これ何[なに]？\n母[はは]：これは缶切[かんき]り（can opener）って言[い]うんだよ。\n子[こ]：えっ、缶切[かんき]り？\n母[はは]：そう。＿＿＿＿道具[どうぐ]（tool）だよ。",
+        "instruction": "Complete the sentence or reply using 〜ためのN.",
+        "source": "Workbook p. 15 · §5.2 (3)"
+      }
+    ]
+  },
+  {
+    "id": "quartet-1-kikkake",
+    "title": "〜がきっかけで",
+    "subtitle": "What got it started?",
+    "source": "Quartet 1 · Chapter 1 · Textbook p. 13 · §6",
+    "reference": "Noun or past-tense verb + の／こと + がきっかけで: an event or experience triggered a change.",
+    "teachingNotes": "X is a triggering event or turning point, Y is a new action, habit or opinion. Vたの and Vたこと both work. Do not treat every general reason as a turning point. This point has no dedicated workbook A set; do not invent one. Teach only the current step; accept acknowledgements or questions without inventing quizzes. In workbook prompts, accept a missing fragment or a full sentence, and evaluate it in the supplied context. Do not reveal a completion before an attempt. Preserve learner voice. Mixed review is deferred.",
+    "checks": [
+      {
+        "id": "party",
+        "teaching": {
+          "title": "A small event can start something new.",
+          "explanation": "きっかけ is the event or experience that gets something started. Here, a club party led to a friendship. Put the event before がきっかけで, then describe what changed.",
+          "example": {
+            "japanese": "サラ：絵理[えり]って、ジョージと友達[ともだち]なの？\n絵理[えり]：うん。サークルの飲[の]み会[かい]がきっかけで仲[なか]よくなったんだ。",
+            "english": "Sara: Eri, are you friends with George?\nEri: Yes. We became friends after meeting at a club party."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §6 opening dialogue"
+      },
+      {
+        "id": "anime",
+        "teaching": {
+          "title": "Turn an experience into a noun with の.",
+          "explanation": "A verb in the past form can describe the triggering experience. Add の or こと before がきっかけで. Here, seeing anime as a child led the speaker to start learning Japanese.",
+          "example": {
+            "japanese": "子[こ]どもの頃[ころ]、日本[にほん]のアニメを見[み]たのがきっかけで、日本語[にほんご]を勉強[べんきょう]し始[はじ]めた。",
+            "english": "Seeing Japanese anime as a child got me started learning Japanese."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §6 example 1"
+      },
+      {
+        "id": "job",
+        "teaching": {
+          "title": "The change can be a new ambition.",
+          "explanation": "The part-time job changed what the speaker wanted to do in the future. したこと turns the experience of doing the job into the event before がきっかけで. The result doesn’t have to be an action that has already happened; it can be a new way of thinking.",
+          "example": {
+            "japanese": "英会話[えいかいわ]学校[がっこう]でアルバイトをしたことがきっかけで、将来[しょうらい]日本[にほん]で英語[えいご]を教[おし]える仕事[しごと]がしたいと思[おも]うようになった。",
+            "english": "Working part-time at an English conversation school made me start wanting to teach English in Japan in the future."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §6 example 2"
+      },
+      {
+        "id": "jogging",
+        "teaching": {
+          "title": "Something someone says can trigger a habit.",
+          "explanation": "The doctor’s comment prompted the speaker to start running. 言[い]われたの names the experience of being told something. がきっかけで connects that event with the new running habit.",
+          "example": {
+            "japanese": "A：どうしてジョギングを始[はじ]めたんですか。\nB：実[じつ]は、医者[いしゃ]に言[い]われたのがきっかけで、走[はし]るようになったんです。",
+            "english": "A: Why did you start jogging?\nB: Actually, something my doctor told me prompted me to start running."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §6 example 3"
+      }
+    ],
+    "exercises": []
+  },
+  {
+    "id": "quartet-1-youninaru",
+    "title": "〜ようになる",
+    "subtitle": "A new habit. A new ability.",
+    "source": "Quartet 1 · Chapter 1 · Textbook pp. 13–14 · §7 · Workbook pp. 15–16",
+    "reference": "Dictionary form + ようになる: start doing something habitually. Potential form + ようになる: become able to do it. Vなくなる: stop doing something previously done.",
+    "teachingNotes": "Distinguish habitual action (読[よ]む) from acquired ability (読[よ]める). Do not redundantly attach ようになる to inherently change-denoting verbs like やせる or 慣[な]れる. Negative Vなくなる is more usual than Vないようになる in these textbook examples. The speech-club example uses potential + ようになる + ために, with becoming able as the intended goal. Teach only the current step; accept acknowledgements or questions without inventing quizzes. In workbook prompts, accept a missing fragment or a full sentence, and evaluate it in the supplied context. Do not reveal a completion before an attempt. Preserve learner voice. Mixed review is deferred.",
+    "checks": [
+      {
+        "id": "eri",
+        "teaching": {
+          "title": "Let’s describe a change in what you do.",
+          "explanation": "ようになる describes a change from before. Here, George came to talk with Eri after a club party. The dictionary form 話[はな]す describes the action that became part of his life.",
+          "example": {
+            "japanese": "研[けん]：何[なに]がきっかけで、絵理[えり]と話[はな]すようになったの？\nジョージ：うーん、サークルの飲[の]み会[かい]がきっかけだったかな。",
+            "english": "Ken: What got you started talking to Eri?\nGeorge: Hmm, I think it was the club party."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §7 opening dialogue"
+      },
+      {
+        "id": "manga",
+        "teaching": {
+          "title": "Dictionary form describes a new habit.",
+          "explanation": "Use the ordinary dictionary form 読[よ]む before ようになる. The sentence says the speaker started reading manga in Japanese. It contrasts with the earlier habit of not doing so; it doesn’t specifically say they gained the ability to read.",
+          "example": {
+            "japanese": "日本語[にほんご]の勉強[べんきょう]を始[はじ]めてから、日本語[にほんご]でマンガを読[よ]むようになりました。",
+            "english": "After I started studying Japanese, I began reading manga in Japanese."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §7 example 1"
+      },
+      {
+        "id": "lunch",
+        "teaching": {
+          "title": "The “before” can be stated explicitly.",
+          "explanation": "B now makes their own lunch; before college, their mother made it. 作[つく]るようになった marks that change in routine. It describes what B started doing, rather than simply saying what B can do.",
+          "example": {
+            "japanese": "A：大学[だいがく]に入[はい]ってから、何[なに]か変[か]わったことってある？\nB：自分[じぶん]でお弁当[べんとう]を作[つく]るようになったよ。高校[こうこう]の時[とき]までは母[はは]が作[つく]ってくれていたんだけど……。",
+            "english": "A: Has anything changed since you started college?\nB: I started making my own lunches. My mother used to make them until I finished high school…"
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §7 example 2"
+      },
+      {
+        "id": "newspaper",
+        "teaching": {
+          "title": "Potential form describes a new ability.",
+          "explanation": "Now the verb is 読[よ]める: “can read.” Add ようになった to say you became able to do something that you couldn’t do before. Compare 読[よ]むようになった (“started reading”) with 読[よ]めるようになった (“became able to read”).",
+          "example": {
+            "japanese": "日本語[にほんご]の新聞[しんぶん]が少[すこ]しずつ読[よ]めるようになった。",
+            "english": "I gradually became able to read Japanese newspapers."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §7 example 3"
+      },
+      {
+        "id": "calligraphy",
+        "teaching": {
+          "title": "You can want that change to happen.",
+          "explanation": "書[か]ける is the potential form of “write.” ようになりたい means “want to become able to…”. In the past, ようになりたかった explains why B started learning calligraphy.",
+          "example": {
+            "japanese": "A：書道[しょどう]を習[なら]い始[はじ]めたそうですね。\nB：ええ。きれいな字[じ]が書[か]けるようになりたかったので。",
+            "english": "A: I heard you started learning calligraphy.\nB: Yes. I wanted to become able to write beautifully."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §7 example 4"
+      },
+      {
+        "id": "speech",
+        "teaching": {
+          "title": "Becoming able can itself be a goal.",
+          "explanation": "できるようになる means “become able to do.” The speaker joins a club in order to reach that goal. This connects with ために: the intended change is becoming able to give good speeches.",
+          "example": {
+            "japanese": "上手[じょうず]にスピーチができるようになるために、スピーチクラブに入[はい]った。",
+            "english": "I joined a speech club in order to become able to give good speeches."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 13 · §7 example 5"
+      },
+      {
+        "id": "change-verbs",
+        "teaching": {
+          "title": "Some verbs already describe a change.",
+          "explanation": "The textbook warns against adding ようになる when the verb already expresses the intended change. For simply losing weight, やせた is enough. The same caution applies to verbs such as 慣[な]れる (“get used to”) and 増[ふ]える (“increase”) in this use.",
+          "example": {
+            "japanese": "最近[さいきん]よく運動[うんどう]しているから、少[すこ]しやせた。",
+            "english": "I lost a little weight because I’ve been exercising a lot recently."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 14 · §7 grammar note"
+      },
+      {
+        "id": "stopping",
+        "teaching": {
+          "title": "For stopping a habit, use なくなる.",
+          "explanation": "You can also describe a change from doing something to no longer doing it. 見[み]ない becomes 見[み]なくなる. The textbook notes that this is more common here than 見[み]ないようになる.",
+          "example": {
+            "japanese": "大学[だいがく]に入[はい]ってから、全然[ぜんぜん]テレビを見[み]なくなった。",
+            "english": "Since starting college, I’ve stopped watching TV altogether."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 14 · §7 negative-form note"
+      }
+    ],
+    "exercises": [
+      {
+        "id": "change-1",
+        "prompt": "1年[ねん]日本[にほん]にいるが、最近[さいきん]やっと日本人[にほんじん]の会話[かいわ]が少[すこ]し＿＿＿＿ようになった。",
+        "instruction": "Complete the sentence or conversation using 〜ようになる.",
+        "source": "Workbook p. 15 · §7 (1)"
+      },
+      {
+        "id": "change-2",
+        "prompt": "前[まえ]はなっとうが食[た]べられなかったが、今[いま]は＿＿＿＿。",
+        "instruction": "Complete the sentence or conversation using 〜ようになる.",
+        "source": "Workbook p. 15 · §7 (2)"
+      },
+      {
+        "id": "change-3",
+        "prompt": "この町[まち]に来[き]てから、＿＿＿＿。",
+        "instruction": "Complete the sentence or conversation using 〜ようになる.",
+        "source": "Workbook p. 15 · §7 (3)"
+      },
+      {
+        "id": "change-4",
+        "prompt": "A：大学[だいがく]の図書館[としょかん]は本[ほん]が5冊[さつ]しか借[か]りられないから、あまり便利[べんり]じゃないよね。\nB：そうだね。でも、来月[らいげつ]から＿＿＿＿ようになるらしいよ。",
+        "instruction": "Complete the sentence or conversation using 〜ようになる.",
+        "source": "Workbook p. 15 · §7 (4)"
+      },
+      {
+        "id": "change-5",
+        "prompt": "A：子[こ]どもの時[とき]は苦手[にがて]だったけど、大人[おとな]になってできるようになったことってある？\nB：そうだなあ。＿＿＿＿よ。",
+        "instruction": "Complete the sentence or conversation using 〜ようになる.",
+        "source": "Workbook p. 15 · §7 (5)"
+      },
+      {
+        "id": "change-6",
+        "prompt": "A：どんなことができるようになりたいですか。\nB：＿＿＿＿。",
+        "instruction": "Complete the sentence or conversation using 〜ようになる.",
+        "source": "Workbook p. 16 · §7 (6)"
+      }
+    ]
+  },
+  {
+    "id": "quartet-1-younisuru",
+    "title": "〜ようにする",
+    "subtitle": "Making a conscious effort.",
+    "source": "Quartet 1 · Chapter 1 · Textbook p. 14 · §8 · Workbook p. 16",
+    "reference": "Dictionary form or ない-form + ようにする: make sure to do or avoid something. ようにしている: make an ongoing effort or habit of doing it.",
+    "teachingNotes": "Distinguish deliberate effort (ようにする) from change (ようになる). Vないようにする means consciously avoid doing, not simply lack ability. ようにしている describes current recurring effort and is not appropriate for an inherently one-time action in the textbook club-joining example. Accept advice in ようにしたほうがいい and ようにしたらどう forms. Teach only the current step; accept acknowledgements or questions without inventing quizzes. In workbook prompts, accept a missing fragment or a full sentence, and evaluate it in the supplied context. Do not reveal a completion before an attempt. Preserve learner voice. Mixed review is deferred.",
+    "checks": [
+      {
+        "id": "headphones",
+        "teaching": {
+          "title": "“I’ll make sure to…”",
+          "explanation": "ようにする expresses a deliberate effort. B promises to use headphones from now on. It describes what B will make a point of doing, rather than the other expression ようになる, which describes a change that comes about.",
+          "example": {
+            "japanese": "A：昨日[きのう]の夜[よる]、音楽[おんがく]がうるさかったんだけど……。\nB：ごめん。これからはヘッドフォンを使[つか]うようにするよ。",
+            "english": "A: Your music was loud last night…\nB: Sorry. I’ll make sure to use headphones from now on."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 14 · §8 opening dialogue"
+      },
+      {
+        "id": "late",
+        "teaching": {
+          "title": "You can make an effort not to do something.",
+          "explanation": "Use the ない-form before ようにする to say you will make sure not to do something. 遅[おく]れないようにします means “I’ll make sure I’m not late.” The negative applies to the action you’re trying to avoid.",
+          "example": {
+            "japanese": "先生[せんせい]：スミスさん、今日[きょう]も授業[じゅぎょう]に遅[おく]れましたね。\n学生[がくせい]：すみません。明日[あした]から遅[おく]れないようにします。",
+            "english": "Teacher: Smith, you were late to class again today.\nStudent: I’m sorry. I’ll make sure I’m not late from tomorrow on."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 14 · §8 example 1"
+      },
+      {
+        "id": "umbrella",
+        "teaching": {
+          "title": "The effort can be something you want to make.",
+          "explanation": "忘[わす]れないようにしたい means “I want to make sure I don’t forget.” The speaker is resolving to be more careful after repeatedly leaving an umbrella on the train.",
+          "example": {
+            "japanese": "また電車[でんしゃ]にかさを忘[わす]れてしまった。今日[きょう]で5回目[かいめ]なので、もう忘[わす]れないようにしたい。",
+            "english": "I left my umbrella on the train again. This is the fifth time, so I want to make sure I don’t forget it again."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 14 · §8 example 2"
+      },
+      {
+        "id": "language",
+        "teaching": {
+          "title": "している describes an ongoing effort.",
+          "explanation": "ようにしている means you are already making an effort regularly. These two sentences describe the same learning strategy from different directions: choosing Japanese and avoiding English. They express a deliberate habit, not just what happens automatically.",
+          "example": {
+            "japanese": "a）日本語[にほんご]が上手[じょうず]になりたいので、友達[ともだち]と日本語[にほんご]で話[はな]すようにしています。\nb）日本語[にほんご]が上手[じょうず]になりたいので、友達[ともだち]と英語[えいご]で話[はな]さないようにしています。",
+            "english": "a) I want to improve my Japanese, so I make a point of speaking Japanese with my friends.\nb) I want to improve my Japanese, so I make a point of not speaking English with my friends."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 14 · §8 example 3 (a–b)"
+      },
+      {
+        "id": "exercise",
+        "teaching": {
+          "title": "It describes effort, not a perfect record.",
+          "explanation": "なるべく means “as much as possible.” Combined with ようにしている, it makes clear that B aims to exercise every day. The expression describes the ongoing effort; it doesn’t claim that B never misses a day.",
+          "example": {
+            "japanese": "A：体[からだ]にいいことって、何[なに]かしている？\nB：そうだなあ。なるべく毎日[まいにち]、運動[うんどう]するようにしているよ。",
+            "english": "A: Do you do anything good for your health?\nB: Let’s see. I try to exercise every day as much as possible."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 14 · §8 example 4"
+      },
+      {
+        "id": "club",
+        "teaching": {
+          "title": "Choose an action you can repeat.",
+          "explanation": "For a current habit with ようにしている, use a recurring action. Joining a particular club is normally a one-time action, but going to practice every day is something you can make a habit of. The textbook uses the second kind of action here.",
+          "example": {
+            "japanese": "日本人[にほんじん]の友達[ともだち]を作[つく]りたいので、毎日[まいにち]サークルの練習[れんしゅう]に行[い]くようにしている。",
+            "english": "I want to make Japanese friends, so I make a point of going to club practice every day."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 14 · §8 grammar note"
+      }
+    ],
+    "exercises": [
+      {
+        "id": "effort-1",
+        "prompt": "漢字[かんじ]の読[よ]み方[かた]がわからない時[とき]は、＿＿＿＿ようにしている。",
+        "instruction": "Complete the sentence or conversation using 〜ようにする.",
+        "source": "Workbook p. 16 · §8 (1)"
+      },
+      {
+        "id": "effort-2",
+        "prompt": "発表[はっぴょう]する時[とき]は、＿＿＿＿たほうがいい。",
+        "instruction": "Complete the sentence or conversation using 〜ようにする.",
+        "source": "Workbook p. 16 · §8 (2)"
+      },
+      {
+        "id": "effort-3",
+        "prompt": "風邪[かぜ]をひきたくないので、＿＿＿＿。",
+        "instruction": "Complete the sentence or conversation using 〜ようにする.",
+        "source": "Workbook p. 16 · §8 (3)"
+      },
+      {
+        "id": "effort-4",
+        "prompt": "ホストマザー：遅[おそ]かったね。電話[でんわ]もないから、心配[しんぱい]したんだよ。\n学生[がくせい]：すみません。図書館[としょかん]で勉強[べんきょう]していたんです。\nホストマザー：帰[かえ]るのが遅[おそ]くなる時[とき]は、＿＿＿＿ようにしてね。",
+        "instruction": "Complete the sentence or conversation using 〜ようにする.",
+        "source": "Workbook p. 16 · §8 (4)"
+      },
+      {
+        "id": "effort-5",
+        "prompt": "先生[せんせい]：作文[さくぶん]の宿題[しゅくだい]は＿＿＿＿ようにしてください。\n学生[がくせい]：すみません。これから気[き]をつけます。",
+        "instruction": "Complete the sentence or conversation using 〜ようにする.",
+        "source": "Workbook p. 16 · §8 (5)"
+      },
+      {
+        "id": "effort-6",
+        "prompt": "A：日本人[にほんじん]の友達[ともだち]がほしいんですが、なかなかできないんです。\nB：そうですか。じゃあ、＿＿＿＿どうですか。",
+        "instruction": "Complete the sentence or conversation using 〜ようにする.",
+        "source": "Workbook p. 16 · §8 (6)"
+      }
+    ]
+  },
+  {
+    "id": "quartet-1-niyoruto",
+    "title": "Nによると",
+    "subtitle": "Say where the information came from.",
+    "source": "Quartet 1 · Chapter 1 · Textbook p. 15 · §9 · Workbook p. 16",
+    "reference": "Noun + によると identifies an information source. The report often ends with hearsay そうだ or らしい.",
+    "teachingNotes": "The source can be news, a forecast, a person or what someone said. Do not confuse source によると with cause/means によって. Accept そうだ and らしい when context supports them. Preserve the source prompt and do not fabricate current news; textbook news is a fictional/example report, not a present-day factual claim. Teach only the current step; accept acknowledgements or questions without inventing quizzes. In workbook prompts, accept a missing fragment or a full sentence, and evaluate it in the supplied context. Do not reveal a completion before an attempt. Preserve learner voice. Mixed review is deferred.",
+    "checks": [
+      {
+        "id": "news",
+        "teaching": {
+          "title": "Start by naming the source.",
+          "explanation": "によると means “according to…”. Put the source before it, then report the information. The textbook’s example names the news as the source, and ends with hearsay そうです. This is an example conversation, not a current news report.",
+          "example": {
+            "japanese": "A：今朝[けさ]の地震[じしん]、すごかったですね。\nB：ニュースによると、8人[にん]の方[かた]がなくなったそうですよ。",
+            "english": "A: The earthquake this morning was really strong.\nB: According to the news, eight people died."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 15 · §9 opening dialogue"
+      },
+      {
+        "id": "weather",
+        "teaching": {
+          "title": "A forecast can be the source.",
+          "explanation": "天気予報[てんきよほう] is the weather forecast. によると tells us where the prediction came from. The negative verb 降[ふ]らない stays in plain form before hearsay そうだ.",
+          "example": {
+            "japanese": "天気予報[てんきよほう]によると、明日[あした]は雨[あめ]が降[ふ]らないそうだ。",
+            "english": "According to the weather forecast, it won’t rain tomorrow."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 15 · §9 example 1"
+      },
+      {
+        "id": "george",
+        "teaching": {
+          "title": "It also works with らしい.",
+          "explanation": "ジョージの話[はなし] identifies what George said as the source. The ending らしい presents the information indirectly. You’ve already seen that らしい and hearsay そうだ can both relay information from someone else.",
+          "example": {
+            "japanese": "ジョージの話[はなし]によると、研[けん]の彼女[かのじょ]は英語[えいご]がペラペラらしい。",
+            "english": "According to George, Ken’s girlfriend apparently speaks English fluently."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 15 · §9 example 2"
+      },
+      {
+        "id": "sara",
+        "teaching": {
+          "title": "A person can be named directly.",
+          "explanation": "You can put a person’s name directly before によると. Here, Sara is the source of the opinion about Japanese convenience stores. The phrase before her name simply tells us she is from France.",
+          "example": {
+            "japanese": "フランス出身[しゅっしん]のサラによると、日本[にほん]のコンビニはとても便利[べんり]らしい。",
+            "english": "According to Sara, who is from France, convenience stores in Japan are apparently very convenient."
+          }
+        },
+        "prompt": "Does that make sense so far?",
+        "source": "Textbook p. 15 · §9 example 3"
+      }
+    ],
+    "exercises": [
+      {
+        "id": "source-1",
+        "prompt": "先生[せんせい]によると、来週[らいしゅう]＿＿＿＿そうだ。",
+        "instruction": "Complete the sentence or conversation using Nによると.",
+        "source": "Workbook p. 16 · §9 (1)"
+      },
+      {
+        "id": "source-2",
+        "prompt": "ニュースによると、＿＿＿＿そうだ。",
+        "instruction": "Complete the sentence or conversation using Nによると.",
+        "source": "Workbook p. 16 · §9 (2)"
+      },
+      {
+        "id": "source-3",
+        "prompt": "＿＿＿＿、＿＿＿＿らしい。",
+        "instruction": "Complete the sentence or conversation using Nによると.",
+        "source": "Workbook p. 16 · §9 (3)"
+      },
+      {
+        "id": "source-4",
+        "prompt": "A：駅[えき]の前[まえ]に新[あたら]しいビルが建[た]てられていますね。\nB：ええ。駅員[えきいん]さんによると、＿＿＿＿そうですよ。",
+        "instruction": "Complete the sentence or conversation using Nによると.",
+        "source": "Workbook p. 16 · §9 (4)"
+      },
+      {
+        "id": "source-5",
+        "prompt": "A：最近[さいきん]、びっくりするニュースが多[おお]いですね。\nB：ええ。＿＿＿＿、＿＿＿＿。",
+        "instruction": "Complete the sentence or conversation using Nによると.",
+        "source": "Workbook p. 16 · §9 (5)"
+      }
+    ]
+  }
+]

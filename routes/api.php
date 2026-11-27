@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () use ($authenticatedRouteReg
 
 Route::middleware('auth:sanctum')->group(require __DIR__.'/api/readings.php');
 Route::middleware('auth:sanctum')->group(require __DIR__.'/api/journal.php');
+Route::middleware('auth:sanctum')->group(require __DIR__.'/api/learn.php');
 Route::get('journal/avatars/{avatar}', JournalAvatarController::class)
     ->where('avatar', '[a-z0-9-]+')->name('journal.avatar');
 

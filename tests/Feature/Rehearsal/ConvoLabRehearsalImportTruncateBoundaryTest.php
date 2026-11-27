@@ -24,6 +24,7 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         $existingUser = User::factory()->create();
         $now = now();
 
+        $this->seedFeatureAudienceData($existingUser);
         $this->seedCoreBoundaryData($existingUser);
         $this->seedAdminIdentityData($existingUser, $now);
         $this->seedIntegrationData($existingUser, $now);
@@ -39,6 +40,22 @@ class ConvoLabRehearsalImportTruncateBoundaryTest extends ConvoLabRehearsalImpor
         $this->assertFullUserDataBoundaryWasCleared();
         $this->assertDatabaseCount('study_piles', 0);
         $this->assertDatabaseCount('study_pile_chapters', 0);
+        foreach (['feature_audience_groups', 'feature_audience_users', 'feature_group_members', 'feature_access_groups'] as $table) {
+            $this->assertDatabaseCount($table, 0);
+        }
+        $this->assertDatabaseCount('feature_audiences', 4);
+    }
+
+    private function seedFeatureAudienceData(User $user): void
+    {
+        $groupId = (string) Str::uuid();
+        DB::table('feature_access_groups')->insert([
+            'id' => $groupId, 'name' => 'Testers', 'name_key' => 'testers',
+            'version' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('feature_group_members')->insert(['group_id' => $groupId, 'user_id' => $user->id]);
+        DB::table('feature_audience_users')->insert(['feature' => 'readingsEnabled', 'user_id' => $user->id]);
+        DB::table('feature_audience_groups')->insert(['feature' => 'readingsEnabled', 'group_id' => $groupId]);
     }
 
     private function seedDailySummary(User $user, CarbonInterface $now): void

@@ -13,6 +13,8 @@ use App\Domain\Calendar\Contracts\GoogleCalendarReadTransport;
 use App\Domain\Calendar\Services\LaravelGoogleCalendarReadTransport;
 use App\Domain\Calendar\Services\SocialiteGoogleCalendarOAuthClient;
 use App\Domain\Courses\Models\Course;
+use App\Domain\FeatureFlags\Contracts\AudienceUserSearch;
+use App\Domain\FeatureFlags\Services\DatabaseAudienceUserSearch;
 use App\Domain\Flashcards\Models\Card;
 use App\Domain\Flashcards\Models\Deck;
 use App\Domain\Japanese\Contracts\JapaneseTokenizer;
@@ -46,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(AudienceUserSearch::class, DatabaseAudienceUserSearch::class);
         $this->app->singleton(
             StaticMediaObjectStore::class,
             GoogleCloudStaticMediaObjectStore::class,

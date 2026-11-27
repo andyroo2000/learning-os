@@ -22,6 +22,7 @@ class GetFeatureFlagsAction
             'flashcardsEnabled' => false,
             'readingsEnabled' => false,
             'studyTimeEnabled' => false,
+            'learnEnabled' => false,
         ]);
         $featureFlags->id = FeatureFlag::DEFAULT_ID;
 

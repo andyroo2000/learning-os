@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
     'flashcardsEnabled',
     'readingsEnabled',
     'studyTimeEnabled',
+    'learnEnabled',
 ])]
 class FeatureFlag extends Model
 {
@@ -36,6 +37,7 @@ class FeatureFlag extends Model
             'flashcardsEnabled' => 'boolean',
             'readingsEnabled' => 'boolean',
             'studyTimeEnabled' => 'boolean',
+            'learnEnabled' => 'boolean',
             'updatedAt' => 'datetime',
         ];
     }

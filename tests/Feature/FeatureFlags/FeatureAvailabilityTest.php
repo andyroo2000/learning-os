@@ -24,13 +24,13 @@ class FeatureAvailabilityTest extends TestCase
         $this->convoLabProjectionFor($user, (string) Str::uuid());
         $this->signIn($user);
         $this->getJson('/api/convolab/feature-availability')->assertOk()->assertExactJson([
-            'flashcardsEnabled' => false, 'readingsEnabled' => false, 'studyTimeEnabled' => false,
+            'flashcardsEnabled' => false, 'readingsEnabled' => false, 'studyTimeEnabled' => false, 'learnEnabled' => false,
         ]);
         FeatureFlag::query()->update(['readingsEnabled' => true]);
         $this->getJson('/api/convolab/feature-availability')->assertOk()->assertJsonPath('readingsEnabled', true);
         AdminUserProjection::where('user_id', $user->id)->update(['role' => 'admin']);
         $this->getJson('/api/convolab/feature-availability')->assertOk()->assertExactJson([
-            'flashcardsEnabled' => true, 'readingsEnabled' => true, 'studyTimeEnabled' => true,
+            'flashcardsEnabled' => true, 'readingsEnabled' => true, 'studyTimeEnabled' => true, 'learnEnabled' => true,
         ]);
     }
 }

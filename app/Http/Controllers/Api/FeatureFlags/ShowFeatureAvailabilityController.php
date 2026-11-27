@@ -19,6 +19,7 @@ final class ShowFeatureAvailabilityController extends Controller
             'flashcardsEnabled' => $admin || $flags->flashcardsEnabled,
             'readingsEnabled' => $admin || $flags->readingsEnabled,
             'studyTimeEnabled' => $admin || $flags->studyTimeEnabled,
+            'learnEnabled' => $admin || $flags->learnEnabled,
         ])->header('Cache-Control', 'private, no-store');
     }
 }

@@ -21,6 +21,7 @@ class UpdateFeatureFlagsRequest extends FormRequest
             'flashcardsEnabled' => ['sometimes', 'required', 'boolean'],
             'readingsEnabled' => ['sometimes', 'required', 'boolean'],
             'studyTimeEnabled' => ['sometimes', 'required', 'boolean'],
+            'learnEnabled' => ['sometimes', 'required', 'boolean'],
         ];
     }
 }

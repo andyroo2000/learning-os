@@ -20,6 +20,10 @@ class ConvoLabRehearsalImportCommandTest extends ConvoLabRehearsalImportTestCase
     {
         $this->seedConvoLabSourceData();
         $draft = JournalEntry::factory()->create();
+        DB::table('learn_sessions')->insert([
+            'id' => $draft->id, 'user_id' => $draft->user_id, 'lesson_id' => 'quartet-1-rashii',
+            'state' => '{}', 'version' => 1, 'created_at' => now(), 'updated_at' => now(),
+        ]);
         $clarification = JournalClarification::factory()->create(['entry_id' => $draft->id]);
         $analysis = JournalAnalysis::factory()->create(['entry_id' => $draft->id]);
         $reply = JournalReply::factory()->create(['analysis_id' => $analysis->id]);
@@ -31,6 +35,7 @@ class ConvoLabRehearsalImportCommandTest extends ConvoLabRehearsalImportTestCase
             'model' => 'test', 'duration_ms' => 1, 'created_at' => now()]);
         $this->runImport();
         $this->assertDatabaseCount('ai_usage_events', 0);
+        $this->assertDatabaseCount('learn_sessions', 0);
         $this->assertDatabaseMissing('journal_entries', ['id' => $draft->id]);
         $this->assertDatabaseMissing('journal_clarifications', ['id' => $clarification->id]);
         $this->assertDatabaseMissing('journal_analyses', ['id' => $analysis->id]);

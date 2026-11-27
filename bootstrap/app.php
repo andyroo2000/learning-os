@@ -22,8 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
-        // Preserve journal whitespace and empty drafts exactly as written.
-        $journalRequest = static fn (Request $request): bool => $request->is('api/journal/*');
+        // Preserve learner writing exactly for anchored feedback.
+        $journalRequest = static fn (Request $request): bool => $request->is('api/journal/*', 'api/learn/*');
         $middleware->trimStrings(except: [$journalRequest]);
         $middleware->convertEmptyStringsToNull(except: [$journalRequest]);
         // Browser analytics is anonymous telemetry and sendBeacon cannot attach an XSRF header.
